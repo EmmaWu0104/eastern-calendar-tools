@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>干支曆核心查詢</title>
+    <link rel="stylesheet" href="./styles/main.css">
+  </head>
+  <body>
+    <main class="app">
+      <h1>干支曆核心查詢</h1>
+
+      <section class="panel" aria-labelledby="query-title">
+        <h2 id="query-title">查詢</h2>
+        <label for="datetime">本地日期時間</label>
+        <div class="query-row">
+          <input id="datetime" type="datetime-local" step="1">
+          <button id="calculate" type="button">查詢</button>
+        </div>
+      </section>
+
+      <section class="panel" aria-labelledby="result-title">
+        <h2 id="result-title">四柱</h2>
+        <dl class="pillars">
+          <div><dt>年柱</dt><dd id="year-pillar">--</dd></div>
+          <div><dt>月柱</dt><dd id="month-pillar">--</dd></div>
+          <div><dt>日柱</dt><dd id="day-pillar">--</dd></div>
+          <div><dt>時柱</dt><dd id="hour-pillar">--</dd></div>
+        </dl>
+      </section>
+
+      <section class="panel" aria-labelledby="terms-title">
+        <h2 id="terms-title">節氣與月令</h2>
+        <dl class="details">
+          <div><dt>目前節氣</dt><dd id="current-term">--</dd></div>
+          <div><dt>下一節氣</dt><dd id="next-term">--</dd></div>
+          <div><dt>月令</dt><dd id="month-branch">--</dd></div>
+        </dl>
+      </section>
+
+      <section class="panel" aria-labelledby="rules-title">
+        <h2 id="rules-title">目前採用規則</h2>
+        <ul id="rule-notes">
+          <li>立春換年</li>
+          <li>12 節換月</li>
+          <li>23:00 起換日</li>
+          <li>目前使用輸入的手錶時間／瀏覽器本機時間，未套用真太陽時</li>
+        </ul>
+      </section>
+
+      <p id="message" class="message" role="status"></p>
+    </main>
+
+    <script type="module" src="./src/main.js"></script>
+  </body>
+</html>

@@ -1,0 +1,81 @@
+const TEST_TIME_ZONE = "Asia/Taipei";
+process.env.TZ = TEST_TIME_ZONE;
+
+const { readFile } = await import("node:fs/promises");
+const { calculateBaziFromSolarTerms } = await import("../src/bazi.js");
+const { normalizeSolarTerms, parseLocalDateTime } = await import("../src/solarTerms.js");
+const resolvedTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone ?? "unknown";
+
+console.log(`測試基準時區：${TEST_TIME_ZONE}`);
+if (resolvedTimeZone !== TEST_TIME_ZONE) {
+  console.warn(
+    `警告：目前 Intl resolved timeZone 為 ${resolvedTimeZone}，但測試案例預期以 ${TEST_TIME_ZONE} 本機時間撰寫。`
+  );
+}
+
+const [termsRaw, casesRaw] = await Promise.all([
+  readFile(new URL("../data/solar_terms_1899_2101.json", import.meta.url), "utf8"),
+  readFile(new URL("./testcases.json", import.meta.url), "utf8"),
+]);
+
+const solarTerms = normalizeSolarTerms(JSON.parse(termsRaw));
+const testCases = JSON.parse(casesRaw);
+const failures = [];
+
+const parsedLocalDateTime = parseLocalDateTime("2026-06-05T09:08:07.123");
+const localDateTimeExpected = {
+  year: 2026,
+  month: 6,
+  day: 5,
+  hour: 9,
+  minute: 8,
+  second: 7,
+  millisecond: 123,
+};
+
+for (const [key, expectedValue] of Object.entries(localDateTimeExpected)) {
+  if (parsedLocalDateTime[key] !== expectedValue) {
+    failures.push({
+      id: "parse-local-datetime-components",
+      key,
+      expected: expectedValue,
+      actual: parsedLocalDateTime[key],
+    });
+  }
+}
+
+for (const testCase of testCases) {
+  const actual = calculateBaziFromSolarTerms(testCase.input, solarTerms);
+  const comparable = {
+    yearPillar: actual.yearPillar,
+    monthPillar: actual.monthPillar,
+    dayPillar: actual.dayPillar,
+    hourPillar: actual.hourPillar,
+    monthBranch: actual.monthBranch,
+    currentTerm: actual.currentTerm?.name,
+    nextTerm: actual.nextTerm?.name,
+  };
+
+  for (const [key, expectedValue] of Object.entries(testCase.expected)) {
+    if (comparable[key] !== expectedValue) {
+      failures.push({
+        id: testCase.id,
+        key,
+        expected: expectedValue,
+        actual: comparable[key],
+      });
+    }
+  }
+}
+
+if (failures.length > 0) {
+  console.error("測試失敗：");
+  for (const failure of failures) {
+    console.error(
+      `- ${failure.id} ${failure.key}: expected ${failure.expected}, actual ${failure.actual}`
+    );
+  }
+  process.exitCode = 1;
+} else {
+  console.log(`全部通過：${testCases.length} cases + parseLocalDateTime`);
+}

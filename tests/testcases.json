@@ -1,0 +1,120 @@
+[
+  {
+    "id": "year-before-lichun-2026",
+    "description": "立春前一年柱仍使用前一干支年",
+    "input": "2026-02-04T04:02:08",
+    "expected": {
+      "yearPillar": "乙巳",
+      "monthBranch": "丑",
+      "currentTerm": "大寒",
+      "nextTerm": "立春"
+    }
+  },
+  {
+    "id": "year-after-lichun-2026",
+    "description": "立春後切換年柱",
+    "input": "2026-02-04T04:02:10",
+    "expected": {
+      "yearPillar": "丙午",
+      "monthBranch": "寅",
+      "currentTerm": "立春",
+      "nextTerm": "雨水"
+    }
+  },
+  {
+    "id": "month-before-lixia-2026",
+    "description": "立夏前仍為辰月",
+    "input": "2026-05-05T19:48:43",
+    "expected": {
+      "monthBranch": "辰",
+      "currentTerm": "穀雨",
+      "nextTerm": "立夏"
+    }
+  },
+  {
+    "id": "month-after-lixia-2026",
+    "description": "立夏後切換為巳月",
+    "input": "2026-05-05T19:48:45",
+    "expected": {
+      "monthBranch": "巳",
+      "currentTerm": "立夏",
+      "nextTerm": "小滿"
+    }
+  },
+  {
+    "id": "month-before-mangzhong-2026",
+    "description": "芒種前仍為巳月",
+    "input": "2026-06-05T23:48:22",
+    "expected": {
+      "monthBranch": "巳",
+      "currentTerm": "小滿",
+      "nextTerm": "芒種"
+    }
+  },
+  {
+    "id": "month-after-mangzhong-2026",
+    "description": "芒種後切換為午月",
+    "input": "2026-06-05T23:48:24",
+    "expected": {
+      "monthBranch": "午",
+      "currentTerm": "芒種",
+      "nextTerm": "夏至"
+    }
+  },
+  {
+    "id": "day-before-2300",
+    "description": "22:59 仍不換日",
+    "input": "2026-06-05T22:59:00",
+    "expected": {
+      "dayPillar": "庚戌",
+      "hourPillar": "丁亥"
+    }
+  },
+  {
+    "id": "day-at-2300",
+    "description": "23:00 起換日",
+    "input": "2026-06-05T23:00:00",
+    "expected": {
+      "dayPillar": "辛亥",
+      "hourPillar": "戊子"
+    }
+  },
+  {
+    "id": "hour-si-0900",
+    "description": "09:00 為巳時",
+    "input": "2026-06-05T09:00:00",
+    "expected": {
+      "hourPillar": "辛巳"
+    }
+  },
+  {
+    "id": "hour-wu-1100",
+    "description": "11:00 為午時",
+    "input": "2026-06-05T11:00:00",
+    "expected": {
+      "hourPillar": "壬午"
+    }
+  },
+  {
+    "id": "boundary-1900-start",
+    "description": "1900 年初邊界可查詢",
+    "input": "1900-01-06T02:04:03",
+    "expected": {
+      "yearPillar": "己亥",
+      "monthBranch": "丑",
+      "currentTerm": "小寒",
+      "nextTerm": "大寒"
+    }
+  },
+  {
+    "id": "boundary-2100-end",
+    "description": "2100 年底邊界可查詢",
+    "input": "2100-12-31T23:30:00",
+    "expected": {
+      "yearPillar": "庚申",
+      "monthBranch": "子",
+      "currentTerm": "冬至",
+      "nextTerm": "小寒"
+    }
+  }
+]
