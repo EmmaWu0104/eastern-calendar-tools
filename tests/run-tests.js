@@ -21,6 +21,8 @@ const [termsRaw, casesRaw] = await Promise.all([
 const solarTerms = normalizeSolarTerms(JSON.parse(termsRaw));
 const testCases = JSON.parse(casesRaw);
 const failures = [];
+const pendingCases = [];
+let verifiedCaseCount = 0;
 
 const parsedLocalDateTime = parseLocalDateTime("2026-06-05T09:08:07.123");
 const localDateTimeExpected = {
@@ -45,7 +47,23 @@ for (const [key, expectedValue] of Object.entries(localDateTimeExpected)) {
 }
 
 for (const testCase of testCases) {
+  if (testCase.status === "pending-verification") {
+    pendingCases.push(testCase);
+    continue;
+  }
+
+  if (!testCase.expected) {
+    failures.push({
+      id: testCase.id,
+      key: "expected",
+      expected: "expected object or status: pending-verification",
+      actual: "missing",
+    });
+    continue;
+  }
+
   const actual = calculateBaziFromSolarTerms(testCase.input, solarTerms);
+  verifiedCaseCount += 1;
   const comparable = {
     yearPillar: actual.yearPillar,
     monthPillar: actual.monthPillar,
@@ -77,5 +95,11 @@ if (failures.length > 0) {
   }
   process.exitCode = 1;
 } else {
-  console.log(`全部通過：${testCases.length} cases + parseLocalDateTime`);
+  console.log(`全部通過：${verifiedCaseCount} verified cases + parseLocalDateTime`);
+  if (pendingCases.length > 0) {
+    console.log(`待人工驗證案例略過：${pendingCases.length} cases`);
+    for (const testCase of pendingCases) {
+      console.log(`- ${testCase.id}: ${testCase.input}`);
+    }
+  }
 }

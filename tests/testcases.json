@@ -116,5 +116,85 @@
       "currentTerm": "冬至",
       "nextTerm": "小寒"
     }
+  },
+  {
+    "id": "day-base-2000-01-01-0000",
+    "description": "日柱基準日 2000-01-01 00:00 為戊午日",
+    "input": "2000-01-01T00:00:00",
+    "expected": {
+      "dayPillar": "戊午",
+      "hourPillar": "壬子"
+    }
+  },
+  {
+    "id": "day-base-2000-01-01-2259",
+    "description": "2000-01-01 22:59 仍為戊午日",
+    "input": "2000-01-01T22:59:00",
+    "expected": {
+      "dayPillar": "戊午",
+      "hourPillar": "癸亥"
+    }
+  },
+  {
+    "id": "day-base-2000-01-01-2300",
+    "description": "2000-01-01 23:00 起依規則進入下一日柱",
+    "input": "2000-01-01T23:00:00",
+    "expected": {
+      "dayPillar": "己未",
+      "hourPillar": "甲子"
+    }
+  },
+  {
+    "id": "day-base-2000-01-02-0030",
+    "description": "2000-01-02 00:30 與前一日 23:00 同日柱",
+    "input": "2000-01-02T00:30:00",
+    "expected": {
+      "dayPillar": "己未",
+      "hourPillar": "甲子"
+    }
+  },
+  {
+    "id": "day-hour-2026-05-28-0947",
+    "description": "2026-05-28 09:47 維持壬寅日、乙巳時",
+    "input": "2026-05-28T09:47:00",
+    "expected": {
+      "dayPillar": "壬寅",
+      "hourPillar": "乙巳"
+    }
+  },
+  {
+    "id": "pending-day-1901-03-15",
+    "description": "不同年份日柱案例，待人工以權威萬年曆驗證",
+    "input": "1901-03-15T12:00:00",
+    "status": "pending-verification",
+    "verificationNotes": "待填入權威來源與 expected dayPillar/hourPillar"
+  },
+  {
+    "id": "pending-day-1950-07-20",
+    "description": "不同年份日柱案例，待人工以權威萬年曆驗證",
+    "input": "1950-07-20T06:30:00",
+    "status": "pending-verification",
+    "verificationNotes": "待填入權威來源與 expected dayPillar/hourPillar"
+  },
+  {
+    "id": "pending-day-1984-02-04",
+    "description": "不同年份日柱案例，待人工以權威萬年曆驗證",
+    "input": "1984-02-04T23:10:00",
+    "status": "pending-verification",
+    "verificationNotes": "待填入權威來源與 expected dayPillar/hourPillar"
+  },
+  {
+    "id": "pending-day-2012-12-21",
+    "description": "不同年份日柱案例，待人工以權威萬年曆驗證",
+    "input": "2012-12-21T08:15:00",
+    "status": "pending-verification",
+    "verificationNotes": "待填入權威來源與 expected dayPillar/hourPillar"
+  },
+  {
+    "id": "pending-day-2099-09-09",
+    "description": "不同年份日柱案例，待人工以權威萬年曆驗證",
+    "input": "2099-09-09T21:45:00",
+    "status": "pending-verification",
+    "verificationNotes": "待填入權威來源與 expected dayPillar/hourPillar"
   }
 ]
