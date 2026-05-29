@@ -1,39 +1,50 @@
 import { calculateBazi } from "./bazi.js";
 
 const elements = {
-  datetime: document.querySelector("#datetime"),
-  calculate: document.querySelector("#calculate"),
-  yearPillar: document.querySelector("#year-pillar"),
-  monthPillar: document.querySelector("#month-pillar"),
-  dayPillar: document.querySelector("#day-pillar"),
-  hourPillar: document.querySelector("#hour-pillar"),
-  currentTerm: document.querySelector("#current-term"),
-  nextTerm: document.querySelector("#next-term"),
-  monthBranch: document.querySelector("#month-branch"),
-  ruleNotes: document.querySelector("#rule-notes"),
-  message: document.querySelector("#message"),
+  datetime: getElement("#datetime"),
+  calculate: getElement("#calculate"),
+  yearPillar: getElement("#year-pillar"),
+  monthPillar: getElement("#month-pillar"),
+  dayPillar: getElement("#day-pillar"),
+  hourPillar: getElement("#hour-pillar"),
+  currentTerm: getElement("#current-term"),
+  nextTerm: getElement("#next-term"),
+  monthBranch: getElement("#month-branch"),
+  ruleNotes: getElement("#rule-notes"),
+  message: getElement("#message"),
 };
 
 elements.datetime.value = toLocalDatetimeValue(new Date());
 elements.calculate.addEventListener("click", handleCalculate);
+elements.datetime.addEventListener("keydown", (event) => {
+  if (event.key === "Enter") {
+    event.preventDefault();
+    handleCalculate();
+  }
+});
+
+handleCalculate();
 
 async function handleCalculate() {
   const value = elements.datetime.value;
-  elements.message.textContent = "";
 
   if (!value) {
-    elements.message.textContent = "請先輸入日期時間。";
+    clearResult();
+    setMessage("請先輸入日期時間。", "error");
     return;
   }
 
+  setMessage("計算中...", "loading");
   elements.calculate.disabled = true;
 
   try {
     const result = await calculateBazi(value);
     renderResult(result);
+    setMessage("", "");
   } catch (error) {
     clearResult();
-    elements.message.textContent = error instanceof Error ? error.message : String(error);
+    const message = error instanceof Error ? error.message : String(error);
+    setMessage(`查詢失敗：${message}`, "error");
   } finally {
     elements.calculate.disabled = false;
   }
@@ -70,6 +81,12 @@ function clearResult() {
   }
 }
 
+function setMessage(text, state) {
+  elements.message.textContent = text;
+  elements.message.classList.toggle("message-loading", state === "loading");
+  elements.message.classList.toggle("message-error", state === "error");
+}
+
 function renderTerm(element, label, term) {
   if (!term) {
     element.textContent = "--";
@@ -98,6 +115,15 @@ function formatTermDateTime(term) {
   const minute = String(date.getMinutes()).padStart(2, "0");
 
   return `${year}/${month}/${day} ${hour}:${minute}`;
+}
+
+function getElement(selector) {
+  const element = document.querySelector(selector);
+  if (!element) {
+    throw new Error(`找不到必要的 DOM 元素：${selector}`);
+  }
+
+  return element;
 }
 
 function toLocalDatetimeValue(date) {

@@ -117,5 +117,14 @@ ul {
 
 .message {
   min-height: 24px;
+  margin: 12px 0 0;
+  color: #52616f;
+}
+
+.message-loading {
+  color: #52616f;
+}
+
+.message-error {
   color: #b42318;
 }
