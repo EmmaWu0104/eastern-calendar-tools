@@ -1,6 +1,18 @@
 import { calculateBazi } from "./bazi.js";
 import { calculateAllFlyingStarCharts } from "./flyingStars.js";
 
+const PALACE_DIRECTION_LABELS = {
+  xun: "東南",
+  li: "南",
+  kun: "西南",
+  zhen: "東",
+  center: "中",
+  dui: "西",
+  gen: "東北",
+  kan: "北",
+  qian: "西北",
+};
+
 const elements = {
   datetime: getElement("#datetime"),
   calculate: getElement("#calculate"),
@@ -200,15 +212,19 @@ function createPalaceCell(palace) {
   const cell = document.createElement("div");
   cell.className = palace.id === "center" ? "palace-cell palace-center" : "palace-cell";
 
-  const palaceName = document.createElement("div");
-  palaceName.className = "palace-name";
-  palaceName.textContent = `${palace.name}${palace.number}`;
-
   const starName = document.createElement("div");
-  starName.className = "palace-star";
+  starName.className = "palace-star-center";
   starName.textContent = palace.starDisplayName;
 
-  cell.append(palaceName, starName);
+  const palaceLabel = document.createElement("div");
+  palaceLabel.className = "palace-corner palace-corner-left";
+  palaceLabel.textContent = `${palace.name}${palace.number}`;
+
+  const directionLabel = document.createElement("div");
+  directionLabel.className = "palace-corner palace-corner-right";
+  directionLabel.textContent = PALACE_DIRECTION_LABELS[palace.id] ?? "";
+
+  cell.append(starName, palaceLabel, directionLabel);
   return cell;
 }
 
