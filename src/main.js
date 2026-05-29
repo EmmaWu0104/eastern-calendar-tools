@@ -138,9 +138,9 @@ function createFlyingStarChart(title, chart) {
   const summary = document.createElement("div");
   summary.className = "flying-star-summary";
   summary.append(
-    createMetaLine("中宮星", `${chart.palaces.center.starName}入中`),
+    createMetaLine("中宮", `${chart.palaces.center.starName}入中`),
     createMetaLine("飛法", formatDirection(chart.direction)),
-    createMetaLine("依據", formatFlyingStarBasis(chart))
+    createBasisBlock(formatFlyingStarBasis(chart))
   );
 
   const grid = document.createElement("div");
@@ -171,9 +171,34 @@ function createMetaLine(label, value) {
   return line;
 }
 
+function createBasisBlock(items) {
+  const container = document.createElement("div");
+  container.className = "basis-block";
+
+  const title = document.createElement("div");
+  title.className = "basis-title";
+  title.textContent = "依據";
+
+  const list = document.createElement("dl");
+  list.className = "basis-list";
+
+  for (const item of items) {
+    const term = document.createElement("dt");
+    term.textContent = item.label;
+
+    const description = document.createElement("dd");
+    description.textContent = item.value;
+
+    list.append(term, description);
+  }
+
+  container.append(title, list);
+  return container;
+}
+
 function createPalaceCell(palace) {
   const cell = document.createElement("div");
-  cell.className = "palace-cell";
+  cell.className = palace.id === "center" ? "palace-cell palace-center" : "palace-cell";
 
   const palaceName = document.createElement("div");
   palaceName.className = "palace-name";
@@ -195,26 +220,45 @@ function formatFlyingStarBasis(chart) {
   const basis = chart.basis ?? {};
 
   if (chart.type === "period") {
-    return `西元${basis.year}年，${chart.period}運`;
+    return [
+      { label: "西元年份", value: `${basis.year}` },
+      { label: "三元九運", value: `${chart.period}運` },
+    ];
   }
 
   if (chart.type === "annual") {
-    return `有效年份${basis.year}，${basis.yearPillar}年`;
+    return [
+      { label: "有效年份", value: `${basis.year}` },
+      { label: "年柱", value: basis.yearPillar },
+    ];
   }
 
   if (chart.type === "monthly") {
-    return `年支分組${basis.yearBranchGroup}，${basis.monthPillar}月，月支${basis.monthBranch}`;
+    return [
+      { label: "年支分組", value: basis.yearBranchGroup },
+      { label: "月柱", value: basis.monthPillar },
+      { label: "月支", value: basis.monthBranch },
+    ];
   }
 
   if (chart.type === "daily") {
-    return `${basis.dayPillar}日，${basis.termName}，${basis.systemName}`;
+    return [
+      { label: "日柱", value: basis.dayPillar },
+      { label: "目前節氣", value: basis.termName },
+      { label: "日盤系統", value: basis.systemName },
+    ];
   }
 
   if (chart.type === "hourly") {
-    return `${basis.dayPillar}日，${basis.hourPillar}時，${basis.termName}，${basis.systemName}`;
+    return [
+      { label: "日柱", value: basis.dayPillar },
+      { label: "時柱", value: basis.hourPillar },
+      { label: "目前節氣", value: basis.termName },
+      { label: "時盤系統", value: basis.systemName },
+    ];
   }
 
-  return "";
+  return [];
 }
 
 function createTermLine(label, value, className) {
