@@ -4,6 +4,10 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "dev": "http-server . -p 8080 -c-1",
     "test": "node tests/run-tests.js"
+  },
+  "devDependencies": {
+    "http-server": "^14.1.1"
   }
 }
