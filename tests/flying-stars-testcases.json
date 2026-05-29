@@ -376,5 +376,131 @@
       "basis.hourBranch": "午",
       "basis.tableName": "summerReverse"
     }
+  },
+  {
+    "id": "hourly-table-winter-zi-day-zi-hour",
+    "type": "hourly",
+    "input": "2026-05-29T00:00:00",
+    "calendarResult": { "dayPillar": "甲子", "hourPillar": "甲子", "currentTerm": { "name": "小滿" } },
+    "expected": { "centerStar": 1, "basis.tableName": "winterForward" }
+  },
+  {
+    "id": "hourly-table-winter-zi-day-shen-hour",
+    "type": "hourly",
+    "input": "2026-05-29T15:00:00",
+    "calendarResult": { "dayPillar": "甲子", "hourPillar": "壬申", "currentTerm": { "name": "小滿" } },
+    "expected": { "centerStar": 9, "basis.tableName": "winterForward" }
+  },
+  {
+    "id": "hourly-table-winter-chen-day-zi-hour",
+    "type": "hourly",
+    "input": "2026-05-29T00:00:00",
+    "calendarResult": { "dayPillar": "甲辰", "hourPillar": "甲子", "currentTerm": { "name": "小滿" } },
+    "expected": { "centerStar": 4, "basis.tableName": "winterForward" }
+  },
+  {
+    "id": "hourly-table-winter-chen-day-si-hour",
+    "type": "hourly",
+    "input": "2026-05-29T09:00:00",
+    "calendarResult": { "dayPillar": "甲辰", "hourPillar": "己巳", "currentTerm": { "name": "小滿" } },
+    "expected": { "centerStar": 9, "basis.tableName": "winterForward" }
+  },
+  {
+    "id": "hourly-table-winter-yin-day-zi-hour",
+    "type": "hourly",
+    "input": "2026-05-29T00:00:00",
+    "calendarResult": { "dayPillar": "甲寅", "hourPillar": "甲子", "currentTerm": { "name": "小滿" } },
+    "expected": { "centerStar": 7, "basis.tableName": "winterForward" }
+  },
+  {
+    "id": "hourly-table-winter-yin-day-hai-hour",
+    "type": "hourly",
+    "input": "2026-05-29T21:00:00",
+    "calendarResult": { "dayPillar": "甲寅", "hourPillar": "乙亥", "currentTerm": { "name": "小滿" } },
+    "expected": { "centerStar": 9, "basis.tableName": "winterForward" }
+  },
+  {
+    "id": "hourly-table-winter-mao-day-si-hour",
+    "type": "hourly",
+    "input": "2026-05-29T09:00:00",
+    "calendarResult": { "dayPillar": "乙卯", "hourPillar": "辛巳", "currentTerm": { "name": "小滿" } },
+    "expected": { "centerStar": 6, "basis.tableName": "winterForward" }
+  },
+  {
+    "id": "hourly-table-winter-xu-day-hai-hour",
+    "type": "hourly",
+    "input": "2026-05-29T21:00:00",
+    "calendarResult": { "dayPillar": "甲戌", "hourPillar": "乙亥", "currentTerm": { "name": "小滿" } },
+    "expected": { "centerStar": 6, "basis.tableName": "winterForward" }
+  },
+  {
+    "id": "hourly-table-winter-si-day-wu-hour",
+    "type": "hourly",
+    "input": "2026-05-29T11:00:00",
+    "calendarResult": { "dayPillar": "乙巳", "hourPillar": "壬午", "currentTerm": { "name": "小滿" } },
+    "expected": { "centerStar": 4, "basis.tableName": "winterForward" }
+  },
+  {
+    "id": "hourly-table-summer-zi-day-zi-hour",
+    "type": "hourly",
+    "input": "2026-06-21T16:24:32",
+    "calendarResult": { "dayPillar": "甲子", "hourPillar": "甲子", "currentTerm": { "name": "夏至" } },
+    "expected": { "centerStar": 9, "basis.tableName": "summerReverse" }
+  },
+  {
+    "id": "hourly-table-summer-zi-day-shen-hour",
+    "type": "hourly",
+    "input": "2026-06-21T16:24:32",
+    "calendarResult": { "dayPillar": "甲子", "hourPillar": "壬申", "currentTerm": { "name": "夏至" } },
+    "expected": { "centerStar": 1, "basis.tableName": "summerReverse" }
+  },
+  {
+    "id": "hourly-table-summer-chen-day-zi-hour",
+    "type": "hourly",
+    "input": "2026-06-21T16:24:32",
+    "calendarResult": { "dayPillar": "甲辰", "hourPillar": "甲子", "currentTerm": { "name": "夏至" } },
+    "expected": { "centerStar": 6, "basis.tableName": "summerReverse" }
+  },
+  {
+    "id": "hourly-table-summer-chen-day-si-hour",
+    "type": "hourly",
+    "input": "2026-06-21T16:24:32",
+    "calendarResult": { "dayPillar": "甲辰", "hourPillar": "己巳", "currentTerm": { "name": "夏至" } },
+    "expected": { "centerStar": 1, "basis.tableName": "summerReverse" }
+  },
+  {
+    "id": "hourly-table-summer-yin-day-zi-hour",
+    "type": "hourly",
+    "input": "2026-06-21T16:24:32",
+    "calendarResult": { "dayPillar": "甲寅", "hourPillar": "甲子", "currentTerm": { "name": "夏至" } },
+    "expected": { "centerStar": 3, "basis.tableName": "summerReverse" }
+  },
+  {
+    "id": "hourly-table-summer-yin-day-hai-hour",
+    "type": "hourly",
+    "input": "2026-06-21T16:24:32",
+    "calendarResult": { "dayPillar": "甲寅", "hourPillar": "乙亥", "currentTerm": { "name": "夏至" } },
+    "expected": { "centerStar": 1, "basis.tableName": "summerReverse" }
+  },
+  {
+    "id": "hourly-table-summer-mao-day-si-hour",
+    "type": "hourly",
+    "input": "2026-06-21T16:24:32",
+    "calendarResult": { "dayPillar": "乙卯", "hourPillar": "辛巳", "currentTerm": { "name": "夏至" } },
+    "expected": { "centerStar": 4, "basis.tableName": "summerReverse" }
+  },
+  {
+    "id": "hourly-table-summer-xu-day-hai-hour",
+    "type": "hourly",
+    "input": "2026-06-21T16:24:32",
+    "calendarResult": { "dayPillar": "甲戌", "hourPillar": "乙亥", "currentTerm": { "name": "夏至" } },
+    "expected": { "centerStar": 4, "basis.tableName": "summerReverse" }
+  },
+  {
+    "id": "hourly-table-summer-si-day-wu-hour",
+    "type": "hourly",
+    "input": "2026-06-21T16:24:32",
+    "calendarResult": { "dayPillar": "乙巳", "hourPillar": "壬午", "currentTerm": { "name": "夏至" } },
+    "expected": { "centerStar": 6, "basis.tableName": "summerReverse" }
   }
 ]
