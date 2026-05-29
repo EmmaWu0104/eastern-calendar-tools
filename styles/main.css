@@ -387,9 +387,9 @@ dd {
 
 .jinhan-summary {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 6px 12px;
-  margin-bottom: 12px;
+  grid-template-columns: 1fr;
+  gap: 5px;
+  margin-bottom: 10px;
   color: #334e68;
   font-size: 13px;
 }
@@ -403,6 +403,17 @@ dd {
   font-weight: 700;
 }
 
+.jinhan-content-layout {
+  display: grid;
+  grid-template-columns: minmax(280px, 360px) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.jinhan-pan-wrap {
+  min-width: 0;
+}
+
 .jinhan-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -411,8 +422,9 @@ dd {
 }
 
 .jinhan-palace {
+  position: relative;
   min-height: 116px;
-  padding: 8px;
+  padding: 10px 34px 24px 8px;
   border-right: 1px solid #d8dee6;
   border-bottom: 1px solid #d8dee6;
   background: #fbfcfe;
@@ -422,38 +434,57 @@ dd {
   background: #f0f4f8;
 }
 
-.jinhan-palace-header {
-  display: flex;
-  justify-content: space-between;
-  gap: 8px;
-  margin-bottom: 8px;
-  color: #52616f;
-  font-size: 12px;
-  font-weight: 700;
+.jinhan-palace-main {
+  display: grid;
+  gap: 4px;
+  justify-items: center;
+  align-content: start;
+  min-height: 60px;
+  padding-top: 10px;
+  text-align: center;
 }
 
 .jinhan-door,
 .jinhan-star {
   color: #1f2933;
-  font-size: 14px;
   font-weight: 700;
   line-height: 1.35;
 }
 
 .jinhan-star {
-  margin-top: 4px;
+  font-size: 12px;
+}
+
+.jinhan-star-badge {
+  display: inline-block;
+  max-width: 100%;
+  padding: 2px 8px;
+  border: 1px solid #b8c2cc;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #334e68;
+  line-height: 1.35;
+  text-align: center;
+}
+
+.jinhan-door {
+  font-size: 18px;
+  font-weight: 800;
 }
 
 .jinhan-deity-chips {
+  position: absolute;
+  top: 8px;
+  right: 6px;
   display: flex;
+  flex-direction: column;
   gap: 4px;
-  flex-wrap: wrap;
-  margin-top: 8px;
+  align-items: center;
 }
 
 .jinhan-deity-chip {
   min-width: 22px;
-  padding: 2px 6px;
+  padding: 2px 5px;
   border: 1px solid #b8c2cc;
   border-radius: 999px;
   background: #ffffff;
@@ -480,11 +511,27 @@ dd {
   border-color: #d8a36f;
 }
 
+.jinhan-palace-corner {
+  position: absolute;
+  bottom: 5px;
+  color: #52616f;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.jinhan-palace-corner-left {
+  left: 6px;
+}
+
+.jinhan-palace-corner-right {
+  right: 6px;
+}
+
 .jinhan-center-content {
   display: grid;
-  gap: 3px;
+  gap: 5px;
   justify-items: center;
-  padding-top: 8px;
+  padding-top: 14px;
   font-size: 13px;
   font-weight: 700;
   line-height: 1.3;
@@ -492,7 +539,7 @@ dd {
 }
 
 .jinhan-hours-table-wrap {
-  margin-top: 14px;
+  min-width: 0;
   overflow-x: auto;
 }
 
@@ -503,23 +550,52 @@ dd {
 
 .jinhan-hours-table {
   width: 100%;
-  min-width: 560px;
   border-collapse: collapse;
-  font-size: 13px;
+  font-size: 12px;
+  table-layout: fixed;
 }
 
 .jinhan-hours-table th,
 .jinhan-hours-table td {
-  padding: 8px;
+  padding: 5px 6px;
   border: 1px solid #d8dee6;
+  overflow-wrap: normal;
   text-align: left;
   vertical-align: top;
+  word-break: keep-all;
 }
 
 .jinhan-hours-table th {
   color: #52616f;
   background: #f0f4f8;
   font-weight: 700;
+}
+
+.jinhan-hours-table th:nth-child(1),
+.jinhan-hours-table td:nth-child(1) {
+  width: 22%;
+}
+
+.jinhan-hours-table th:nth-child(2),
+.jinhan-hours-table td:nth-child(2) {
+  width: 14%;
+}
+
+.jinhan-hours-table th:nth-child(3),
+.jinhan-hours-table td:nth-child(3) {
+  width: 20%;
+}
+
+.jinhan-hours-table th:nth-child(4),
+.jinhan-hours-table td:nth-child(4) {
+  width: 14%;
+}
+
+.jinhan-hours-table th:nth-child(5),
+.jinhan-hours-table td:nth-child(5) {
+  width: 30%;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .jinhan-hour-type-yellow {
@@ -535,6 +611,12 @@ dd {
 @media (max-width: 980px) {
   .flying-stars-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .jinhan-content-layout {
+    grid-template-columns: 1fr;
   }
 }
 
@@ -563,12 +645,15 @@ dd {
 
   .jinhan-palace {
     min-height: 108px;
-    padding: 6px;
+    padding: 8px 30px 22px 6px;
   }
 
-  .jinhan-door,
   .jinhan-star {
     font-size: 13px;
+  }
+
+  .jinhan-door {
+    font-size: 15px;
   }
 }
 

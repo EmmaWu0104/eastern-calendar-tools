@@ -316,40 +316,45 @@ function createJinhanPalaceCell(palaceName, pan, deitiesByPalace) {
   const cell = document.createElement("div");
   cell.className = palaceName === "中" ? "jinhan-palace jinhan-center" : "jinhan-palace";
 
-  const header = document.createElement("div");
-  header.className = "jinhan-palace-header";
-  header.append(
-    createInlineSpan(`${palaceMeta.name}${palaceMeta.number}`, "jinhan-palace-name"),
-    createInlineSpan(palaceMeta.direction, "jinhan-palace-direction")
+  const palaceLabel = createInlineSpan(
+    `${palaceMeta.name}${palaceMeta.number}`,
+    "jinhan-palace-corner jinhan-palace-corner-left"
+  );
+  const directionLabel = createInlineSpan(
+    palaceMeta.direction,
+    "jinhan-palace-corner jinhan-palace-corner-right"
   );
 
   if (palaceName === "中") {
     const centerContent = document.createElement("div");
     centerContent.className = "jinhan-center-content";
     centerContent.append(
-      createBlockSpan("金函玉鏡"),
       createBlockSpan(pan.meta.dunType),
       createBlockSpan(`${pan.meta.pillar}日`),
-      createBlockSpan(pan.meta.center)
+      createBlockSpan(pan.meta.center, "jinhan-star-badge")
     );
-    cell.append(header, centerContent);
+    cell.append(centerContent, palaceLabel, directionLabel);
     return cell;
   }
 
   const palace = pan.palaces[palaceName] ?? {};
+  const star = document.createElement("div");
+  star.className = "jinhan-star jinhan-star-badge";
+  star.textContent = palace.star ?? "—";
+
   const door = document.createElement("div");
   door.className = "jinhan-door";
-  door.textContent = `門：${palace.door ?? "—"}`;
+  door.textContent = palace.door ?? "—";
 
-  const star = document.createElement("div");
-  star.className = "jinhan-star";
-  star.textContent = `星：${palace.star ?? "—"}`;
+  const main = document.createElement("div");
+  main.className = "jinhan-palace-main";
+  main.append(star, door);
 
   const chips = document.createElement("div");
   chips.className = "jinhan-deity-chips";
   chips.append(...(deitiesByPalace[palaceName] ?? []).map(createJinhanDeityChip));
 
-  cell.append(header, door, star, chips);
+  cell.append(main, chips, palaceLabel, directionLabel);
   return cell;
 }
 
@@ -380,8 +385,11 @@ function createInlineSpan(text, className) {
   return span;
 }
 
-function createBlockSpan(text) {
+function createBlockSpan(text, className = "") {
   const span = document.createElement("span");
+  if (className) {
+    span.className = className;
+  }
   span.textContent = text;
   return span;
 }
