@@ -6,6 +6,11 @@ const { calculateBaziFromSolarTerms } = await import("../src/bazi.js");
 const { getDailyGodsByStem } = await import("../src/dailyGods.js");
 const { SEXAGENARY_CYCLE } = await import("../src/ganzhi.js");
 const {
+  getJinhanDunType,
+  JINHAN_DUN_TYPE_MODE,
+  JINHAN_DUN_TYPE_STATUS,
+} = await import("../src/jinhanDunType.js");
+const {
   getJinhanBlackYellowHours,
   getJinhanDeitiesByPalace,
   getJinhanYujingDayPan,
@@ -51,6 +56,7 @@ let jinhanDayPillarCount = 0;
 let jinhanPanCount = 0;
 let jinhanBlackYellowHourCount = 0;
 let jinhanLookupVerifiedCaseCount = 0;
+let jinhanDunTypeVerifiedCaseCount = 0;
 
 const parsedLocalDateTime = parseLocalDateTime("2026-06-05T09:08:07.123");
 const localDateTimeExpected = {
@@ -199,6 +205,7 @@ jinhanPanCount = jinhanStats.pans;
 jinhanBlackYellowHourCount = jinhanStats.blackYellowHours;
 
 runJinhanYujingLookupTests();
+runJinhanDunTypeSkeletonTests();
 
 if (failures.length > 0) {
   console.error("測試失敗：");
@@ -217,6 +224,7 @@ if (failures.length > 0) {
     `金函玉鏡資料檢查通過：${jinhanDayPillarCount} day pillars, ${jinhanPanCount} pans, ${jinhanBlackYellowHourCount} blackYellowHours`
   );
   console.log(`金函玉鏡查表測試通過：${jinhanLookupVerifiedCaseCount} cases`);
+  console.log(`金函玉鏡超神接氣骨架測試通過：${jinhanDunTypeVerifiedCaseCount} cases`);
   if (pendingCases.length > 0) {
     console.log(`待人工驗證案例略過：${pendingCases.length} cases`);
     for (const testCase of pendingCases) {
@@ -604,4 +612,85 @@ function getJinhanDeityLabelsByPalace(deitiesByPalace) {
       deities.map((deity) => deity.shortLabel).join(""),
     ])
   );
+}
+
+function runJinhanDunTypeSkeletonTests() {
+  const testCases = [
+    {
+      id: "jinhan-dun-type-normal-input",
+      input: ["2026-01-01T00:00", { dayPillar: "甲子" }, []],
+      forbiddenDunType: null,
+    },
+    {
+      id: "jinhan-dun-type-empty-input",
+      input: [null, null, null],
+      forbiddenDunType: null,
+    },
+    {
+      id: "jinhan-dun-type-winter-solstice-no-auto",
+      input: ["2026-12-22T00:00", { dayPillar: "甲子" }, []],
+      forbiddenDunType: "陽遁",
+    },
+    {
+      id: "jinhan-dun-type-summer-solstice-no-auto",
+      input: ["2026-06-21T00:00", { dayPillar: "甲子" }, []],
+      forbiddenDunType: "陰遁",
+    },
+  ];
+
+  for (const testCase of testCases) {
+    let actual;
+    try {
+      actual = getJinhanDunType(...testCase.input);
+    } catch (error) {
+      failures.push({
+        id: testCase.id,
+        key: "throw",
+        expected: "not throw",
+        actual: error instanceof Error ? error.message : String(error),
+      });
+      continue;
+    }
+
+    jinhanDunTypeVerifiedCaseCount += 1;
+    assertJinhanDunTypeManualRequired(testCase.id, actual);
+
+    if (testCase.forbiddenDunType && actual.dunType === testCase.forbiddenDunType) {
+      failures.push({
+        id: testCase.id,
+        key: "dunType",
+        expected: `not ${testCase.forbiddenDunType}`,
+        actual: actual.dunType,
+      });
+    }
+  }
+}
+
+function assertJinhanDunTypeManualRequired(id, actual) {
+  const expectedValues = {
+    status: JINHAN_DUN_TYPE_STATUS.MANUAL_REQUIRED,
+    dunType: null,
+    mode: JINHAN_DUN_TYPE_MODE.PENDING,
+    boundary: null,
+  };
+
+  for (const [key, expectedValue] of Object.entries(expectedValues)) {
+    if (actual?.[key] !== expectedValue) {
+      failures.push({
+        id,
+        key,
+        expected: expectedValue,
+        actual: actual?.[key],
+      });
+    }
+  }
+
+  if (typeof actual?.reason !== "string" || actual.reason.length === 0) {
+    failures.push({
+      id,
+      key: "reason",
+      expected: "non-empty string",
+      actual: actual?.reason,
+    });
+  }
 }
