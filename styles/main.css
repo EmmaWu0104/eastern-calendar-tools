@@ -119,9 +119,9 @@ dd {
 
 .pillar-card dd {
   display: grid;
-  gap: 4px;
+  gap: 3px;
   justify-items: center;
-  min-height: 76px;
+  min-height: 82px;
   font-size: 30px;
   line-height: 1.05;
 }
@@ -129,6 +129,15 @@ dd {
 .pillar-stem,
 .pillar-branch {
   display: block;
+}
+
+.pillar-nayin {
+  display: block;
+  margin-top: 3px;
+  color: #52616f;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.2;
 }
 
 .details dd {

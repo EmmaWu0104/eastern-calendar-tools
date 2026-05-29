@@ -1,6 +1,7 @@
 import { calculateBazi } from "./bazi.js";
 import { getDailyGodsByStem } from "./dailyGods.js";
 import { calculateAllFlyingStarCharts } from "./flyingStars.js";
+import { getNaYinByPillar } from "./nayin.js";
 
 const PALACE_DIRECTION_LABELS = {
   xun: "東南",
@@ -128,7 +129,8 @@ function renderPillar(element, pillar) {
 
   element.replaceChildren(
     createPillarPart(pillar[0], "pillar-stem"),
-    createPillarPart(pillar[1], "pillar-branch")
+    createPillarPart(pillar[1], "pillar-branch"),
+    createPillarPart(getNaYinByPillar(pillar), "pillar-nayin")
   );
 }
 

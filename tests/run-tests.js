@@ -4,6 +4,7 @@ process.env.TZ = TEST_TIME_ZONE;
 const { readFile } = await import("node:fs/promises");
 const { calculateBaziFromSolarTerms } = await import("../src/bazi.js");
 const { getDailyGodsByStem } = await import("../src/dailyGods.js");
+const { getNaYinByPillar } = await import("../src/nayin.js");
 const { normalizeSolarTerms, parseLocalDateTime } = await import("../src/solarTerms.js");
 const {
   calculateAllFlyingStarCharts,
@@ -37,6 +38,7 @@ const pendingCases = [];
 let verifiedCaseCount = 0;
 let flyingStarsVerifiedCaseCount = 0;
 let dailyGodsVerifiedCaseCount = 0;
+let naYinVerifiedCaseCount = 0;
 
 const parsedLocalDateTime = parseLocalDateTime("2026-06-05T09:08:07.123");
 const localDateTimeExpected = {
@@ -156,6 +158,29 @@ for (const testCase of dailyGodsTestCases) {
   }
 }
 
+const naYinTestCases = [
+  { id: "nayin-jiazi", pillar: "甲子", expected: "海中金" },
+  { id: "nayin-guimao", pillar: "癸卯", expected: "金箔金" },
+  { id: "nayin-bingwu", pillar: "丙午", expected: "天河水" },
+  { id: "nayin-guisi", pillar: "癸巳", expected: "長流水" },
+  { id: "nayin-renxu", pillar: "壬戌", expected: "大海水" },
+  { id: "nayin-invalid", pillar: "無效", expected: "" },
+];
+
+for (const testCase of naYinTestCases) {
+  const actual = getNaYinByPillar(testCase.pillar);
+  naYinVerifiedCaseCount += 1;
+
+  if (actual !== testCase.expected) {
+    failures.push({
+      id: testCase.id,
+      key: "nayin",
+      expected: testCase.expected,
+      actual,
+    });
+  }
+}
+
 if (failures.length > 0) {
   console.error("測試失敗：");
   for (const failure of failures) {
@@ -168,6 +193,7 @@ if (failures.length > 0) {
   console.log(`全部通過：${verifiedCaseCount} verified cases + parseLocalDateTime`);
   console.log(`九宮飛星測試通過：${flyingStarsVerifiedCaseCount} cases`);
   console.log(`日干吉神測試通過：${dailyGodsVerifiedCaseCount} cases`);
+  console.log(`納音測試通過：${naYinVerifiedCaseCount} cases`);
   if (pendingCases.length > 0) {
     console.log(`待人工驗證案例略過：${pendingCases.length} cases`);
     for (const testCase of pendingCases) {
