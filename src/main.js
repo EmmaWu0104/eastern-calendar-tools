@@ -1,6 +1,11 @@
 import { calculateBazi } from "./bazi.js";
 import { getDailyGodsByStem } from "./dailyGods.js";
 import { calculateAllFlyingStarCharts } from "./flyingStars.js";
+import {
+  getJinhanBlackYellowHours,
+  getJinhanDeitiesByPalace,
+  getJinhanYujingDayPan,
+} from "./jinhanYujing.js";
 import { getNaYinByPillar } from "./nayin.js";
 
 const PALACE_DIRECTION_LABELS = {
@@ -15,6 +20,31 @@ const PALACE_DIRECTION_LABELS = {
   qian: "西北",
 };
 
+const JINHAN_PALACE_LAYOUT = Object.freeze([
+  Object.freeze(["巽", "離", "坤"]),
+  Object.freeze(["震", "中", "兌"]),
+  Object.freeze(["艮", "坎", "乾"]),
+]);
+
+const JINHAN_PALACE_META = Object.freeze({
+  坎: Object.freeze({ name: "坎", number: 1, direction: "北" }),
+  艮: Object.freeze({ name: "艮", number: 8, direction: "東北" }),
+  震: Object.freeze({ name: "震", number: 3, direction: "東" }),
+  巽: Object.freeze({ name: "巽", number: 4, direction: "東南" }),
+  離: Object.freeze({ name: "離", number: 9, direction: "南" }),
+  坤: Object.freeze({ name: "坤", number: 2, direction: "西南" }),
+  兌: Object.freeze({ name: "兌", number: 7, direction: "西" }),
+  乾: Object.freeze({ name: "乾", number: 6, direction: "西北" }),
+  中: Object.freeze({ name: "中", number: 5, direction: "中" }),
+});
+
+const JINHAN_DEITY_CLASS_NAMES = Object.freeze({
+  xishen: "jinhan-deity-xishen",
+  caishen: "jinhan-deity-caishen",
+  yinGuishen: "jinhan-deity-yin-guishen",
+  yangGuishen: "jinhan-deity-yang-guishen",
+});
+
 const elements = {
   datetime: getElement("#datetime"),
   calculate: getElement("#calculate"),
@@ -28,9 +58,16 @@ const elements = {
   monthBranch: getElement("#month-branch"),
   flyingStars: getElement("#flying-stars"),
   flyingStarsMessage: getElement("#flying-stars-message"),
+  jinhanDunType: getElement("#jinhan-dun-type"),
+  jinhanMessage: getElement("#jinhan-message"),
+  jinhanSummary: getElement("#jinhan-summary"),
+  jinhanGrid: getElement("#jinhan-grid"),
+  jinhanHoursBody: getElement("#jinhan-hours-body"),
   ruleNotes: getElement("#rule-notes"),
   message: getElement("#message"),
 };
+
+let currentCalendarResult = null;
 
 elements.datetime.value = toLocalDatetimeValue(new Date());
 elements.calculate.addEventListener("click", handleCalculate);
@@ -39,6 +76,9 @@ elements.datetime.addEventListener("keydown", (event) => {
     event.preventDefault();
     handleCalculate();
   }
+});
+elements.jinhanDunType.addEventListener("change", () => {
+  renderJinhanYujing(currentCalendarResult);
 });
 
 handleCalculate();
@@ -57,10 +97,13 @@ async function handleCalculate() {
 
   try {
     const result = await calculateBazi(value);
+    currentCalendarResult = result;
     renderResult(result);
     renderFlyingStars(result, value);
+    renderJinhanYujing(result);
     setMessage("", "");
   } catch (error) {
+    currentCalendarResult = null;
     clearResult();
     const message = error instanceof Error ? error.message : String(error);
     setMessage(`查詢失敗：${message}`, "error");
@@ -88,6 +131,7 @@ function renderResult(result) {
 }
 
 function clearResult() {
+  currentCalendarResult = null;
   for (const element of [
     elements.yearPillar,
     elements.monthPillar,
@@ -101,6 +145,7 @@ function clearResult() {
   }
   renderDailyGods("");
   clearFlyingStars();
+  clearJinhanYujing();
 }
 
 function setMessage(text, state) {
@@ -198,6 +243,156 @@ function renderFlyingStars(calendarResult, inputDateTime) {
 function clearFlyingStars() {
   elements.flyingStars.replaceChildren();
   elements.flyingStarsMessage.textContent = "";
+}
+
+function renderJinhanYujing(calendarResult) {
+  const dayPillar = calendarResult?.dayPillar;
+  if (typeof dayPillar !== "string" || dayPillar.length < 2) {
+    clearJinhanYujing("尚無日柱資料，無法顯示金函玉鏡日盤");
+    return;
+  }
+
+  try {
+    const dunType = elements.jinhanDunType.value || "陽遁";
+    const pan = getJinhanYujingDayPan(dayPillar, dunType);
+
+    if (!pan) {
+      clearJinhanYujing("查無金函玉鏡日盤資料");
+      return;
+    }
+
+    const deitiesByPalace = getJinhanDeitiesByPalace(pan.meta);
+    const blackYellowHours = getJinhanBlackYellowHours(dayPillar);
+    elements.jinhanMessage.textContent = "";
+    elements.jinhanSummary.replaceChildren(...createJinhanSummaryItems(dayPillar, pan));
+    elements.jinhanGrid.replaceChildren(...createJinhanGridCells(pan, deitiesByPalace));
+    elements.jinhanHoursBody.replaceChildren(...blackYellowHours.map(createJinhanHourRow));
+  } catch (error) {
+    console.error("金函玉鏡日盤顯示失敗", error);
+    clearJinhanYujing("金函玉鏡日盤顯示失敗");
+  }
+}
+
+function clearJinhanYujing(message = "") {
+  elements.jinhanMessage.textContent = message;
+  elements.jinhanSummary.replaceChildren();
+  elements.jinhanGrid.replaceChildren();
+  elements.jinhanHoursBody.replaceChildren();
+}
+
+function createJinhanSummaryItems(dayPillar, pan) {
+  const items = [
+    { label: "日柱", value: `${dayPillar}日` },
+    { label: "金函玉鏡盤", value: pan.meta.label },
+    { label: "中宮", value: pan.meta.center },
+    { label: "陰陽遁選擇", value: "目前使用手動選擇" },
+    { label: "換遁提示", value: "超神接氣自動判斷尚未實作" },
+  ];
+
+  return items.map((item) => {
+    const line = document.createElement("div");
+    line.className = "jinhan-summary-item";
+
+    const label = document.createElement("span");
+    label.className = "jinhan-summary-label";
+    label.textContent = `${item.label}：`;
+
+    const value = document.createElement("span");
+    value.textContent = item.value;
+
+    line.append(label, value);
+    return line;
+  });
+}
+
+function createJinhanGridCells(pan, deitiesByPalace) {
+  return JINHAN_PALACE_LAYOUT.flatMap((row) =>
+    row.map((palaceName) => createJinhanPalaceCell(palaceName, pan, deitiesByPalace))
+  );
+}
+
+function createJinhanPalaceCell(palaceName, pan, deitiesByPalace) {
+  const palaceMeta = JINHAN_PALACE_META[palaceName];
+  const cell = document.createElement("div");
+  cell.className = palaceName === "中" ? "jinhan-palace jinhan-center" : "jinhan-palace";
+
+  const header = document.createElement("div");
+  header.className = "jinhan-palace-header";
+  header.append(
+    createInlineSpan(`${palaceMeta.name}${palaceMeta.number}`, "jinhan-palace-name"),
+    createInlineSpan(palaceMeta.direction, "jinhan-palace-direction")
+  );
+
+  if (palaceName === "中") {
+    const centerContent = document.createElement("div");
+    centerContent.className = "jinhan-center-content";
+    centerContent.append(
+      createBlockSpan("金函玉鏡"),
+      createBlockSpan(pan.meta.dunType),
+      createBlockSpan(`${pan.meta.pillar}日`),
+      createBlockSpan(pan.meta.center)
+    );
+    cell.append(header, centerContent);
+    return cell;
+  }
+
+  const palace = pan.palaces[palaceName] ?? {};
+  const door = document.createElement("div");
+  door.className = "jinhan-door";
+  door.textContent = `門：${palace.door ?? "—"}`;
+
+  const star = document.createElement("div");
+  star.className = "jinhan-star";
+  star.textContent = `星：${palace.star ?? "—"}`;
+
+  const chips = document.createElement("div");
+  chips.className = "jinhan-deity-chips";
+  chips.append(...(deitiesByPalace[palaceName] ?? []).map(createJinhanDeityChip));
+
+  cell.append(header, door, star, chips);
+  return cell;
+}
+
+function createJinhanDeityChip(deity) {
+  const chip = document.createElement("span");
+  chip.className = `jinhan-deity-chip ${JINHAN_DEITY_CLASS_NAMES[deity.key] ?? ""}`.trim();
+  chip.title = deity.label;
+  chip.textContent = deity.shortLabel;
+  return chip;
+}
+
+function createJinhanHourRow(hour) {
+  const row = document.createElement("tr");
+  row.append(
+    createTableCell(hour.timeRange),
+    createTableCell(hour.pillar),
+    createTableCell(hour.deity),
+    createTableCell(hour.type === "yellow" ? "黃道" : "黑道", `jinhan-hour-type-${hour.type}`),
+    createTableCell(hour.notes.length > 0 ? hour.notes.join("、") : "—")
+  );
+  return row;
+}
+
+function createInlineSpan(text, className) {
+  const span = document.createElement("span");
+  span.className = className;
+  span.textContent = text;
+  return span;
+}
+
+function createBlockSpan(text) {
+  const span = document.createElement("span");
+  span.textContent = text;
+  return span;
+}
+
+function createTableCell(text, className = "") {
+  const cell = document.createElement("td");
+  if (className) {
+    cell.className = className;
+  }
+  cell.textContent = text;
+  return cell;
 }
 
 function createFlyingStarChart(title, chart) {

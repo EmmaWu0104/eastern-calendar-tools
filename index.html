@@ -59,6 +59,37 @@
         </div>
       </section>
 
+      <section class="panel jinhan-section" aria-labelledby="jinhan-title">
+        <div class="section-heading-row">
+          <h2 id="jinhan-title">金函玉鏡日盤</h2>
+          <label class="jinhan-dun-selector" for="jinhan-dun-type">
+            <span>陰陽遁</span>
+            <select id="jinhan-dun-type">
+              <option value="陽遁" selected>陽遁</option>
+              <option value="陰遁">陰遁</option>
+            </select>
+          </label>
+        </div>
+        <p id="jinhan-message" class="section-message" role="status" aria-live="polite"></p>
+        <div id="jinhan-summary" class="jinhan-summary"></div>
+        <div id="jinhan-grid" class="jinhan-grid" aria-label="金函玉鏡日盤九宮格"></div>
+        <div class="jinhan-hours-table-wrap">
+          <h3>今日十二時辰黑黃道</h3>
+          <table class="jinhan-hours-table">
+            <thead>
+              <tr>
+                <th scope="col">時段</th>
+                <th scope="col">時柱</th>
+                <th scope="col">黑黃道神</th>
+                <th scope="col">吉凶</th>
+                <th scope="col">附註</th>
+              </tr>
+            </thead>
+            <tbody id="jinhan-hours-body"></tbody>
+          </table>
+        </div>
+      </section>
+
       <section class="panel" aria-labelledby="rules-title">
         <h2 id="rules-title">目前採用規則</h2>
         <ul id="rule-notes">

@@ -353,6 +353,185 @@ dd {
   font-size: 13px;
 }
 
+.section-heading-row {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.section-heading-row h2 {
+  margin: 0;
+}
+
+.jinhan-dun-selector {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  margin: 0;
+  color: #52616f;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.jinhan-dun-selector select {
+  min-height: 34px;
+  padding: 5px 28px 5px 8px;
+  border: 1px solid #b8c2cc;
+  border-radius: 6px;
+  background: #ffffff;
+  font: inherit;
+}
+
+.jinhan-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 6px 12px;
+  margin-bottom: 12px;
+  color: #334e68;
+  font-size: 13px;
+}
+
+.jinhan-summary-item {
+  min-width: 0;
+}
+
+.jinhan-summary-label {
+  color: #52616f;
+  font-weight: 700;
+}
+
+.jinhan-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  border-top: 1px solid #d8dee6;
+  border-left: 1px solid #d8dee6;
+}
+
+.jinhan-palace {
+  min-height: 116px;
+  padding: 8px;
+  border-right: 1px solid #d8dee6;
+  border-bottom: 1px solid #d8dee6;
+  background: #fbfcfe;
+}
+
+.jinhan-center {
+  background: #f0f4f8;
+}
+
+.jinhan-palace-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+  color: #52616f;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.jinhan-door,
+.jinhan-star {
+  color: #1f2933;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.jinhan-star {
+  margin-top: 4px;
+}
+
+.jinhan-deity-chips {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+
+.jinhan-deity-chip {
+  min-width: 22px;
+  padding: 2px 6px;
+  border: 1px solid #b8c2cc;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #334e68;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.25;
+  text-align: center;
+}
+
+.jinhan-deity-xishen {
+  border-color: #7aa7c7;
+}
+
+.jinhan-deity-caishen {
+  border-color: #9fbe7a;
+}
+
+.jinhan-deity-yin-guishen {
+  border-color: #b8a3d8;
+}
+
+.jinhan-deity-yang-guishen {
+  border-color: #d8a36f;
+}
+
+.jinhan-center-content {
+  display: grid;
+  gap: 3px;
+  justify-items: center;
+  padding-top: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.3;
+  text-align: center;
+}
+
+.jinhan-hours-table-wrap {
+  margin-top: 14px;
+  overflow-x: auto;
+}
+
+.jinhan-hours-table-wrap h3 {
+  margin: 0 0 8px;
+  font-size: 15px;
+}
+
+.jinhan-hours-table {
+  width: 100%;
+  min-width: 560px;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.jinhan-hours-table th,
+.jinhan-hours-table td {
+  padding: 8px;
+  border: 1px solid #d8dee6;
+  text-align: left;
+  vertical-align: top;
+}
+
+.jinhan-hours-table th {
+  color: #52616f;
+  background: #f0f4f8;
+  font-weight: 700;
+}
+
+.jinhan-hour-type-yellow {
+  color: #8a5a00;
+  font-weight: 700;
+}
+
+.jinhan-hour-type-black {
+  color: #334e68;
+  font-weight: 700;
+}
+
 @media (max-width: 980px) {
   .flying-stars-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -371,11 +550,25 @@ dd {
   .daily-gods-panel {
     max-width: 280px;
   }
+
+  .jinhan-grid {
+    grid-template-columns: repeat(3, minmax(72px, 1fr));
+  }
 }
 
 @media (max-width: 460px) {
   .pillars {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .jinhan-palace {
+    min-height: 108px;
+    padding: 6px;
+  }
+
+  .jinhan-door,
+  .jinhan-star {
+    font-size: 13px;
   }
 }
 
