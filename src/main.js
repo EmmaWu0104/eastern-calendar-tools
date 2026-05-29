@@ -1,5 +1,4 @@
 import { calculateBazi } from "./bazi.js";
-import { formatTerm } from "./solarTerms.js";
 
 const elements = {
   datetime: document.querySelector("#datetime"),
@@ -45,8 +44,8 @@ function renderResult(result) {
   elements.monthPillar.textContent = result.monthPillar;
   elements.dayPillar.textContent = result.dayPillar;
   elements.hourPillar.textContent = result.hourPillar;
-  elements.currentTerm.textContent = formatTerm(result.currentTerm);
-  elements.nextTerm.textContent = formatTerm(result.nextTerm);
+  renderTerm(elements.currentTerm, "目前節氣", result.currentTerm);
+  renderTerm(elements.nextTerm, "下一節氣", result.nextTerm);
   elements.monthBranch.textContent = `${result.monthBranch}月`;
   elements.ruleNotes.replaceChildren(
     ...result.ruleNotes.map((note) => {
@@ -69,6 +68,36 @@ function clearResult() {
   ]) {
     element.textContent = "--";
   }
+}
+
+function renderTerm(element, label, term) {
+  if (!term) {
+    element.textContent = "--";
+    return;
+  }
+
+  element.replaceChildren(
+    createTermLine(label, term.name, "term-name"),
+    createTermLine("交節時間", formatTermDateTime(term), "term-time")
+  );
+}
+
+function createTermLine(label, value, className) {
+  const line = document.createElement("div");
+  line.className = className;
+  line.textContent = `${label}：${value}`;
+  return line;
+}
+
+function formatTermDateTime(term) {
+  const date = new Date(term.timeMs);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  const hour = String(date.getHours()).padStart(2, "0");
+  const minute = String(date.getMinutes()).padStart(2, "0");
+
+  return `${year}/${month}/${day} ${hour}:${minute}`;
 }
 
 function toLocalDatetimeValue(date) {
