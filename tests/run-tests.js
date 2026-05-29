@@ -5,6 +5,11 @@ const { readFile } = await import("node:fs/promises");
 const { calculateBaziFromSolarTerms } = await import("../src/bazi.js");
 const { getDailyGodsByStem } = await import("../src/dailyGods.js");
 const { SEXAGENARY_CYCLE } = await import("../src/ganzhi.js");
+const {
+  getJinhanBlackYellowHours,
+  getJinhanDeitiesByPalace,
+  getJinhanYujingDayPan,
+} = await import("../src/jinhanYujing.js");
 const { getNaYinByPillar } = await import("../src/nayin.js");
 const { normalizeSolarTerms, parseLocalDateTime } = await import("../src/solarTerms.js");
 const {
@@ -45,6 +50,7 @@ let naYinVerifiedCaseCount = 0;
 let jinhanDayPillarCount = 0;
 let jinhanPanCount = 0;
 let jinhanBlackYellowHourCount = 0;
+let jinhanLookupVerifiedCaseCount = 0;
 
 const parsedLocalDateTime = parseLocalDateTime("2026-06-05T09:08:07.123");
 const localDateTimeExpected = {
@@ -192,6 +198,8 @@ jinhanDayPillarCount = jinhanStats.dayPillars;
 jinhanPanCount = jinhanStats.pans;
 jinhanBlackYellowHourCount = jinhanStats.blackYellowHours;
 
+runJinhanYujingLookupTests();
+
 if (failures.length > 0) {
   console.error("測試失敗：");
   for (const failure of failures) {
@@ -208,6 +216,7 @@ if (failures.length > 0) {
   console.log(
     `金函玉鏡資料檢查通過：${jinhanDayPillarCount} day pillars, ${jinhanPanCount} pans, ${jinhanBlackYellowHourCount} blackYellowHours`
   );
+  console.log(`金函玉鏡查表測試通過：${jinhanLookupVerifiedCaseCount} cases`);
   if (pendingCases.length > 0) {
     console.log(`待人工驗證案例略過：${pendingCases.length} cases`);
     for (const testCase of pendingCases) {
@@ -472,4 +481,127 @@ function validateJinhanBlackYellowHour(pillar, index, hour, requiredHourFields) 
       actual: typeof hour.notes,
     });
   }
+}
+
+function runJinhanYujingLookupTests() {
+  const panTestCases = [
+    { id: "jinhan-pan-jiazi-yang", pillar: "甲子", dunType: "陽遁", expected: "陽遁甲子日" },
+    { id: "jinhan-pan-jiazi-yin", pillar: "甲子", dunType: "陰遁", expected: "陰遁甲子日" },
+    { id: "jinhan-pan-yichou-yang", pillar: "乙丑", dunType: "陽遁", expected: "陽遁乙丑日" },
+    { id: "jinhan-pan-invalid-pillar", pillar: "無效", dunType: "陽遁", expected: null },
+    { id: "jinhan-pan-invalid-dun", pillar: "甲子", dunType: "錯誤", expected: null },
+    { id: "jinhan-pan-empty-pillar", pillar: "", dunType: "陽遁", expected: null },
+    { id: "jinhan-pan-empty-dun", pillar: "甲子", dunType: "", expected: null },
+    { id: "jinhan-pan-non-string-pillar", pillar: 123, dunType: "陽遁", expected: null },
+    { id: "jinhan-pan-non-string-dun", pillar: "甲子", dunType: 123, expected: null },
+  ];
+
+  for (const testCase of panTestCases) {
+    const actual = getJinhanYujingDayPan(testCase.pillar, testCase.dunType);
+    const actualValue = actual?.meta?.label ?? null;
+    jinhanLookupVerifiedCaseCount += 1;
+
+    if (actualValue !== testCase.expected) {
+      failures.push({
+        id: testCase.id,
+        key: "meta.label",
+        expected: testCase.expected,
+        actual: actualValue,
+      });
+    }
+  }
+
+  const hours = getJinhanBlackYellowHours("甲子");
+  jinhanLookupVerifiedCaseCount += 1;
+  if (hours.length !== 12) {
+    failures.push({ id: "jinhan-hours-jiazi", key: "length", expected: 12, actual: hours.length });
+  }
+
+  const firstHour = hours[0] ?? {};
+  for (const [key, expectedValue] of Object.entries({
+    index: 1,
+    pillar: "甲子",
+    timeRange: "23 ~ 01",
+    deity: "金匱",
+    type: "yellow",
+  })) {
+    if (firstHour[key] !== expectedValue) {
+      failures.push({
+        id: "jinhan-hours-jiazi-first",
+        key,
+        expected: expectedValue,
+        actual: firstHour[key],
+      });
+    }
+  }
+
+  jinhanLookupVerifiedCaseCount += 1;
+  const invalidHours = getJinhanBlackYellowHours("無效");
+  if (invalidHours.length !== 0) {
+    failures.push({ id: "jinhan-hours-invalid", key: "length", expected: 0, actual: invalidHours.length });
+  }
+
+  jinhanLookupVerifiedCaseCount += 1;
+  hours.push({ index: 999 });
+  const cleanHours = getJinhanBlackYellowHours("甲子");
+  if (cleanHours.length !== 12) {
+    failures.push({ id: "jinhan-hours-copy", key: "length", expected: 12, actual: cleanHours.length });
+  }
+
+  const jiaziYangPan = getJinhanYujingDayPan("甲子", "陽遁");
+  const dingmaoYangPan = getJinhanYujingDayPan("丁卯", "陽遁");
+  const deityTestCases = [
+    {
+      id: "jinhan-deities-jiazi",
+      meta: jiaziYangPan?.meta,
+      expected: { 艮: "喜財陰", 坤: "陽" },
+    },
+    {
+      id: "jinhan-deities-dingmao",
+      meta: dingmaoYangPan?.meta,
+      expected: { 離: "喜", 兌: "財陰", 乾: "陽" },
+    },
+    {
+      id: "jinhan-deities-missing-fields",
+      meta: { xishen: "艮" },
+      expected: { 艮: "喜" },
+    },
+    {
+      id: "jinhan-deities-invalid-palace",
+      meta: { xishen: "無效", caishen: "艮", yinGuishen: "無效", yangGuishen: "坤" },
+      expected: { 艮: "財", 坤: "陽" },
+    },
+    {
+      id: "jinhan-deities-order",
+      meta: { xishen: "坎", caishen: "坎", yinGuishen: "坎", yangGuishen: "坎" },
+      expected: { 坎: "喜財陰陽" },
+    },
+  ];
+
+  for (const testCase of deityTestCases) {
+    const actual = getJinhanDeitiesByPalace(testCase.meta);
+    const labelsByPalace = getJinhanDeityLabelsByPalace(actual);
+    jinhanLookupVerifiedCaseCount += 1;
+
+    for (const [palaceName, expectedValue] of Object.entries(testCase.expected)) {
+      const actualValue = labelsByPalace[palaceName] ?? "";
+      if (actualValue !== expectedValue) {
+        failures.push({
+          id: testCase.id,
+          key: palaceName,
+          expected: expectedValue,
+          actual: actualValue,
+        });
+      }
+    }
+  }
+}
+
+function getJinhanDeityLabelsByPalace(deitiesByPalace) {
+  return Object.fromEntries(
+    Object.entries(deitiesByPalace).map(([palaceName, deities]) => [
+      palaceName,
+      deities.map((deity) => deity.shortLabel).join(""),
+    ])
+  );
 }
