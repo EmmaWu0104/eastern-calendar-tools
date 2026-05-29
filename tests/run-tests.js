@@ -4,6 +4,7 @@ process.env.TZ = TEST_TIME_ZONE;
 const { readFile } = await import("node:fs/promises");
 const { calculateBaziFromSolarTerms } = await import("../src/bazi.js");
 const { getDailyGodsByStem } = await import("../src/dailyGods.js");
+const { SEXAGENARY_CYCLE } = await import("../src/ganzhi.js");
 const { getNaYinByPillar } = await import("../src/nayin.js");
 const { normalizeSolarTerms, parseLocalDateTime } = await import("../src/solarTerms.js");
 const {
@@ -24,21 +25,26 @@ if (resolvedTimeZone !== TEST_TIME_ZONE) {
   );
 }
 
-const [termsRaw, casesRaw, flyingStarsCasesRaw] = await Promise.all([
+const [termsRaw, casesRaw, flyingStarsCasesRaw, jinhanYujingRaw] = await Promise.all([
   readFile(new URL("../data/solar_terms_1899_2101.json", import.meta.url), "utf8"),
   readFile(new URL("./testcases.json", import.meta.url), "utf8"),
   readFile(new URL("./flying-stars-testcases.json", import.meta.url), "utf8"),
+  readFile(new URL("../data/jinhan_yujing_day_pan.json", import.meta.url), "utf8"),
 ]);
 
 const solarTerms = normalizeSolarTerms(JSON.parse(termsRaw));
 const testCases = JSON.parse(casesRaw);
 const flyingStarsTestCases = JSON.parse(flyingStarsCasesRaw);
+const jinhanYujingData = JSON.parse(jinhanYujingRaw);
 const failures = [];
 const pendingCases = [];
 let verifiedCaseCount = 0;
 let flyingStarsVerifiedCaseCount = 0;
 let dailyGodsVerifiedCaseCount = 0;
 let naYinVerifiedCaseCount = 0;
+let jinhanDayPillarCount = 0;
+let jinhanPanCount = 0;
+let jinhanBlackYellowHourCount = 0;
 
 const parsedLocalDateTime = parseLocalDateTime("2026-06-05T09:08:07.123");
 const localDateTimeExpected = {
@@ -181,6 +187,11 @@ for (const testCase of naYinTestCases) {
   }
 }
 
+const jinhanStats = validateJinhanYujingData(jinhanYujingData);
+jinhanDayPillarCount = jinhanStats.dayPillars;
+jinhanPanCount = jinhanStats.pans;
+jinhanBlackYellowHourCount = jinhanStats.blackYellowHours;
+
 if (failures.length > 0) {
   console.error("測試失敗：");
   for (const failure of failures) {
@@ -194,6 +205,9 @@ if (failures.length > 0) {
   console.log(`九宮飛星測試通過：${flyingStarsVerifiedCaseCount} cases`);
   console.log(`日干吉神測試通過：${dailyGodsVerifiedCaseCount} cases`);
   console.log(`納音測試通過：${naYinVerifiedCaseCount} cases`);
+  console.log(
+    `金函玉鏡資料檢查通過：${jinhanDayPillarCount} day pillars, ${jinhanPanCount} pans, ${jinhanBlackYellowHourCount} blackYellowHours`
+  );
   if (pendingCases.length > 0) {
     console.log(`待人工驗證案例略過：${pendingCases.length} cases`);
     for (const testCase of pendingCases) {
@@ -246,4 +260,216 @@ function getDailyGodLabelsByPalace(result) {
       .flat()
       .map((palace) => [palace.id, palace.gods.map((god) => god.shortLabel).join("")])
   );
+}
+
+function validateJinhanYujingData(data) {
+  const requiredDunTypes = ["陽遁", "陰遁"];
+  const requiredPalaces = ["坎", "艮", "震", "巽", "離", "坤", "兌", "乾"];
+  const requiredMetaFields = [
+    "pillar",
+    "dunType",
+    "label",
+    "center",
+    "xishen",
+    "caishen",
+    "yinGuishen",
+    "yangGuishen",
+  ];
+  const requiredHourFields = ["index", "pillar", "timeRange", "deity", "type", "notes"];
+  const dayPillars = Object.keys(data);
+  let panCount = 0;
+  let blackYellowHourCount = 0;
+
+  if (dayPillars.length !== 60) {
+    failures.push({
+      id: "jinhan-yujing-data",
+      key: "dayPillarCount",
+      expected: 60,
+      actual: dayPillars.length,
+    });
+  }
+
+  for (const pillar of SEXAGENARY_CYCLE) {
+    const dayData = data[pillar];
+    if (!dayData) {
+      failures.push({
+        id: `jinhan-yujing-${pillar}`,
+        key: "dayPillar",
+        expected: "present",
+        actual: "missing",
+      });
+      continue;
+    }
+
+    for (const dunType of requiredDunTypes) {
+      const pan = dayData[dunType];
+      if (!pan) {
+        failures.push({
+          id: `jinhan-yujing-${pillar}-${dunType}`,
+          key: "pan",
+          expected: "present",
+          actual: "missing",
+        });
+        continue;
+      }
+
+      panCount += 1;
+      validateJinhanPan(pillar, dunType, pan, requiredMetaFields, requiredPalaces);
+    }
+
+    const hours = dayData.blackYellowHours;
+    if (!Array.isArray(hours)) {
+      failures.push({
+        id: `jinhan-yujing-${pillar}`,
+        key: "blackYellowHours",
+        expected: "array",
+        actual: typeof hours,
+      });
+      continue;
+    }
+
+    blackYellowHourCount += hours.length;
+    if (hours.length !== 12) {
+      failures.push({
+        id: `jinhan-yujing-${pillar}`,
+        key: "blackYellowHours.length",
+        expected: 12,
+        actual: hours.length,
+      });
+    }
+
+    for (const [index, hour] of hours.entries()) {
+      validateJinhanBlackYellowHour(pillar, index, hour, requiredHourFields);
+    }
+  }
+
+  return {
+    dayPillars: dayPillars.length,
+    pans: panCount,
+    blackYellowHours: blackYellowHourCount,
+  };
+}
+
+function validateJinhanPan(pillar, dunType, pan, requiredMetaFields, requiredPalaces) {
+  if (!pan.meta || typeof pan.meta !== "object") {
+    failures.push({
+      id: `jinhan-yujing-${pillar}-${dunType}`,
+      key: "meta",
+      expected: "object",
+      actual: typeof pan.meta,
+    });
+    return;
+  }
+
+  for (const field of requiredMetaFields) {
+    if (!pan.meta[field]) {
+      failures.push({
+        id: `jinhan-yujing-${pillar}-${dunType}`,
+        key: `meta.${field}`,
+        expected: "non-empty",
+        actual: pan.meta[field] ?? "missing",
+      });
+    }
+  }
+
+  if (pan.meta.pillar !== pillar) {
+    failures.push({
+      id: `jinhan-yujing-${pillar}-${dunType}`,
+      key: "meta.pillar",
+      expected: pillar,
+      actual: pan.meta.pillar,
+    });
+  }
+
+  if (pan.meta.dunType !== dunType) {
+    failures.push({
+      id: `jinhan-yujing-${pillar}-${dunType}`,
+      key: "meta.dunType",
+      expected: dunType,
+      actual: pan.meta.dunType,
+    });
+  }
+
+  if (!pan.palaces || typeof pan.palaces !== "object") {
+    failures.push({
+      id: `jinhan-yujing-${pillar}-${dunType}`,
+      key: "palaces",
+      expected: "object",
+      actual: typeof pan.palaces,
+    });
+    return;
+  }
+
+  for (const palaceName of requiredPalaces) {
+    const palace = pan.palaces[palaceName];
+    if (!palace) {
+      failures.push({
+        id: `jinhan-yujing-${pillar}-${dunType}`,
+        key: `palaces.${palaceName}`,
+        expected: "present",
+        actual: "missing",
+      });
+      continue;
+    }
+
+    for (const field of ["door", "star"]) {
+      if (!palace[field]) {
+        failures.push({
+          id: `jinhan-yujing-${pillar}-${dunType}`,
+          key: `palaces.${palaceName}.${field}`,
+          expected: "non-empty",
+          actual: palace[field] ?? "missing",
+        });
+      }
+    }
+  }
+}
+
+function validateJinhanBlackYellowHour(pillar, index, hour, requiredHourFields) {
+  for (const field of requiredHourFields) {
+    if (!(field in hour)) {
+      failures.push({
+        id: `jinhan-yujing-${pillar}-hour-${index + 1}`,
+        key: field,
+        expected: "present",
+        actual: "missing",
+      });
+    }
+  }
+
+  if (!Number.isInteger(hour.index)) {
+    failures.push({
+      id: `jinhan-yujing-${pillar}-hour-${index + 1}`,
+      key: "index",
+      expected: "integer",
+      actual: hour.index,
+    });
+  }
+
+  if (typeof hour.pillar !== "string" || hour.pillar.length !== 2) {
+    failures.push({
+      id: `jinhan-yujing-${pillar}-hour-${index + 1}`,
+      key: "pillar",
+      expected: "two-character pillar",
+      actual: hour.pillar,
+    });
+  }
+
+  if (hour.type !== "yellow" && hour.type !== "black") {
+    failures.push({
+      id: `jinhan-yujing-${pillar}-hour-${index + 1}`,
+      key: "type",
+      expected: "yellow or black",
+      actual: hour.type,
+    });
+  }
+
+  if (!Array.isArray(hour.notes)) {
+    failures.push({
+      id: `jinhan-yujing-${pillar}-hour-${index + 1}`,
+      key: "notes",
+      expected: "array",
+      actual: typeof hour.notes,
+    });
+  }
 }
