@@ -220,6 +220,20 @@ export function calculateHourlyFlyingStarChart(calendarResult) {
   };
 }
 
+export function calculateAllFlyingStarCharts(calendarResult, inputDateTime) {
+  if (inputDateTime === undefined || inputDateTime === null || inputDateTime === "") {
+    throw new Error("五盤整合需要有效的 inputDateTime");
+  }
+
+  return {
+    period: calculatePeriodFlyingStarChart(inputDateTime),
+    annual: calculateAnnualFlyingStarChart(calendarResult),
+    monthly: calculateMonthlyFlyingStarChart(calendarResult),
+    daily: calculateDailyFlyingStarChart(calendarResult),
+    hourly: calculateHourlyFlyingStarChart(calendarResult),
+  };
+}
+
 function normalizeDirection(direction) {
   if (direction === "forward" || direction === "順飛") {
     return "forward";

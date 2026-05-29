@@ -178,5 +178,203 @@
       "basis.dayBranch": "辰",
       "basis.hourBranch": "子"
     }
+  },
+  {
+    "id": "all-2026-05-29-five-charts",
+    "type": "all",
+    "input": "2026-05-29T09:30:00",
+    "expected": {
+      "period.centerStar": 9,
+      "annual.centerStar": 1,
+      "monthly.centerStar": 5,
+      "daily.centerStar": 7,
+      "hourly.centerStar": 6
+    }
+  },
+  {
+    "id": "all-before-2300-uses-current-day",
+    "type": "all",
+    "input": "2026-05-29T22:59:00",
+    "expected": {
+      "daily.basis.dayPillar": "癸卯",
+      "hourly.basis.dayBranch": "卯"
+    }
+  },
+  {
+    "id": "all-at-2300-uses-next-day",
+    "type": "all",
+    "input": "2026-05-29T23:00:00",
+    "expected": {
+      "daily.basis.dayPillar": "甲辰",
+      "hourly.basis.dayBranch": "辰"
+    }
+  },
+  {
+    "id": "all-before-summer-solstice-forward",
+    "type": "all",
+    "input": "2026-06-21T16:24:30",
+    "expected": {
+      "daily.direction": "forward",
+      "hourly.direction": "forward"
+    }
+  },
+  {
+    "id": "all-after-summer-solstice-reverse",
+    "type": "all",
+    "input": "2026-06-21T16:24:32",
+    "expected": {
+      "daily.direction": "reverse",
+      "hourly.direction": "reverse"
+    }
+  },
+  {
+    "id": "monthly-group-zi-wu-mao-you",
+    "type": "monthly",
+    "input": "2026-05-29T09:30:00",
+    "calendarResult": {
+      "yearPillar": "丙午",
+      "monthPillar": "癸巳",
+      "monthBranch": "巳"
+    },
+    "expected": {
+      "centerStar": 5,
+      "basis.yearBranchGroup": "子午卯酉",
+      "basis.yearBranch": "午",
+      "basis.monthBranch": "巳"
+    }
+  },
+  {
+    "id": "monthly-group-chen-xu-chou-wei",
+    "type": "monthly",
+    "input": "2026-05-29T09:30:00",
+    "calendarResult": {
+      "yearPillar": "甲辰",
+      "monthPillar": "己巳",
+      "monthBranch": "巳"
+    },
+    "expected": {
+      "centerStar": 2,
+      "basis.yearBranchGroup": "辰戌丑未",
+      "basis.yearBranch": "辰",
+      "basis.monthBranch": "巳"
+    }
+  },
+  {
+    "id": "monthly-group-yin-shen-si-hai",
+    "type": "monthly",
+    "input": "2026-05-29T09:30:00",
+    "calendarResult": {
+      "yearPillar": "乙巳",
+      "monthPillar": "辛巳",
+      "monthBranch": "巳"
+    },
+    "expected": {
+      "centerStar": 8,
+      "basis.yearBranchGroup": "寅申巳亥",
+      "basis.yearBranch": "巳",
+      "basis.monthBranch": "巳"
+    }
+  },
+  {
+    "id": "hourly-winter-group-zi-wu-mao-you",
+    "type": "hourly",
+    "input": "2026-05-29T09:30:00",
+    "calendarResult": {
+      "dayPillar": "癸卯",
+      "hourPillar": "丁巳",
+      "currentTerm": { "name": "小滿" }
+    },
+    "expected": {
+      "centerStar": 6,
+      "direction": "forward",
+      "basis.dayBranch": "卯",
+      "basis.hourBranch": "巳",
+      "basis.tableName": "winterForward"
+    }
+  },
+  {
+    "id": "hourly-winter-group-chen-xu-chou-wei",
+    "type": "hourly",
+    "input": "2026-05-29T09:30:00",
+    "calendarResult": {
+      "dayPillar": "甲辰",
+      "hourPillar": "甲子",
+      "currentTerm": { "name": "小滿" }
+    },
+    "expected": {
+      "centerStar": 4,
+      "direction": "forward",
+      "basis.dayBranch": "辰",
+      "basis.hourBranch": "子",
+      "basis.tableName": "winterForward"
+    }
+  },
+  {
+    "id": "hourly-winter-group-yin-shen-si-hai",
+    "type": "hourly",
+    "input": "2026-05-29T09:30:00",
+    "calendarResult": {
+      "dayPillar": "丙寅",
+      "hourPillar": "甲午",
+      "currentTerm": { "name": "小滿" }
+    },
+    "expected": {
+      "centerStar": 4,
+      "direction": "forward",
+      "basis.dayBranch": "寅",
+      "basis.hourBranch": "午",
+      "basis.tableName": "winterForward"
+    }
+  },
+  {
+    "id": "hourly-summer-group-zi-wu-mao-you",
+    "type": "hourly",
+    "input": "2026-06-21T16:24:32",
+    "calendarResult": {
+      "dayPillar": "癸卯",
+      "hourPillar": "丁巳",
+      "currentTerm": { "name": "夏至" }
+    },
+    "expected": {
+      "centerStar": 4,
+      "direction": "reverse",
+      "basis.dayBranch": "卯",
+      "basis.hourBranch": "巳",
+      "basis.tableName": "summerReverse"
+    }
+  },
+  {
+    "id": "hourly-summer-group-chen-xu-chou-wei",
+    "type": "hourly",
+    "input": "2026-06-21T16:24:32",
+    "calendarResult": {
+      "dayPillar": "甲辰",
+      "hourPillar": "甲子",
+      "currentTerm": { "name": "夏至" }
+    },
+    "expected": {
+      "centerStar": 6,
+      "direction": "reverse",
+      "basis.dayBranch": "辰",
+      "basis.hourBranch": "子",
+      "basis.tableName": "summerReverse"
+    }
+  },
+  {
+    "id": "hourly-summer-group-yin-shen-si-hai",
+    "type": "hourly",
+    "input": "2026-06-21T16:24:32",
+    "calendarResult": {
+      "dayPillar": "丙寅",
+      "hourPillar": "甲午",
+      "currentTerm": { "name": "夏至" }
+    },
+    "expected": {
+      "centerStar": 6,
+      "direction": "reverse",
+      "basis.dayBranch": "寅",
+      "basis.hourBranch": "午",
+      "basis.tableName": "summerReverse"
+    }
   }
 ]

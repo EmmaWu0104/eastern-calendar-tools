@@ -5,6 +5,7 @@ const { readFile } = await import("node:fs/promises");
 const { calculateBaziFromSolarTerms } = await import("../src/bazi.js");
 const { normalizeSolarTerms, parseLocalDateTime } = await import("../src/solarTerms.js");
 const {
+  calculateAllFlyingStarCharts,
   calculateAnnualFlyingStarChart,
   calculateDailyFlyingStarChart,
   calculateHourlyFlyingStarChart,
@@ -157,7 +158,11 @@ function calculateFlyingStarsTestCase(testCase, solarTerms) {
     return calculatePeriodFlyingStarChart(testCase.input);
   }
 
-  const calendarResult = calculateBaziFromSolarTerms(testCase.input, solarTerms);
+  const calendarResult = testCase.calendarResult ?? calculateBaziFromSolarTerms(testCase.input, solarTerms);
+
+  if (testCase.type === "all") {
+    return calculateAllFlyingStarCharts(calendarResult, testCase.input);
+  }
 
   if (testCase.type === "annual") {
     return calculateAnnualFlyingStarChart(calendarResult);
