@@ -6,6 +6,7 @@ import {
   getJinhanDeitiesByPalace,
   getJinhanYujingDayPan,
 } from "./jinhanYujing.js";
+import { getJinhanDunType } from "./jinhanDunType.js";
 import { getNaYinByPillar } from "./nayin.js";
 
 const PALACE_DIRECTION_LABELS = {
@@ -253,8 +254,9 @@ function renderJinhanYujing(calendarResult) {
   }
 
   try {
-    const dunType = elements.jinhanDunType.value || "陽遁";
-    const pan = getJinhanYujingDayPan(dayPillar, dunType);
+    const selectedDunType = elements.jinhanDunType.value || "陽遁";
+    const dunTypeStatus = getJinhanDunType(elements.datetime.value, calendarResult, null);
+    const pan = getJinhanYujingDayPan(dayPillar, selectedDunType);
 
     if (!pan) {
       clearJinhanYujing("查無金函玉鏡日盤資料");
@@ -264,7 +266,9 @@ function renderJinhanYujing(calendarResult) {
     const deitiesByPalace = getJinhanDeitiesByPalace(pan.meta);
     const blackYellowHours = getJinhanBlackYellowHours(dayPillar);
     elements.jinhanMessage.textContent = "";
-    elements.jinhanSummary.replaceChildren(...createJinhanSummaryItems(dayPillar, pan));
+    elements.jinhanSummary.replaceChildren(
+      ...createJinhanSummaryItems(dayPillar, pan, selectedDunType, dunTypeStatus)
+    );
     elements.jinhanGrid.replaceChildren(...createJinhanGridCells(pan, deitiesByPalace));
     elements.jinhanHoursBody.replaceChildren(...blackYellowHours.map(createJinhanHourRow));
   } catch (error) {
@@ -280,13 +284,15 @@ function clearJinhanYujing(message = "") {
   elements.jinhanHoursBody.replaceChildren();
 }
 
-function createJinhanSummaryItems(dayPillar, pan) {
+function createJinhanSummaryItems(dayPillar, pan, selectedDunType, dunTypeStatus) {
   const items = [
     { label: "日柱", value: `${dayPillar}日` },
     { label: "金函玉鏡盤", value: pan.meta.label },
     { label: "中宮", value: pan.meta.center },
-    { label: "陰陽遁選擇", value: "目前使用手動選擇" },
-    { label: "換遁提示", value: "超神接氣自動判斷尚未實作" },
+    { label: "陰陽遁選擇", value: `手動選擇：${selectedDunType}` },
+    { label: "自動判斷", value: "尚未啟用" },
+    { label: "判斷狀態", value: dunTypeStatus.status },
+    { label: "換遁提示", value: dunTypeStatus.reason },
   ];
 
   return items.map((item) => {
@@ -298,6 +304,7 @@ function createJinhanSummaryItems(dayPillar, pan) {
     label.textContent = `${item.label}：`;
 
     const value = document.createElement("span");
+    value.className = "jinhan-summary-value";
     value.textContent = item.value;
 
     line.append(label, value);

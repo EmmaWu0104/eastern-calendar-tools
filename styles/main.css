@@ -395,12 +395,21 @@ dd {
 }
 
 .jinhan-summary-item {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 4px;
+  align-items: baseline;
   min-width: 0;
 }
 
 .jinhan-summary-label {
   color: #52616f;
   font-weight: 700;
+}
+
+.jinhan-summary-value {
+  min-width: 0;
+  overflow-wrap: break-word;
 }
 
 .jinhan-content-layout {
