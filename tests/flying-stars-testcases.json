@@ -1,0 +1,182 @@
+[
+  {
+    "id": "fly-one-forward",
+    "type": "flyStars",
+    "centerStar": 1,
+    "direction": "forward",
+    "expected": {
+      "centerStar": 1,
+      "direction": "forward",
+      "palaces.center.starNumber": 1,
+      "palaces.qian.starNumber": 2,
+      "palaces.xun.starNumber": 9
+    }
+  },
+  {
+    "id": "fly-nine-forward",
+    "type": "flyStars",
+    "centerStar": 9,
+    "direction": "forward",
+    "expected": {
+      "centerStar": 9,
+      "direction": "forward",
+      "palaces.center.starNumber": 9,
+      "palaces.qian.starNumber": 1,
+      "palaces.xun.starNumber": 8
+    }
+  },
+  {
+    "id": "fly-one-reverse",
+    "type": "flyStars",
+    "centerStar": 1,
+    "direction": "reverse",
+    "expected": {
+      "centerStar": 1,
+      "direction": "reverse",
+      "palaces.center.starNumber": 1,
+      "palaces.xun.starNumber": 2,
+      "palaces.qian.starNumber": 9
+    }
+  },
+  {
+    "id": "period-2024-nine",
+    "type": "period",
+    "input": "2024-02-04T12:00:00",
+    "expected": {
+      "period": 9,
+      "centerStar": 9,
+      "direction": "forward",
+      "palaces.center.starNumber": 9
+    }
+  },
+  {
+    "id": "period-2043-nine",
+    "type": "period",
+    "input": "2043-12-31T12:00:00",
+    "expected": {
+      "period": 9,
+      "centerStar": 9,
+      "direction": "forward"
+    }
+  },
+  {
+    "id": "annual-2026-one",
+    "type": "annual",
+    "input": "2026-05-29T09:30:00",
+    "expected": {
+      "centerStar": 1,
+      "direction": "forward",
+      "basis.year": 2026,
+      "basis.yearPillar": "丙午"
+    }
+  },
+  {
+    "id": "monthly-2026-bingwu-si",
+    "type": "monthly",
+    "input": "2026-05-29T09:30:00",
+    "expected": {
+      "centerStar": 5,
+      "direction": "forward",
+      "basis.yearBranch": "午",
+      "basis.monthBranch": "巳",
+      "basis.yearBranchGroup": "子午卯酉"
+    }
+  },
+  {
+    "id": "daily-2026-05-29-xiaoman",
+    "type": "daily",
+    "input": "2026-05-29T09:30:00",
+    "expected": {
+      "centerStar": 7,
+      "direction": "forward",
+      "basis.dayPillar": "癸卯",
+      "basis.dayBranch": "卯",
+      "basis.termName": "小滿",
+      "basis.systemName": "穀雨順"
+    }
+  },
+  {
+    "id": "hourly-2026-05-29-si",
+    "type": "hourly",
+    "input": "2026-05-29T09:30:00",
+    "expected": {
+      "centerStar": 6,
+      "direction": "forward",
+      "basis.dayPillar": "癸卯",
+      "basis.dayBranch": "卯",
+      "basis.hourBranch": "巳",
+      "basis.termName": "小滿",
+      "basis.systemName": "冬至順"
+    }
+  },
+  {
+    "id": "daily-before-summer-solstice-forward",
+    "type": "daily",
+    "input": "2026-06-21T16:24:30",
+    "expected": {
+      "centerStar": 6,
+      "direction": "forward",
+      "basis.dayPillar": "丙寅",
+      "basis.termName": "芒種",
+      "basis.systemName": "穀雨順"
+    }
+  },
+  {
+    "id": "daily-after-summer-solstice-reverse",
+    "type": "daily",
+    "input": "2026-06-21T16:24:32",
+    "expected": {
+      "centerStar": 7,
+      "direction": "reverse",
+      "basis.dayPillar": "丙寅",
+      "basis.termName": "夏至",
+      "basis.systemName": "夏至逆"
+    }
+  },
+  {
+    "id": "daily-before-2300-uses-current-day",
+    "type": "daily",
+    "input": "2026-05-29T22:59:00",
+    "expected": {
+      "centerStar": 7,
+      "direction": "forward",
+      "basis.dayPillar": "癸卯",
+      "basis.dayBranch": "卯"
+    }
+  },
+  {
+    "id": "daily-at-2300-uses-next-day",
+    "type": "daily",
+    "input": "2026-05-29T23:00:00",
+    "expected": {
+      "centerStar": 8,
+      "direction": "forward",
+      "basis.dayPillar": "甲辰",
+      "basis.dayBranch": "辰"
+    }
+  },
+  {
+    "id": "hourly-before-2300-uses-current-day-branch",
+    "type": "hourly",
+    "input": "2026-05-29T22:59:00",
+    "expected": {
+      "centerStar": 3,
+      "direction": "forward",
+      "basis.dayPillar": "癸卯",
+      "basis.dayBranch": "卯",
+      "basis.hourBranch": "亥"
+    }
+  },
+  {
+    "id": "hourly-at-2300-uses-next-day-branch",
+    "type": "hourly",
+    "input": "2026-05-29T23:00:00",
+    "expected": {
+      "centerStar": 4,
+      "direction": "forward",
+      "basis.dayPillar": "甲辰",
+      "basis.dayBranch": "辰",
+      "basis.hourBranch": "子"
+    }
+  }
+]
