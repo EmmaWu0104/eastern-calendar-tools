@@ -138,7 +138,7 @@ function createFlyingStarChart(title, chart) {
   const summary = document.createElement("div");
   summary.className = "flying-star-summary";
   summary.append(
-    createMetaLine("中宮", `${chart.palaces.center.starName}入中`),
+    createMetaLine("中宮", `${chart.palaces.center.starDisplayName}入中`),
     createMetaLine("飛法", formatDirection(chart.direction)),
     createBasisBlock(formatFlyingStarBasis(chart))
   );
@@ -206,7 +206,7 @@ function createPalaceCell(palace) {
 
   const starName = document.createElement("div");
   starName.className = "palace-star";
-  starName.textContent = palace.starName;
+  starName.textContent = palace.starDisplayName;
 
   cell.append(palaceName, starName);
   return cell;

@@ -35,6 +35,18 @@ export const STAR_NAMES = Object.freeze({
   9: "九紫右弼",
 });
 
+export const STAR_DISPLAY_NAMES = Object.freeze({
+  1: "① 白貪狼",
+  2: "② 黑巨門",
+  3: "③ 碧祿存",
+  4: "④ 綠文曲",
+  5: "⑤ 黃廉貞",
+  6: "⑥ 白武曲",
+  7: "⑦ 赤破軍",
+  8: "⑧ 白左輔",
+  9: "⑨ 紫右弼",
+});
+
 const WINTER_FORWARD_TERMS = new Set(["冬至", "小寒", "大寒", "立春", "雨水", "驚蟄", "春分", "清明", "穀雨", "立夏", "小滿", "芒種"]);
 const SUMMER_REVERSE_TERMS = new Set(["夏至", "小暑", "大暑", "立秋", "處暑", "白露", "秋分", "寒露", "霜降", "立冬", "小雪", "大雪"]);
 
@@ -104,6 +116,7 @@ export function flyStars(centerStar, direction) {
       ...PALACES[palaceId],
       starNumber,
       starName: STAR_NAMES[starNumber],
+      starDisplayName: STAR_DISPLAY_NAMES[starNumber],
     };
   }
 
