@@ -21,12 +21,17 @@
 
       <section class="panel" aria-labelledby="result-title">
         <h2 id="result-title">四柱</h2>
-        <dl class="pillars">
-          <div><dt>年柱</dt><dd id="year-pillar">--</dd></div>
-          <div><dt>月柱</dt><dd id="month-pillar">--</dd></div>
-          <div><dt>日柱</dt><dd id="day-pillar">--</dd></div>
-          <div><dt>時柱</dt><dd id="hour-pillar">--</dd></div>
-        </dl>
+        <div class="pillar-gods-layout">
+          <dl class="pillars">
+            <div class="pillar-card"><dt>年柱</dt><dd id="year-pillar">--</dd></div>
+            <div class="pillar-card"><dt>月柱</dt><dd id="month-pillar">--</dd></div>
+            <div class="pillar-card"><dt>日柱</dt><dd id="day-pillar">--</dd></div>
+            <div class="pillar-card"><dt>時柱</dt><dd id="hour-pillar">--</dd></div>
+          </dl>
+          <aside class="daily-gods-panel" aria-label="日干吉神九宮格">
+            <div id="daily-gods-grid" class="daily-gods-grid" aria-label="日干吉神九宮格"></div>
+          </aside>
+        </div>
       </section>
 
       <section class="panel" aria-labelledby="terms-title">

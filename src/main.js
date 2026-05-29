@@ -1,4 +1,5 @@
 import { calculateBazi } from "./bazi.js";
+import { getDailyGodsByStem } from "./dailyGods.js";
 import { calculateAllFlyingStarCharts } from "./flyingStars.js";
 
 const PALACE_DIRECTION_LABELS = {
@@ -20,6 +21,7 @@ const elements = {
   monthPillar: getElement("#month-pillar"),
   dayPillar: getElement("#day-pillar"),
   hourPillar: getElement("#hour-pillar"),
+  dailyGodsGrid: getElement("#daily-gods-grid"),
   currentTerm: getElement("#current-term"),
   nextTerm: getElement("#next-term"),
   monthBranch: getElement("#month-branch"),
@@ -67,10 +69,11 @@ async function handleCalculate() {
 }
 
 function renderResult(result) {
-  elements.yearPillar.textContent = result.yearPillar;
-  elements.monthPillar.textContent = result.monthPillar;
-  elements.dayPillar.textContent = result.dayPillar;
-  elements.hourPillar.textContent = result.hourPillar;
+  renderPillar(elements.yearPillar, result.yearPillar);
+  renderPillar(elements.monthPillar, result.monthPillar);
+  renderPillar(elements.dayPillar, result.dayPillar);
+  renderPillar(elements.hourPillar, result.hourPillar);
+  renderDailyGods(result.dayPillar);
   renderTerm(elements.currentTerm, "目前節氣", result.currentTerm);
   renderTerm(elements.nextTerm, "下一節氣", result.nextTerm);
   elements.monthBranch.textContent = `${result.monthBranch}月`;
@@ -95,6 +98,7 @@ function clearResult() {
   ]) {
     element.textContent = "--";
   }
+  renderDailyGods("");
   clearFlyingStars();
 }
 
@@ -114,6 +118,60 @@ function renderTerm(element, label, term) {
     createTermLine(label, term.name, "term-name"),
     createTermLine("交節時間", formatTermDateTime(term), "term-time")
   );
+}
+
+function renderPillar(element, pillar) {
+  if (typeof pillar !== "string" || pillar.length < 2) {
+    element.textContent = "--";
+    return;
+  }
+
+  element.replaceChildren(
+    createPillarPart(pillar[0], "pillar-stem"),
+    createPillarPart(pillar[1], "pillar-branch")
+  );
+}
+
+function createPillarPart(text, className) {
+  const part = document.createElement("span");
+  part.className = className;
+  part.textContent = text;
+  return part;
+}
+
+function renderDailyGods(dayPillar) {
+  const dayStem = typeof dayPillar === "string" ? dayPillar[0] : "";
+  const dailyGods = getDailyGodsByStem(dayStem);
+  const cells = dailyGods.layout.flatMap((row) => row.map((palace) => createDailyGodsCell(palace)));
+  elements.dailyGodsGrid.replaceChildren(...cells);
+}
+
+function createDailyGodsCell(palace) {
+  const cell = document.createElement("div");
+  cell.className = palace.id === "center" ? "daily-gods-palace daily-gods-center" : "daily-gods-palace";
+
+  const badges = document.createElement("div");
+  badges.className = "daily-gods-badges";
+  badges.append(
+    ...palace.gods.map((god) => {
+      const badge = document.createElement("span");
+      badge.className = "daily-gods-badge";
+      badge.title = god.name;
+      badge.textContent = god.shortLabel;
+      return badge;
+    })
+  );
+
+  const palaceLabel = document.createElement("div");
+  palaceLabel.className = "daily-gods-corner daily-gods-corner-left";
+  palaceLabel.textContent = `${palace.name}${palace.number}`;
+
+  const directionLabel = document.createElement("div");
+  directionLabel.className = "daily-gods-corner daily-gods-corner-right";
+  directionLabel.textContent = palace.directionLabel;
+
+  cell.append(badges, palaceLabel, directionLabel);
+  return cell;
 }
 
 function renderFlyingStars(calendarResult, inputDateTime) {

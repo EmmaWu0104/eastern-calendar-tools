@@ -3,6 +3,7 @@ process.env.TZ = TEST_TIME_ZONE;
 
 const { readFile } = await import("node:fs/promises");
 const { calculateBaziFromSolarTerms } = await import("../src/bazi.js");
+const { getDailyGodsByStem } = await import("../src/dailyGods.js");
 const { normalizeSolarTerms, parseLocalDateTime } = await import("../src/solarTerms.js");
 const {
   calculateAllFlyingStarCharts,
@@ -35,6 +36,7 @@ const failures = [];
 const pendingCases = [];
 let verifiedCaseCount = 0;
 let flyingStarsVerifiedCaseCount = 0;
+let dailyGodsVerifiedCaseCount = 0;
 
 const parsedLocalDateTime = parseLocalDateTime("2026-06-05T09:08:07.123");
 const localDateTimeExpected = {
@@ -130,6 +132,30 @@ for (const testCase of flyingStarsTestCases) {
   }
 }
 
+const dailyGodsTestCases = [
+  { id: "daily-gods-gui", stem: "癸", expected: { xun: "喜陽", li: "財", zhen: "陰" } },
+  { id: "daily-gods-jia", stem: "甲", expected: { gen: "喜財陰", kun: "陽" } },
+  { id: "daily-gods-ding", stem: "丁", expected: { li: "喜", dui: "財陰", qian: "陽" } },
+];
+
+for (const testCase of dailyGodsTestCases) {
+  const actual = getDailyGodsByStem(testCase.stem);
+  const labelsByPalace = getDailyGodLabelsByPalace(actual);
+  dailyGodsVerifiedCaseCount += 1;
+
+  for (const [palaceId, expectedValue] of Object.entries(testCase.expected)) {
+    const actualValue = labelsByPalace[palaceId] ?? "";
+    if (actualValue !== expectedValue) {
+      failures.push({
+        id: testCase.id,
+        key: palaceId,
+        expected: expectedValue,
+        actual: actualValue,
+      });
+    }
+  }
+}
+
 if (failures.length > 0) {
   console.error("測試失敗：");
   for (const failure of failures) {
@@ -141,6 +167,7 @@ if (failures.length > 0) {
 } else {
   console.log(`全部通過：${verifiedCaseCount} verified cases + parseLocalDateTime`);
   console.log(`九宮飛星測試通過：${flyingStarsVerifiedCaseCount} cases`);
+  console.log(`日干吉神測試通過：${dailyGodsVerifiedCaseCount} cases`);
   if (pendingCases.length > 0) {
     console.log(`待人工驗證案例略過：${pendingCases.length} cases`);
     for (const testCase of pendingCases) {
@@ -185,4 +212,12 @@ function calculateFlyingStarsTestCase(testCase, solarTerms) {
 
 function getByPath(value, path) {
   return path.split(".").reduce((current, key) => current?.[key], value);
+}
+
+function getDailyGodLabelsByPalace(result) {
+  return Object.fromEntries(
+    result.layout
+      .flat()
+      .map((palace) => [palace.id, palace.gods.map((god) => god.shortLabel).join("")])
+  );
 }

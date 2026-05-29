@@ -77,11 +77,32 @@ dl {
   margin: 0;
 }
 
-.pillars,
 .details {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
   gap: 12px;
+}
+
+.pillar-gods-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 250px;
+  gap: 16px;
+  align-items: start;
+}
+
+.pillars {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(64px, 1fr));
+  gap: 10px;
+}
+
+.pillar-card {
+  min-width: 0;
+  padding: 12px 8px;
+  border: 1px solid #d8dee6;
+  border-radius: 8px;
+  text-align: center;
+  background: #fbfcfe;
 }
 
 dt {
@@ -96,8 +117,83 @@ dd {
   font-weight: 700;
 }
 
+.pillar-card dd {
+  display: grid;
+  gap: 4px;
+  justify-items: center;
+  min-height: 76px;
+  font-size: 30px;
+  line-height: 1.05;
+}
+
+.pillar-stem,
+.pillar-branch {
+  display: block;
+}
+
 .details dd {
   font-size: 18px;
+}
+
+.daily-gods-panel {
+  min-width: 0;
+}
+
+.daily-gods-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  border-top: 1px solid #d8dee6;
+  border-left: 1px solid #d8dee6;
+}
+
+.daily-gods-palace {
+  position: relative;
+  min-height: 70px;
+  padding: 18px 6px 20px;
+  border-right: 1px solid #d8dee6;
+  border-bottom: 1px solid #d8dee6;
+  background: #fbfcfe;
+}
+
+.daily-gods-center {
+  background: #f0f4f8;
+}
+
+.daily-gods-badges {
+  position: absolute;
+  left: 50%;
+  top: 45%;
+  display: flex;
+  width: calc(100% - 16px);
+  flex-wrap: wrap;
+  gap: 4px;
+  justify-content: center;
+  transform: translate(-50%, -50%);
+  text-align: center;
+}
+
+.daily-gods-badge {
+  min-width: 22px;
+  color: #1f2933;
+  font-size: 18px;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.daily-gods-corner {
+  position: absolute;
+  bottom: 5px;
+  color: #52616f;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.daily-gods-corner-left {
+  left: 6px;
+}
+
+.daily-gods-corner-right {
+  right: 6px;
 }
 
 .term-name {
@@ -257,6 +353,20 @@ dd {
 @media (max-width: 680px) {
   .flying-stars-grid {
     grid-template-columns: 1fr;
+  }
+
+  .pillar-gods-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .daily-gods-panel {
+    max-width: 280px;
+  }
+}
+
+@media (max-width: 460px) {
+  .pillars {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
