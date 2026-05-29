@@ -502,5 +502,96 @@
     "input": "2026-06-21T16:24:32",
     "calendarResult": { "dayPillar": "乙巳", "hourPillar": "壬午", "currentTerm": { "name": "夏至" } },
     "expected": { "centerStar": 6, "basis.tableName": "summerReverse" }
+  },
+  {
+    "id": "daily-system-dongzhi-jiazi",
+    "type": "daily",
+    "input": "fixture",
+    "calendarResult": { "dayPillar": "甲子", "currentTerm": { "name": "冬至" } },
+    "expected": { "centerStar": 1, "direction": "forward", "basis.systemName": "冬至順" }
+  },
+  {
+    "id": "daily-system-lichun-renshen",
+    "type": "daily",
+    "input": "fixture",
+    "calendarResult": { "dayPillar": "壬申", "currentTerm": { "name": "立春" } },
+    "expected": { "centerStar": 9, "direction": "forward", "basis.systemName": "冬至順" }
+  },
+  {
+    "id": "daily-system-yushui-jiazi",
+    "type": "daily",
+    "input": "fixture",
+    "calendarResult": { "dayPillar": "甲子", "currentTerm": { "name": "雨水" } },
+    "expected": { "centerStar": 7, "direction": "forward", "basis.systemName": "雨水順" }
+  },
+  {
+    "id": "daily-system-qingming-renshen",
+    "type": "daily",
+    "input": "fixture",
+    "calendarResult": { "dayPillar": "壬申", "currentTerm": { "name": "清明" } },
+    "expected": { "centerStar": 6, "direction": "forward", "basis.systemName": "雨水順" }
+  },
+  {
+    "id": "daily-system-guyu-jiazi",
+    "type": "daily",
+    "input": "fixture",
+    "calendarResult": { "dayPillar": "甲子", "currentTerm": { "name": "穀雨" } },
+    "expected": { "centerStar": 4, "direction": "forward", "basis.systemName": "穀雨順" }
+  },
+  {
+    "id": "daily-system-xiaoman-guimao",
+    "type": "daily",
+    "input": "fixture",
+    "calendarResult": { "dayPillar": "癸卯", "currentTerm": { "name": "小滿" } },
+    "expected": { "centerStar": 7, "direction": "forward", "basis.systemName": "穀雨順" }
+  },
+  {
+    "id": "daily-system-mangzhong-renshen",
+    "type": "daily",
+    "input": "fixture",
+    "calendarResult": { "dayPillar": "壬申", "currentTerm": { "name": "芒種" } },
+    "expected": { "centerStar": 3, "direction": "forward", "basis.systemName": "穀雨順" }
+  },
+  {
+    "id": "daily-system-xiazhi-jiazi",
+    "type": "daily",
+    "input": "fixture",
+    "calendarResult": { "dayPillar": "甲子", "currentTerm": { "name": "夏至" } },
+    "expected": { "centerStar": 9, "direction": "reverse", "basis.systemName": "夏至逆" }
+  },
+  {
+    "id": "daily-system-liqiu-renshen",
+    "type": "daily",
+    "input": "fixture",
+    "calendarResult": { "dayPillar": "壬申", "currentTerm": { "name": "立秋" } },
+    "expected": { "centerStar": 1, "direction": "reverse", "basis.systemName": "夏至逆" }
+  },
+  {
+    "id": "daily-system-chushu-jiazi",
+    "type": "daily",
+    "input": "fixture",
+    "calendarResult": { "dayPillar": "甲子", "currentTerm": { "name": "處暑" } },
+    "expected": { "centerStar": 3, "direction": "reverse", "basis.systemName": "處暑逆" }
+  },
+  {
+    "id": "daily-system-hanlu-renshen",
+    "type": "daily",
+    "input": "fixture",
+    "calendarResult": { "dayPillar": "壬申", "currentTerm": { "name": "寒露" } },
+    "expected": { "centerStar": 4, "direction": "reverse", "basis.systemName": "處暑逆" }
+  },
+  {
+    "id": "daily-system-shuangjiang-jiazi",
+    "type": "daily",
+    "input": "fixture",
+    "calendarResult": { "dayPillar": "甲子", "currentTerm": { "name": "霜降" } },
+    "expected": { "centerStar": 6, "direction": "reverse", "basis.systemName": "霜降逆" }
+  },
+  {
+    "id": "daily-system-daxue-renshen",
+    "type": "daily",
+    "input": "fixture",
+    "calendarResult": { "dayPillar": "壬申", "currentTerm": { "name": "大雪" } },
+    "expected": { "centerStar": 7, "direction": "reverse", "basis.systemName": "霜降逆" }
   }
 ]
