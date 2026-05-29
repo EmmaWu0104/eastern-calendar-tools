@@ -1,4 +1,5 @@
 import { calculateBazi } from "./bazi.js";
+import { calculateAllFlyingStarCharts } from "./flyingStars.js";
 
 const elements = {
   datetime: getElement("#datetime"),
@@ -10,6 +11,8 @@ const elements = {
   currentTerm: getElement("#current-term"),
   nextTerm: getElement("#next-term"),
   monthBranch: getElement("#month-branch"),
+  flyingStars: getElement("#flying-stars"),
+  flyingStarsMessage: getElement("#flying-stars-message"),
   ruleNotes: getElement("#rule-notes"),
   message: getElement("#message"),
 };
@@ -40,6 +43,7 @@ async function handleCalculate() {
   try {
     const result = await calculateBazi(value);
     renderResult(result);
+    renderFlyingStars(result, value);
     setMessage("", "");
   } catch (error) {
     clearResult();
@@ -79,6 +83,7 @@ function clearResult() {
   ]) {
     element.textContent = "--";
   }
+  clearFlyingStars();
 }
 
 function setMessage(text, state) {
@@ -97,6 +102,119 @@ function renderTerm(element, label, term) {
     createTermLine(label, term.name, "term-name"),
     createTermLine("交節時間", formatTermDateTime(term), "term-time")
   );
+}
+
+function renderFlyingStars(calendarResult, inputDateTime) {
+  try {
+    const charts = calculateAllFlyingStarCharts(calendarResult, inputDateTime);
+    elements.flyingStarsMessage.textContent = "";
+    elements.flyingStars.replaceChildren(
+      createFlyingStarChart("運盤", charts.period),
+      createFlyingStarChart("年盤", charts.annual),
+      createFlyingStarChart("月盤", charts.monthly),
+      createFlyingStarChart("日盤", charts.daily),
+      createFlyingStarChart("時盤", charts.hourly)
+    );
+  } catch (error) {
+    console.error("九宮飛星計算失敗", error);
+    clearFlyingStars();
+    const message = error instanceof Error ? error.message : String(error);
+    elements.flyingStarsMessage.textContent = `九宮飛星計算失敗：${message}`;
+  }
+}
+
+function clearFlyingStars() {
+  elements.flyingStars.replaceChildren();
+  elements.flyingStarsMessage.textContent = "";
+}
+
+function createFlyingStarChart(title, chart) {
+  const article = document.createElement("article");
+  article.className = "flying-star-card";
+
+  const heading = document.createElement("h3");
+  heading.textContent = title;
+
+  const summary = document.createElement("div");
+  summary.className = "flying-star-summary";
+  summary.append(
+    createMetaLine("中宮星", `${chart.palaces.center.starName}入中`),
+    createMetaLine("飛法", formatDirection(chart.direction)),
+    createMetaLine("依據", formatFlyingStarBasis(chart))
+  );
+
+  const grid = document.createElement("div");
+  grid.className = "nine-palace-grid";
+
+  for (const row of chart.layout) {
+    for (const palace of row) {
+      grid.append(createPalaceCell(palace));
+    }
+  }
+
+  article.append(heading, summary, grid);
+  return article;
+}
+
+function createMetaLine(label, value) {
+  const line = document.createElement("div");
+  line.className = "meta-line";
+
+  const labelElement = document.createElement("span");
+  labelElement.className = "meta-label";
+  labelElement.textContent = `${label}：`;
+
+  const valueElement = document.createElement("span");
+  valueElement.textContent = value;
+
+  line.append(labelElement, valueElement);
+  return line;
+}
+
+function createPalaceCell(palace) {
+  const cell = document.createElement("div");
+  cell.className = "palace-cell";
+
+  const palaceName = document.createElement("div");
+  palaceName.className = "palace-name";
+  palaceName.textContent = `${palace.name}${palace.number}`;
+
+  const starName = document.createElement("div");
+  starName.className = "palace-star";
+  starName.textContent = palace.starName;
+
+  cell.append(palaceName, starName);
+  return cell;
+}
+
+function formatDirection(direction) {
+  return direction === "reverse" ? "逆飛" : "順飛";
+}
+
+function formatFlyingStarBasis(chart) {
+  const basis = chart.basis ?? {};
+
+  if (chart.type === "period") {
+    return `西元${basis.year}年，${chart.period}運`;
+  }
+
+  if (chart.type === "annual") {
+    return `有效年份${basis.year}，${basis.yearPillar}年`;
+  }
+
+  if (chart.type === "monthly") {
+    return `年支分組${basis.yearBranchGroup}，${basis.monthPillar}月，月支${basis.monthBranch}`;
+  }
+
+  if (chart.type === "daily") {
+    return `${basis.dayPillar}日，${basis.termName}，${basis.systemName}`;
+  }
+
+  if (chart.type === "hourly") {
+    return `${basis.dayPillar}日，${basis.hourPillar}時，${basis.termName}，${basis.systemName}`;
+  }
+
+  return "";
 }
 
 function createTermLine(label, value, className) {
