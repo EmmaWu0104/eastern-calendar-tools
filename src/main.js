@@ -76,6 +76,7 @@ const elements = {
   currentTerm: getElement("#current-term"),
   nextTerm: getElement("#next-term"),
   monthBranch: getElement("#month-branch"),
+  currentHou: getElement("#current-hou"),
   flyingStars: getElement("#flying-stars"),
   flyingStarsMessage: getElement("#flying-stars-message"),
   jinhanDunType: getElement("#jinhan-dun-type"),
@@ -154,6 +155,7 @@ function renderResult(result) {
   renderTerm(elements.currentTerm, "目前節氣", result.currentTerm);
   renderTerm(elements.nextTerm, "下一節氣", result.nextTerm);
   elements.monthBranch.textContent = `${result.monthBranch}月`;
+  renderCurrentHou(result.currentHou);
   elements.ruleNotes.replaceChildren(
     ...result.ruleNotes.map((note) => {
       const item = document.createElement("li");
@@ -175,6 +177,7 @@ function clearResult() {
     elements.currentTerm,
     elements.nextTerm,
     elements.monthBranch,
+    elements.currentHou,
   ]) {
     element.textContent = "--";
   }
@@ -198,6 +201,23 @@ function renderTerm(element, label, term) {
   element.replaceChildren(
     createTermLine(label, term.name, "term-name"),
     createTermLine("交節時間", formatTermDateTime(term), "term-time")
+  );
+}
+
+function renderCurrentHou(currentHou) {
+  if (!currentHou) {
+    elements.currentHou.textContent = "—";
+    return;
+  }
+
+  const houName = currentHou.shortName || currentHou.name;
+  elements.currentHou.replaceChildren(
+    createTermLine("七十二候", `${currentHou.term}${currentHou.phase}・${houName}`, "hou-name"),
+    createTermLine(
+      "候區間",
+      `${formatHouRangeDateTime(currentHou.start)} ～ ${formatHouRangeDateTime(currentHou.end)}`,
+      "hou-time"
+    )
   );
 }
 
@@ -651,6 +671,20 @@ function formatTermDateTime(term) {
   const minute = String(date.getMinutes()).padStart(2, "0");
 
   return `${year}/${month}/${day} ${hour}:${minute}`;
+}
+
+function formatHouRangeDateTime(dateTimeValue) {
+  const date = new Date(dateTimeValue);
+  if (!Number.isFinite(date.getTime())) {
+    return "—";
+  }
+
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  const hour = String(date.getHours()).padStart(2, "0");
+  const minute = String(date.getMinutes()).padStart(2, "0");
+
+  return `${month}/${day} ${hour}:${minute}`;
 }
 
 function getElement(selector) {

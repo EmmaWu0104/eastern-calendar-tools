@@ -39,11 +39,17 @@
 
       <section class="panel" aria-labelledby="terms-title">
         <h2 id="terms-title">節氣與月令</h2>
-        <dl class="details">
-          <div><dt>目前節氣</dt><dd id="current-term">--</dd></div>
-          <div><dt>下一節氣</dt><dd id="next-term">--</dd></div>
-          <div><dt>月令</dt><dd id="month-branch">--</dd></div>
-        </dl>
+        <div class="terms-layout">
+          <div class="month-branch-row">
+            <span class="month-branch-label">月令：</span>
+            <span id="month-branch" class="month-branch-value">--</span>
+          </div>
+          <dl class="term-details">
+            <div><dt>目前節氣</dt><dd id="current-term">--</dd></div>
+            <div><dt>七十二候</dt><dd id="current-hou">--</dd></div>
+            <div><dt>下一節氣</dt><dd id="next-term">--</dd></div>
+          </dl>
+        </div>
       </section>
 
       <section class="panel" aria-labelledby="flying-stars-title">

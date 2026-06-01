@@ -91,6 +91,35 @@ dl {
   gap: 12px;
 }
 
+.terms-layout {
+  display: grid;
+  gap: 12px;
+}
+
+.month-branch-row {
+  display: flex;
+  gap: 4px;
+  align-items: baseline;
+}
+
+.month-branch-label {
+  color: #52616f;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.month-branch-value {
+  color: #1f2933;
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.term-details {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
 .pillar-gods-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 250px;
@@ -150,6 +179,23 @@ dd {
 
 .details dd {
   font-size: 18px;
+}
+
+.term-details dd {
+  font-size: 18px;
+}
+
+.hou-name {
+  margin-bottom: 4px;
+  color: #1f2933;
+  font-weight: 800;
+}
+
+.hou-time {
+  color: #52616f;
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 1.4;
 }
 
 .daily-gods-panel {
@@ -680,6 +726,10 @@ dd {
 }
 
 @media (max-width: 680px) {
+  .term-details {
+    grid-template-columns: 1fr;
+  }
+
   .flying-stars-grid {
     grid-template-columns: 1fr;
   }

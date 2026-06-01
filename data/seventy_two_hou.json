@@ -1,0 +1,626 @@
+{
+  "立春": [
+    {
+      "houIndex": 1,
+      "globalHouIndex": 1,
+      "phase": "初候",
+      "name": "東風解凍",
+      "shortName": "東風解凍",
+      "description": ""
+    },
+    {
+      "houIndex": 2,
+      "globalHouIndex": 2,
+      "phase": "次候",
+      "name": "蟄蟲始振",
+      "shortName": "蟄蟲始振",
+      "description": ""
+    },
+    {
+      "houIndex": 3,
+      "globalHouIndex": 3,
+      "phase": "末候",
+      "name": "魚陟負冰",
+      "shortName": "魚陟負冰",
+      "description": ""
+    }
+  ],
+  "雨水": [
+    {
+      "houIndex": 1,
+      "globalHouIndex": 4,
+      "phase": "初候",
+      "name": "獺祭魚",
+      "shortName": "獺祭魚",
+      "description": ""
+    },
+    {
+      "houIndex": 2,
+      "globalHouIndex": 5,
+      "phase": "次候",
+      "name": "鴻雁來",
+      "shortName": "鴻雁來",
+      "description": ""
+    },
+    {
+      "houIndex": 3,
+      "globalHouIndex": 6,
+      "phase": "末候",
+      "name": "草木萌動",
+      "shortName": "草木萌動",
+      "description": ""
+    }
+  ],
+  "驚蟄": [
+    {
+      "houIndex": 1,
+      "globalHouIndex": 7,
+      "phase": "初候",
+      "name": "桃始華",
+      "shortName": "桃始華",
+      "description": ""
+    },
+    {
+      "houIndex": 2,
+      "globalHouIndex": 8,
+      "phase": "次候",
+      "name": "倉庚鳴",
+      "shortName": "倉庚鳴",
+      "description": ""
+    },
+    {
+      "houIndex": 3,
+      "globalHouIndex": 9,
+      "phase": "末候",
+      "name": "鷹化為鳩",
+      "shortName": "鷹化為鳩",
+      "description": ""
+    }
+  ],
+  "春分": [
+    {
+      "houIndex": 1,
+      "globalHouIndex": 10,
+      "phase": "初候",
+      "name": "玄鳥至",
+      "shortName": "玄鳥至",
+      "description": ""
+    },
+    {
+      "houIndex": 2,
+      "globalHouIndex": 11,
+      "phase": "次候",
+      "name": "雷乃發聲",
+      "shortName": "雷乃發聲",
+      "description": ""
+    },
+    {
+      "houIndex": 3,
+      "globalHouIndex": 12,
+      "phase": "末候",
+      "name": "始電",
+      "shortName": "始電",
+      "description": ""
+    }
+  ],
+  "清明": [
+    {
+      "houIndex": 1,
+      "globalHouIndex": 13,
+      "phase": "初候",
+      "name": "桐始華",
+      "shortName": "桐始華",
+      "description": ""
+    },
+    {
+      "houIndex": 2,
+      "globalHouIndex": 14,
+      "phase": "次候",
+      "name": "田鼠化為鴽",
+      "shortName": "田鼠化為鴽",
+      "description": ""
+    },
+    {
+      "houIndex": 3,
+      "globalHouIndex": 15,
+      "phase": "末候",
+      "name": "虹始見",
+      "shortName": "虹始見",
+      "description": ""
+    }
+  ],
+  "穀雨": [
+    {
+      "houIndex": 1,
+      "globalHouIndex": 16,
+      "phase": "初候",
+      "name": "萍始生",
+      "shortName": "萍始生",
+      "description": ""
+    },
+    {
+      "houIndex": 2,
+      "globalHouIndex": 17,
+      "phase": "次候",
+      "name": "鳴鳩拂其羽",
+      "shortName": "鳴鳩拂其羽",
+      "description": ""
+    },
+    {
+      "houIndex": 3,
+      "globalHouIndex": 18,
+      "phase": "末候",
+      "name": "戴勝降於桑",
+      "shortName": "戴勝降於桑",
+      "description": ""
+    }
+  ],
+  "立夏": [
+    {
+      "houIndex": 1,
+      "globalHouIndex": 19,
+      "phase": "初候",
+      "name": "螻蟈鳴",
+      "shortName": "螻蟈鳴",
+      "description": ""
+    },
+    {
+      "houIndex": 2,
+      "globalHouIndex": 20,
+      "phase": "次候",
+      "name": "蚯蚓出",
+      "shortName": "蚯蚓出",
+      "description": ""
+    },
+    {
+      "houIndex": 3,
+      "globalHouIndex": 21,
+      "phase": "末候",
+      "name": "王瓜生",
+      "shortName": "王瓜生",
+      "description": ""
+    }
+  ],
+  "小滿": [
+    {
+      "houIndex": 1,
+      "globalHouIndex": 22,
+      "phase": "初候",
+      "name": "苦菜秀",
+      "shortName": "苦菜秀",
+      "description": ""
+    },
+    {
+      "houIndex": 2,
+      "globalHouIndex": 23,
+      "phase": "次候",
+      "name": "靡草死",
+      "shortName": "靡草死",
+      "description": ""
+    },
+    {
+      "houIndex": 3,
+      "globalHouIndex": 24,
+      "phase": "末候",
+      "name": "麥秋至",
+      "shortName": "麥秋至",
+      "description": ""
+    }
+  ],
+  "芒種": [
+    {
+      "houIndex": 1,
+      "globalHouIndex": 25,
+      "phase": "初候",
+      "name": "螳螂生",
+      "shortName": "螳螂生",
+      "description": ""
+    },
+    {
+      "houIndex": 2,
+      "globalHouIndex": 26,
+      "phase": "次候",
+      "name": "鵙始鳴",
+      "shortName": "鵙始鳴",
+      "description": ""
+    },
+    {
+      "houIndex": 3,
+      "globalHouIndex": 27,
+      "phase": "末候",
+      "name": "反舌無聲",
+      "shortName": "反舌無聲",
+      "description": ""
+    }
+  ],
+  "夏至": [
+    {
+      "houIndex": 1,
+      "globalHouIndex": 28,
+      "phase": "初候",
+      "name": "鹿角解",
+      "shortName": "鹿角解",
+      "description": ""
+    },
+    {
+      "houIndex": 2,
+      "globalHouIndex": 29,
+      "phase": "次候",
+      "name": "蜩始鳴",
+      "shortName": "蜩始鳴",
+      "description": ""
+    },
+    {
+      "houIndex": 3,
+      "globalHouIndex": 30,
+      "phase": "末候",
+      "name": "半夏生",
+      "shortName": "半夏生",
+      "description": ""
+    }
+  ],
+  "小暑": [
+    {
+      "houIndex": 1,
+      "globalHouIndex": 31,
+      "phase": "初候",
+      "name": "溫風至",
+      "shortName": "溫風至",
+      "description": ""
+    },
+    {
+      "houIndex": 2,
+      "globalHouIndex": 32,
+      "phase": "次候",
+      "name": "蟋蟀居壁",
+      "shortName": "蟋蟀居壁",
+      "description": ""
+    },
+    {
+      "houIndex": 3,
+      "globalHouIndex": 33,
+      "phase": "末候",
+      "name": "鷹始摯",
+      "shortName": "鷹始摯",
+      "description": ""
+    }
+  ],
+  "大暑": [
+    {
+      "houIndex": 1,
+      "globalHouIndex": 34,
+      "phase": "初候",
+      "name": "腐草為螢",
+      "shortName": "腐草為螢",
+      "description": ""
+    },
+    {
+      "houIndex": 2,
+      "globalHouIndex": 35,
+      "phase": "次候",
+      "name": "土潤溽暑",
+      "shortName": "土潤溽暑",
+      "description": ""
+    },
+    {
+      "houIndex": 3,
+      "globalHouIndex": 36,
+      "phase": "末候",
+      "name": "大雨時行",
+      "shortName": "大雨時行",
+      "description": ""
+    }
+  ],
+  "立秋": [
+    {
+      "houIndex": 1,
+      "globalHouIndex": 37,
+      "phase": "初候",
+      "name": "涼風至",
+      "shortName": "涼風至",
+      "description": ""
+    },
+    {
+      "houIndex": 2,
+      "globalHouIndex": 38,
+      "phase": "次候",
+      "name": "白露降",
+      "shortName": "白露降",
+      "description": ""
+    },
+    {
+      "houIndex": 3,
+      "globalHouIndex": 39,
+      "phase": "末候",
+      "name": "寒蟬鳴",
+      "shortName": "寒蟬鳴",
+      "description": ""
+    }
+  ],
+  "處暑": [
+    {
+      "houIndex": 1,
+      "globalHouIndex": 40,
+      "phase": "初候",
+      "name": "鷹乃祭鳥",
+      "shortName": "鷹乃祭鳥",
+      "description": ""
+    },
+    {
+      "houIndex": 2,
+      "globalHouIndex": 41,
+      "phase": "次候",
+      "name": "天地始肅",
+      "shortName": "天地始肅",
+      "description": ""
+    },
+    {
+      "houIndex": 3,
+      "globalHouIndex": 42,
+      "phase": "末候",
+      "name": "禾乃登",
+      "shortName": "禾乃登",
+      "description": ""
+    }
+  ],
+  "白露": [
+    {
+      "houIndex": 1,
+      "globalHouIndex": 43,
+      "phase": "初候",
+      "name": "鴻雁來",
+      "shortName": "鴻雁來",
+      "description": ""
+    },
+    {
+      "houIndex": 2,
+      "globalHouIndex": 44,
+      "phase": "次候",
+      "name": "玄鳥歸",
+      "shortName": "玄鳥歸",
+      "description": ""
+    },
+    {
+      "houIndex": 3,
+      "globalHouIndex": 45,
+      "phase": "末候",
+      "name": "群鳥養羞",
+      "shortName": "群鳥養羞",
+      "description": ""
+    }
+  ],
+  "秋分": [
+    {
+      "houIndex": 1,
+      "globalHouIndex": 46,
+      "phase": "初候",
+      "name": "雷始收聲",
+      "shortName": "雷始收聲",
+      "description": ""
+    },
+    {
+      "houIndex": 2,
+      "globalHouIndex": 47,
+      "phase": "次候",
+      "name": "蟄蟲坯戶",
+      "shortName": "蟄蟲坯戶",
+      "description": ""
+    },
+    {
+      "houIndex": 3,
+      "globalHouIndex": 48,
+      "phase": "末候",
+      "name": "水始涸",
+      "shortName": "水始涸",
+      "description": ""
+    }
+  ],
+  "寒露": [
+    {
+      "houIndex": 1,
+      "globalHouIndex": 49,
+      "phase": "初候",
+      "name": "鴻雁來賓",
+      "shortName": "鴻雁來賓",
+      "description": ""
+    },
+    {
+      "houIndex": 2,
+      "globalHouIndex": 50,
+      "phase": "次候",
+      "name": "雀入大水為蛤",
+      "shortName": "雀入大水為蛤",
+      "description": ""
+    },
+    {
+      "houIndex": 3,
+      "globalHouIndex": 51,
+      "phase": "末候",
+      "name": "菊有黃華",
+      "shortName": "菊有黃華",
+      "description": ""
+    }
+  ],
+  "霜降": [
+    {
+      "houIndex": 1,
+      "globalHouIndex": 52,
+      "phase": "初候",
+      "name": "豺乃祭獸",
+      "shortName": "豺乃祭獸",
+      "description": ""
+    },
+    {
+      "houIndex": 2,
+      "globalHouIndex": 53,
+      "phase": "次候",
+      "name": "草木黃落",
+      "shortName": "草木黃落",
+      "description": ""
+    },
+    {
+      "houIndex": 3,
+      "globalHouIndex": 54,
+      "phase": "末候",
+      "name": "蟄蟲咸俯",
+      "shortName": "蟄蟲咸俯",
+      "description": ""
+    }
+  ],
+  "立冬": [
+    {
+      "houIndex": 1,
+      "globalHouIndex": 55,
+      "phase": "初候",
+      "name": "水始冰",
+      "shortName": "水始冰",
+      "description": ""
+    },
+    {
+      "houIndex": 2,
+      "globalHouIndex": 56,
+      "phase": "次候",
+      "name": "地始凍",
+      "shortName": "地始凍",
+      "description": ""
+    },
+    {
+      "houIndex": 3,
+      "globalHouIndex": 57,
+      "phase": "末候",
+      "name": "雉入大水為蜃",
+      "shortName": "雉入大水為蜃",
+      "description": ""
+    }
+  ],
+  "小雪": [
+    {
+      "houIndex": 1,
+      "globalHouIndex": 58,
+      "phase": "初候",
+      "name": "虹藏不見",
+      "shortName": "虹藏不見",
+      "description": ""
+    },
+    {
+      "houIndex": 2,
+      "globalHouIndex": 59,
+      "phase": "次候",
+      "name": "天氣上升地氣下降",
+      "shortName": "天氣上升地氣下降",
+      "description": ""
+    },
+    {
+      "houIndex": 3,
+      "globalHouIndex": 60,
+      "phase": "末候",
+      "name": "閉塞而成冬",
+      "shortName": "閉塞而成冬",
+      "description": ""
+    }
+  ],
+  "大雪": [
+    {
+      "houIndex": 1,
+      "globalHouIndex": 61,
+      "phase": "初候",
+      "name": "鶡鴠不鳴",
+      "shortName": "鶡鴠不鳴",
+      "description": ""
+    },
+    {
+      "houIndex": 2,
+      "globalHouIndex": 62,
+      "phase": "次候",
+      "name": "虎始交",
+      "shortName": "虎始交",
+      "description": ""
+    },
+    {
+      "houIndex": 3,
+      "globalHouIndex": 63,
+      "phase": "末候",
+      "name": "荔挺出",
+      "shortName": "荔挺出",
+      "description": ""
+    }
+  ],
+  "冬至": [
+    {
+      "houIndex": 1,
+      "globalHouIndex": 64,
+      "phase": "初候",
+      "name": "蚯蚓結",
+      "shortName": "蚯蚓結",
+      "description": ""
+    },
+    {
+      "houIndex": 2,
+      "globalHouIndex": 65,
+      "phase": "次候",
+      "name": "麋角解",
+      "shortName": "麋角解",
+      "description": ""
+    },
+    {
+      "houIndex": 3,
+      "globalHouIndex": 66,
+      "phase": "末候",
+      "name": "水泉動",
+      "shortName": "水泉動",
+      "description": ""
+    }
+  ],
+  "小寒": [
+    {
+      "houIndex": 1,
+      "globalHouIndex": 67,
+      "phase": "初候",
+      "name": "雁北鄉",
+      "shortName": "雁北鄉",
+      "description": ""
+    },
+    {
+      "houIndex": 2,
+      "globalHouIndex": 68,
+      "phase": "次候",
+      "name": "鵲始巢",
+      "shortName": "鵲始巢",
+      "description": ""
+    },
+    {
+      "houIndex": 3,
+      "globalHouIndex": 69,
+      "phase": "末候",
+      "name": "雉始雊",
+      "shortName": "雉始雊",
+      "description": ""
+    }
+  ],
+  "大寒": [
+    {
+      "houIndex": 1,
+      "globalHouIndex": 70,
+      "phase": "初候",
+      "name": "雞始乳",
+      "shortName": "雞始乳",
+      "description": ""
+    },
+    {
+      "houIndex": 2,
+      "globalHouIndex": 71,
+      "phase": "次候",
+      "name": "征鳥厲疾",
+      "shortName": "征鳥厲疾",
+      "description": ""
+    },
+    {
+      "houIndex": 3,
+      "globalHouIndex": 72,
+      "phase": "末候",
+      "name": "水澤腹堅",
+      "shortName": "水澤腹堅",
+      "description": ""
+    }
+  ]
+}

@@ -16,6 +16,11 @@ const {
   getJinhanYujingDayPan,
 } = await import("../src/jinhanYujing.js");
 const { getNaYinByPillar } = await import("../src/nayin.js");
+const {
+  getCurrentHouBySolarTermRange,
+  getHouBySolarTerm,
+  getHouDefinitions,
+} = await import("../src/seventyTwoHou.js");
 const { normalizeSolarTerms, parseLocalDateTime } = await import("../src/solarTerms.js");
 const {
   calculateAllFlyingStarCharts,
@@ -57,6 +62,8 @@ let jinhanPanCount = 0;
 let jinhanBlackYellowHourCount = 0;
 let jinhanLookupVerifiedCaseCount = 0;
 let jinhanDunTypeVerifiedCaseCount = 0;
+let seventyTwoHouVerifiedCaseCount = 0;
+let baziCurrentHouVerifiedCaseCount = 0;
 
 const parsedLocalDateTime = parseLocalDateTime("2026-06-05T09:08:07.123");
 const localDateTimeExpected = {
@@ -206,6 +213,8 @@ jinhanBlackYellowHourCount = jinhanStats.blackYellowHours;
 
 runJinhanYujingLookupTests();
 runJinhanDunTypeV1Tests();
+runBaziCurrentHouTests(solarTerms);
+runSeventyTwoHouTests();
 
 if (failures.length > 0) {
   console.error("測試失敗：");
@@ -225,6 +234,8 @@ if (failures.length > 0) {
   );
   console.log(`金函玉鏡查表測試通過：${jinhanLookupVerifiedCaseCount} cases`);
   console.log(`金函玉鏡超神接氣 v1 測試通過：${jinhanDunTypeVerifiedCaseCount} cases`);
+  console.log(`干支曆七十二候整合測試通過：${baziCurrentHouVerifiedCaseCount} cases`);
+  console.log(`七十二候測試通過：${seventyTwoHouVerifiedCaseCount} cases`);
   if (pendingCases.length > 0) {
     console.log(`待人工驗證案例略過：${pendingCases.length} cases`);
     for (const testCase of pendingCases) {
@@ -874,4 +885,275 @@ function createJinhanDunTypeMockTerm(year, name, localDateTime) {
     asia_taipei: `${localDateTime}+08:00`,
     timeMs: new Date(localDateTime).getTime(),
   };
+}
+
+function runBaziCurrentHouTests(solarTerms) {
+  const lichun = findSolarTermForTest(solarTerms, "立春", 2026);
+  const yushui = findSolarTermForTest(solarTerms, "雨水", 2026);
+
+  if (!lichun || !yushui) {
+    failures.push({
+      id: "bazi-current-hou-setup",
+      key: "solarTerms",
+      expected: "2026 立春 and 雨水",
+      actual: "missing",
+    });
+    return;
+  }
+
+  const segmentDuration = (yushui.timeMs - lichun.timeMs) / 3;
+  const firstBoundary = Math.ceil(lichun.timeMs + segmentDuration);
+  const secondBoundary = Math.ceil(lichun.timeMs + segmentDuration * 2);
+  const testCases = [
+    {
+      id: "bazi-current-hou-lichun-first",
+      input: formatLocalDateTimeForTest(lichun.timeMs),
+      expected: { term: "立春", phase: "初候", name: "東風解凍", houIndex: 1, globalHouIndex: 1 },
+    },
+    {
+      id: "bazi-current-hou-lichun-second",
+      input: formatLocalDateTimeForTest(firstBoundary),
+      expected: { term: "立春", phase: "次候", name: "蟄蟲始振", houIndex: 2, globalHouIndex: 2 },
+    },
+    {
+      id: "bazi-current-hou-lichun-third",
+      input: formatLocalDateTimeForTest(secondBoundary),
+      expected: { term: "立春", phase: "末候", name: "魚陟負冰", houIndex: 3, globalHouIndex: 3 },
+    },
+    {
+      id: "bazi-current-hou-yushui-start",
+      input: formatLocalDateTimeForTest(yushui.timeMs),
+      expected: { term: "雨水", phase: "初候", name: "獺祭魚", houIndex: 1, globalHouIndex: 4 },
+    },
+  ];
+
+  for (const testCase of testCases) {
+    const actual = calculateBaziFromSolarTerms(testCase.input, solarTerms);
+    baziCurrentHouVerifiedCaseCount += 1;
+
+    if (!actual.currentHou) {
+      failures.push({
+        id: testCase.id,
+        key: "currentHou",
+        expected: "hou object",
+        actual: actual.currentHou,
+      });
+      continue;
+    }
+
+    for (const [key, expectedValue] of Object.entries(testCase.expected)) {
+      if (actual.currentHou[key] !== expectedValue) {
+        failures.push({
+          id: testCase.id,
+          key: `currentHou.${key}`,
+          expected: expectedValue,
+          actual: actual.currentHou[key],
+        });
+      }
+    }
+  }
+}
+
+function runSeventyTwoHouTests() {
+  const definitions = getHouDefinitions();
+  const termNames = Object.keys(definitions);
+  const allHou = termNames.flatMap((termName) => definitions[termName].map((hou) => ({ termName, ...hou })));
+  const globalIndexes = allHou.map((hou) => hou.globalHouIndex);
+  const uniqueGlobalIndexes = new Set(globalIndexes);
+  const expectedGlobalIndexes = Array.from({ length: 72 }, (_, index) => index + 1);
+
+  seventyTwoHouVerifiedCaseCount += 1;
+  if (termNames.length !== 24) {
+    failures.push({
+      id: "seventy-two-hou-definitions",
+      key: "termCount",
+      expected: 24,
+      actual: termNames.length,
+    });
+  }
+
+  for (const termName of termNames) {
+    if (!Array.isArray(definitions[termName]) || definitions[termName].length !== 3) {
+      failures.push({
+        id: "seventy-two-hou-definitions",
+        key: `${termName}.length`,
+        expected: 3,
+        actual: definitions[termName]?.length,
+      });
+    }
+  }
+
+  seventyTwoHouVerifiedCaseCount += 1;
+  if (allHou.length !== 72) {
+    failures.push({
+      id: "seventy-two-hou-definitions",
+      key: "houCount",
+      expected: 72,
+      actual: allHou.length,
+    });
+  }
+
+  if (uniqueGlobalIndexes.size !== 72) {
+    failures.push({
+      id: "seventy-two-hou-definitions",
+      key: "uniqueGlobalHouIndex",
+      expected: 72,
+      actual: uniqueGlobalIndexes.size,
+    });
+  }
+
+  for (const expectedIndex of expectedGlobalIndexes) {
+    if (!uniqueGlobalIndexes.has(expectedIndex)) {
+      failures.push({
+        id: "seventy-two-hou-definitions",
+        key: `globalHouIndex.${expectedIndex}`,
+        expected: "present",
+        actual: "missing",
+      });
+    }
+  }
+
+  const lichunStart = "2026-02-04T00:00:00";
+  const yushuiStart = "2026-02-19T00:00:00";
+  const lichunFirstBoundary = "2026-02-09T00:00:00";
+  const lichunSecondBoundary = "2026-02-14T00:00:00";
+  const lichunCases = [
+    {
+      id: "seventy-two-hou-lichun-start",
+      target: lichunStart,
+      expected: { phase: "初候", name: "東風解凍", houIndex: 1, globalHouIndex: 1 },
+    },
+    {
+      id: "seventy-two-hou-lichun-first-boundary",
+      target: lichunFirstBoundary,
+      expected: { phase: "次候", name: "蟄蟲始振", houIndex: 2, globalHouIndex: 2 },
+    },
+    {
+      id: "seventy-two-hou-lichun-second-boundary",
+      target: lichunSecondBoundary,
+      expected: { phase: "末候", name: "魚陟負冰", houIndex: 3, globalHouIndex: 3 },
+    },
+  ];
+
+  for (const testCase of lichunCases) {
+    const actual = getCurrentHouBySolarTermRange("立春", lichunStart, yushuiStart, testCase.target);
+    seventyTwoHouVerifiedCaseCount += 1;
+    assertSeventyTwoHouResult(testCase.id, actual, testCase.expected);
+  }
+
+  seventyTwoHouVerifiedCaseCount += 1;
+  const atNextTerm = getCurrentHouBySolarTermRange("立春", lichunStart, yushuiStart, yushuiStart);
+  if (atNextTerm !== null) {
+    failures.push({
+      id: "seventy-two-hou-lichun-next-term-start",
+      key: "result",
+      expected: null,
+      actual: atNextTerm?.name,
+    });
+  }
+
+  seventyTwoHouVerifiedCaseCount += 1;
+  const crossYearHou = getCurrentHouBySolarTermRange(
+    "冬至",
+    "2025-12-21T00:00:00",
+    "2026-01-05T00:00:00",
+    "2026-01-01T12:00:00"
+  );
+  assertSeventyTwoHouResult("seventy-two-hou-cross-year", crossYearHou, {
+    phase: "末候",
+    name: "水泉動",
+    houIndex: 3,
+    globalHouIndex: 66,
+  });
+
+  const invalidCases = [
+    {
+      id: "seventy-two-hou-invalid-term",
+      args: ["不存在", lichunStart, yushuiStart, lichunStart],
+    },
+    {
+      id: "seventy-two-hou-invalid-time",
+      args: ["立春", "invalid", yushuiStart, lichunStart],
+    },
+    {
+      id: "seventy-two-hou-invalid-range",
+      args: ["立春", yushuiStart, lichunStart, lichunStart],
+    },
+  ];
+
+  for (const testCase of invalidCases) {
+    seventyTwoHouVerifiedCaseCount += 1;
+    let actual;
+    try {
+      actual = getCurrentHouBySolarTermRange(...testCase.args);
+    } catch (error) {
+      failures.push({
+        id: testCase.id,
+        key: "throw",
+        expected: "not throw",
+        actual: error instanceof Error ? error.message : String(error),
+      });
+      continue;
+    }
+
+    if (actual !== null) {
+      failures.push({
+        id: testCase.id,
+        key: "result",
+        expected: null,
+        actual: actual?.name,
+      });
+    }
+  }
+
+  seventyTwoHouVerifiedCaseCount += 1;
+  const invalidTermDefinitions = getHouBySolarTerm("不存在");
+  if (invalidTermDefinitions.length !== 0) {
+    failures.push({
+      id: "seventy-two-hou-invalid-term-definitions",
+      key: "length",
+      expected: 0,
+      actual: invalidTermDefinitions.length,
+    });
+  }
+}
+
+function findSolarTermForTest(solarTerms, name, year) {
+  return solarTerms.find((term) => term.name === name && term.year_taipei === year);
+}
+
+function formatLocalDateTimeForTest(timeMs) {
+  const date = new Date(timeMs);
+  const year = String(date.getFullYear()).padStart(4, "0");
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  const hour = String(date.getHours()).padStart(2, "0");
+  const minute = String(date.getMinutes()).padStart(2, "0");
+  const second = String(date.getSeconds()).padStart(2, "0");
+  const millisecond = String(date.getMilliseconds()).padStart(3, "0");
+
+  return `${year}-${month}-${day}T${hour}:${minute}:${second}.${millisecond}`;
+}
+
+function assertSeventyTwoHouResult(id, actual, expected) {
+  if (!actual) {
+    failures.push({
+      id,
+      key: "result",
+      expected: "hou object",
+      actual: actual,
+    });
+    return;
+  }
+
+  for (const [key, expectedValue] of Object.entries(expected)) {
+    if (actual[key] !== expectedValue) {
+      failures.push({
+        id,
+        key,
+        expected: expectedValue,
+        actual: actual[key],
+      });
+    }
+  }
 }

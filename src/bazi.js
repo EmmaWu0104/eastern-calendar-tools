@@ -9,6 +9,7 @@ import {
   getMonthPillar,
   getYearPillar,
 } from "./ganzhi.js";
+import { getCurrentHouBySolarTermRange } from "./seventyTwoHou.js";
 
 export const RULE_NOTES = Object.freeze([
   "年柱以立春切換。",
@@ -30,6 +31,7 @@ export function calculateBaziFromSolarTerms(dateTimeString, solarTerms) {
   const monthPillar = getMonthPillar(dateTimeString, solarTerms);
   const dayPillar = getDayPillar(dateTimeString);
   const hourPillar = getHourPillar(dateTimeString);
+  const currentHou = getCurrentHouFromTermContext(termContext);
 
   return {
     yearPillar: yearPillar.pillar,
@@ -39,6 +41,7 @@ export function calculateBaziFromSolarTerms(dateTimeString, solarTerms) {
     currentTerm: termContext.currentTerm,
     previousTerm: termContext.previousTerm,
     nextTerm: termContext.nextTerm,
+    currentHou,
     monthBranch: monthBranch.branch,
     ruleNotes: [...RULE_NOTES],
     meta: {
@@ -48,4 +51,21 @@ export function calculateBaziFromSolarTerms(dateTimeString, solarTerms) {
       monthSwitchTerm: monthBranch.term,
     },
   };
+}
+
+function getCurrentHouFromTermContext(termContext) {
+  const currentTerm = termContext?.currentTerm;
+  const nextTerm = termContext?.nextTerm;
+  const targetTimeMs = termContext?.dateTime?.timeMs;
+
+  if (!currentTerm || !nextTerm || !Number.isFinite(targetTimeMs)) {
+    return null;
+  }
+
+  return getCurrentHouBySolarTermRange(
+    currentTerm.name,
+    currentTerm.timeMs,
+    nextTerm.timeMs,
+    targetTimeMs
+  );
 }
