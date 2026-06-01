@@ -4,6 +4,16 @@ process.env.TZ = TEST_TIME_ZONE;
 const { readFile } = await import("node:fs/promises");
 const { calculateBaziFromSolarTerms } = await import("../src/bazi.js");
 const { getDailyGodsByStem } = await import("../src/dailyGods.js");
+const {
+  getClothingAdviceByDayBranch,
+  getDailyClashByDayBranch,
+  getDailyInfoByBranches,
+  getSanfuByDateKey,
+  getSeasonalMarkerByUpcomingTerm,
+  getSuiPoByBranches,
+  getTianSheBySeasonAndDayPillar,
+  isGengDay,
+} = await import("../src/dailyInfo.js");
 const { SEXAGENARY_CYCLE } = await import("../src/ganzhi.js");
 const {
   getEarthlyBranchIndex,
@@ -62,6 +72,7 @@ const pendingCases = [];
 let verifiedCaseCount = 0;
 let flyingStarsVerifiedCaseCount = 0;
 let dailyGodsVerifiedCaseCount = 0;
+let dailyInfoVerifiedCaseCount = 0;
 let naYinVerifiedCaseCount = 0;
 let jianchuVerifiedCaseCount = 0;
 let jinhanDayPillarCount = 0;
@@ -343,6 +354,7 @@ jinhanBlackYellowHourCount = jinhanStats.blackYellowHours;
 
 runJinhanYujingLookupTests();
 runJinhanDunTypeV1Tests();
+runDailyInfoTests();
 runBaziCurrentHouTests(solarTerms);
 runBaziJianchuTests(solarTerms);
 runSeventyTwoHouTests();
@@ -359,6 +371,7 @@ if (failures.length > 0) {
   console.log(`全部通過：${verifiedCaseCount} verified cases + parseLocalDateTime`);
   console.log(`九宮飛星測試通過：${flyingStarsVerifiedCaseCount} cases`);
   console.log(`日干吉神測試通過：${dailyGodsVerifiedCaseCount} cases`);
+  console.log(`每日資訊測試通過：${dailyInfoVerifiedCaseCount} cases`);
   console.log(`納音測試通過：${naYinVerifiedCaseCount} cases`);
   console.log(`建除十二神測試通過：${jianchuVerifiedCaseCount} cases`);
   console.log(
@@ -1020,6 +1033,174 @@ function createJinhanDunTypeMockTerm(year, name, localDateTime) {
   };
 }
 
+function runDailyInfoTests() {
+  const clothingCases = [
+    {
+      id: "daily-info-clothing-wu",
+      dayBranch: "午",
+      expected: { dayElement: "火", best: "土", good: "火", avoid: "木" },
+    },
+    {
+      id: "daily-info-clothing-zi",
+      dayBranch: "子",
+      expected: { dayElement: "水", best: "木", good: "水", avoid: "金" },
+    },
+  ];
+
+  for (const testCase of clothingCases) {
+    const actual = getClothingAdviceByDayBranch(testCase.dayBranch);
+    dailyInfoVerifiedCaseCount += 1;
+
+    if (!actual) {
+      failures.push({
+        id: testCase.id,
+        key: "clothing",
+        expected: "clothing object",
+        actual,
+      });
+      continue;
+    }
+
+    assertEqual(testCase.id, "dayElement", testCase.expected.dayElement, actual.dayElement);
+    assertEqual(testCase.id, "best.element", testCase.expected.best, actual.best.element);
+    assertEqual(testCase.id, "good.element", testCase.expected.good, actual.good.element);
+    assertEqual(testCase.id, "avoid.element", testCase.expected.avoid, actual.avoid.element);
+  }
+
+  dailyInfoVerifiedCaseCount += 1;
+  assertEqual("daily-info-clothing-invalid", "result", null, getClothingAdviceByDayBranch("無"));
+
+  const clashCases = [
+    { id: "daily-info-clash-wu", dayBranch: "午", expectedLabel: "衝煞：鼠" },
+    { id: "daily-info-clash-zi", dayBranch: "子", expectedLabel: "衝煞：馬" },
+    { id: "daily-info-clash-si", dayBranch: "巳", expectedLabel: "衝煞：豬" },
+  ];
+
+  for (const testCase of clashCases) {
+    const actual = getDailyClashByDayBranch(testCase.dayBranch);
+    dailyInfoVerifiedCaseCount += 1;
+    assertEqual(testCase.id, "label", testCase.expectedLabel, actual?.label);
+  }
+
+  dailyInfoVerifiedCaseCount += 1;
+  assertEqual("daily-info-clash-invalid", "result", null, getDailyClashByDayBranch("無"));
+
+  const suiPoCases = [
+    {
+      id: "daily-info-suipo-true",
+      yearBranch: "午",
+      dayBranch: "子",
+      expected: { isSuiPo: true, label: "歲破日" },
+    },
+    {
+      id: "daily-info-suipo-false",
+      yearBranch: "午",
+      dayBranch: "午",
+      expected: { isSuiPo: false, label: "" },
+    },
+  ];
+
+  for (const testCase of suiPoCases) {
+    const actual = getSuiPoByBranches(testCase.yearBranch, testCase.dayBranch);
+    dailyInfoVerifiedCaseCount += 1;
+    assertEqual(testCase.id, "isSuiPo", testCase.expected.isSuiPo, actual?.isSuiPo);
+    assertEqual(testCase.id, "label", testCase.expected.label, actual?.label);
+  }
+
+  dailyInfoVerifiedCaseCount += 1;
+  assertEqual("daily-info-suipo-invalid", "result", null, getSuiPoByBranches("午", "無"));
+
+  const seasonalCases = [
+    { id: "daily-info-seasonal-chunfen", term: "春分", flag: true, expectedLabel: "離日：木離日" },
+    { id: "daily-info-seasonal-xiazhi", term: "夏至", flag: true, expectedLabel: "離日：火離日" },
+    { id: "daily-info-seasonal-lichun", term: "立春", flag: true, expectedLabel: "絕日：木旺水絕" },
+    { id: "daily-info-seasonal-lidong", term: "立冬", flag: true, expectedLabel: "絕日：水旺金絕" },
+  ];
+
+  for (const testCase of seasonalCases) {
+    const actual = getSeasonalMarkerByUpcomingTerm(testCase.term, testCase.flag);
+    dailyInfoVerifiedCaseCount += 1;
+    assertEqual(testCase.id, "label", testCase.expectedLabel, actual?.label);
+  }
+
+  dailyInfoVerifiedCaseCount += 1;
+  assertEqual(
+    "daily-info-seasonal-not-previous-day",
+    "result",
+    null,
+    getSeasonalMarkerByUpcomingTerm("春分", false)
+  );
+
+  dailyInfoVerifiedCaseCount += 1;
+  assertEqual("daily-info-seasonal-not-marker", "result", null, getSeasonalMarkerByUpcomingTerm("小暑", true));
+
+  const tianSheCases = [
+    { id: "daily-info-tianshe-spring", season: "春季", dayPillar: "戊寅", expected: true },
+    { id: "daily-info-tianshe-summer", season: "夏季", dayPillar: "甲午", expected: true },
+    { id: "daily-info-tianshe-autumn", season: "秋季", dayPillar: "戊申", expected: true },
+    { id: "daily-info-tianshe-winter", season: "冬季", dayPillar: "甲子", expected: true },
+    { id: "daily-info-tianshe-false", season: "春季", dayPillar: "甲子", expected: false },
+  ];
+
+  for (const testCase of tianSheCases) {
+    const actual = getTianSheBySeasonAndDayPillar(testCase.season, testCase.dayPillar);
+    dailyInfoVerifiedCaseCount += 1;
+    assertEqual(testCase.id, "isTianShe", testCase.expected, actual?.isTianShe);
+  }
+
+  dailyInfoVerifiedCaseCount += 1;
+  assertEqual("daily-info-tianshe-invalid", "result", null, getTianSheBySeasonAndDayPillar("無", "甲子"));
+
+  dailyInfoVerifiedCaseCount += 1;
+  assertEqual("daily-info-geng-day-true", "isGengDay", true, isGengDay("庚午"));
+
+  dailyInfoVerifiedCaseCount += 1;
+  assertEqual("daily-info-geng-day-false", "isGengDay", false, isGengDay("辛未"));
+
+  const sanfuDateKeys = {
+    "初伏": "2026-07-15",
+    "中伏": "2026-07-25",
+    "末伏": "2026-08-14",
+  };
+  const sanfuCases = [
+    { id: "daily-info-sanfu-chufu", dateKey: "2026-07-15", expectedType: "初伏" },
+    { id: "daily-info-sanfu-zhongfu", dateKey: "2026-07-25", expectedType: "中伏" },
+    { id: "daily-info-sanfu-mofu", dateKey: "2026-08-14", expectedType: "末伏" },
+  ];
+
+  for (const testCase of sanfuCases) {
+    const actual = getSanfuByDateKey(testCase.dateKey, sanfuDateKeys);
+    dailyInfoVerifiedCaseCount += 1;
+    assertEqual(testCase.id, "type", testCase.expectedType, actual?.type);
+  }
+
+  dailyInfoVerifiedCaseCount += 1;
+  assertEqual("daily-info-sanfu-none", "result", null, getSanfuByDateKey("2026-07-16", sanfuDateKeys));
+
+  const dailyInfo = getDailyInfoByBranches({
+    yearBranch: "子",
+    dayPillar: "丙午",
+    upcomingTermName: "春分",
+    isPreviousEffectiveDay: true,
+    season: "夏季",
+    dateKey: "2026-07-15",
+    sanfuDateKeys,
+  });
+  dailyInfoVerifiedCaseCount += 1;
+  assertEqual("daily-info-summary-clothing", "dayElement", "火", dailyInfo.clothing?.dayElement);
+  assertEqual("daily-info-summary-clash", "label", "衝煞：鼠", dailyInfo.clash?.label);
+  assertEqual("daily-info-summary-suipo", "isSuiPo", true, dailyInfo.suiPo?.isSuiPo);
+  assertEqual("daily-info-summary-sanfu", "type", "初伏", dailyInfo.sanfu?.type);
+
+  const dailyInfoTianShe = getDailyInfoByBranches({
+    yearBranch: "午",
+    dayPillar: "甲午",
+    season: "夏季",
+  });
+  dailyInfoVerifiedCaseCount += 1;
+  assertEqual("daily-info-summary-tianshe", "isTianShe", true, dailyInfoTianShe.tianShe?.isTianShe);
+}
+
 function runBaziCurrentHouTests(solarTerms) {
   const dahan = findSolarTermForTest(solarTerms, "大寒", 2026);
   const lichun = findSolarTermForTest(solarTerms, "立春", 2026);
@@ -1445,6 +1626,17 @@ function formatLocalDateTimeForTest(timeMs) {
   const millisecond = String(date.getMilliseconds()).padStart(3, "0");
 
   return `${year}-${month}-${day}T${hour}:${minute}:${second}.${millisecond}`;
+}
+
+function assertEqual(id, key, expected, actual) {
+  if (actual !== expected) {
+    failures.push({
+      id,
+      key,
+      expected,
+      actual,
+    });
+  }
 }
 
 function assertSeventyTwoHouResult(id, actual, expected) {
