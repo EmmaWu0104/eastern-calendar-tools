@@ -4,6 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>干支曆核心查詢</title>
+    <link rel="icon" href="data:,">
     <link rel="stylesheet" href="./styles/main.css">
   </head>
   <body>
@@ -16,7 +17,9 @@
         <div class="query-row">
           <input id="datetime" type="datetime-local" step="1">
           <button id="calculate" type="button">查詢</button>
+          <button id="use-now" type="button">現在時間</button>
         </div>
+        <p id="weekday-label" class="weekday-label" aria-live="polite">--</p>
       </section>
 
       <section class="panel" aria-labelledby="result-title">
@@ -78,6 +81,7 @@
           </div>
           <div class="jinhan-hours-table-wrap">
             <h3>青龍黑黃道</h3>
+            <p id="jinhan-current-hour-label" class="jinhan-current-hour-label">目前時辰：--</p>
             <table class="jinhan-hours-table">
               <thead>
                 <tr>

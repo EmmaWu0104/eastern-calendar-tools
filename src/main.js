@@ -47,9 +47,27 @@ const JINHAN_DEITY_CLASS_NAMES = Object.freeze({
   yangGuishen: "jinhan-deity-yang-guishen",
 });
 
+const WEEKDAY_LABELS = Object.freeze(["星期日", "星期一", "星期二", "星期三", "星期四", "星期五", "星期六"]);
+const CHINESE_HOUR_LABELS = Object.freeze([
+  Object.freeze({ index: 1, branch: "子", timeRange: "23 ~ 01" }),
+  Object.freeze({ index: 2, branch: "丑", timeRange: "01 ~ 03" }),
+  Object.freeze({ index: 3, branch: "寅", timeRange: "03 ~ 05" }),
+  Object.freeze({ index: 4, branch: "卯", timeRange: "05 ~ 07" }),
+  Object.freeze({ index: 5, branch: "辰", timeRange: "07 ~ 09" }),
+  Object.freeze({ index: 6, branch: "巳", timeRange: "09 ~ 11" }),
+  Object.freeze({ index: 7, branch: "午", timeRange: "11 ~ 13" }),
+  Object.freeze({ index: 8, branch: "未", timeRange: "13 ~ 15" }),
+  Object.freeze({ index: 9, branch: "申", timeRange: "15 ~ 17" }),
+  Object.freeze({ index: 10, branch: "酉", timeRange: "17 ~ 19" }),
+  Object.freeze({ index: 11, branch: "戌", timeRange: "19 ~ 21" }),
+  Object.freeze({ index: 12, branch: "亥", timeRange: "21 ~ 23" }),
+]);
+
 const elements = {
   datetime: getElement("#datetime"),
   calculate: getElement("#calculate"),
+  useNow: getElement("#use-now"),
+  weekdayLabel: getElement("#weekday-label"),
   yearPillar: getElement("#year-pillar"),
   monthPillar: getElement("#month-pillar"),
   dayPillar: getElement("#day-pillar"),
@@ -64,6 +82,7 @@ const elements = {
   jinhanMessage: getElement("#jinhan-message"),
   jinhanSummary: getElement("#jinhan-summary"),
   jinhanGrid: getElement("#jinhan-grid"),
+  jinhanCurrentHourLabel: getElement("#jinhan-current-hour-label"),
   jinhanHoursBody: getElement("#jinhan-hours-body"),
   ruleNotes: getElement("#rule-notes"),
   message: getElement("#message"),
@@ -75,6 +94,10 @@ let isJinhanDunTypeManuallyOverridden = false;
 
 elements.datetime.value = toLocalDatetimeValue(new Date());
 elements.calculate.addEventListener("click", handleCalculate);
+elements.useNow.addEventListener("click", () => {
+  elements.datetime.value = toLocalDatetimeValue(new Date());
+  handleCalculate();
+});
 elements.datetime.addEventListener("keydown", (event) => {
   if (event.key === "Enter") {
     event.preventDefault();
@@ -106,6 +129,7 @@ async function handleCalculate() {
     currentCalendarResult = result;
     currentSolarTerms = solarTerms;
     isJinhanDunTypeManuallyOverridden = false;
+    updateWeekdayLabel(value);
     renderResult(result);
     renderFlyingStars(result, value);
     renderJinhanYujing(result);
@@ -142,6 +166,7 @@ function renderResult(result) {
 function clearResult() {
   currentCalendarResult = null;
   currentSolarTerms = null;
+  updateWeekdayLabel("");
   for (const element of [
     elements.yearPillar,
     elements.monthPillar,
@@ -274,12 +299,15 @@ function renderJinhanYujing(calendarResult) {
 
     const deitiesByPalace = getJinhanDeitiesByPalace(pan.meta);
     const blackYellowHours = getJinhanBlackYellowHours(dayPillar);
+    const currentHourInfo = getCurrentChineseHourInfo(elements.datetime.value);
+    const currentHourIndex = currentHourInfo?.index ?? null;
     elements.jinhanMessage.textContent = "";
-    elements.jinhanSummary.replaceChildren(
-      ...createJinhanSummaryItems(dayPillar, pan, selectedDunType, dunTypeStatus)
-    );
+    updateJinhanCurrentHourLabel(currentHourInfo);
+    elements.jinhanSummary.replaceChildren(...createJinhanSummaryItems(dayPillar, pan));
     elements.jinhanGrid.replaceChildren(...createJinhanGridCells(pan, deitiesByPalace));
-    elements.jinhanHoursBody.replaceChildren(...blackYellowHours.map(createJinhanHourRow));
+    elements.jinhanHoursBody.replaceChildren(
+      ...blackYellowHours.map((hour, index) => createJinhanHourRow(hour, currentHourIndex, index + 1))
+    );
   } catch (error) {
     console.error("金函玉鏡日盤顯示失敗", error);
     clearJinhanYujing("金函玉鏡日盤顯示失敗");
@@ -309,34 +337,18 @@ function resolveJinhanSelectedDunType(dunTypeStatus) {
 
 function clearJinhanYujing(message = "") {
   elements.jinhanMessage.textContent = message;
+  updateJinhanCurrentHourLabel(null);
   elements.jinhanSummary.replaceChildren();
   elements.jinhanGrid.replaceChildren();
   elements.jinhanHoursBody.replaceChildren();
 }
 
-function createJinhanSummaryItems(dayPillar, pan, selectedDunType, dunTypeStatus) {
+function createJinhanSummaryItems(dayPillar, pan) {
   const items = [
     { label: "日柱", value: `${dayPillar}日` },
     { label: "金函玉鏡盤", value: pan.meta.label },
     { label: "中宮", value: pan.meta.center },
-    { label: "陰陽遁來源", value: formatJinhanDunTypeSource(selectedDunType.source) },
-    { label: "目前使用", value: selectedDunType.dunType },
-    { label: "自動判斷", value: dunTypeStatus.status },
   ];
-
-  if (selectedDunType.source === "manual" && dunTypeStatus.dunType) {
-    items.push({ label: "自動建議", value: dunTypeStatus.dunType });
-  }
-
-  if (dunTypeStatus.mode && dunTypeStatus.mode !== "unknown") {
-    items.push({ label: "換遁模式", value: dunTypeStatus.mode });
-  }
-
-  if (dunTypeStatus.boundary) {
-    items.push({ label: "換遁邊界", value: dunTypeStatus.boundary });
-  }
-
-  items.push({ label: "判斷理由", value: dunTypeStatus.reason });
 
   return items.map((item) => {
     const line = document.createElement("div");
@@ -353,18 +365,6 @@ function createJinhanSummaryItems(dayPillar, pan, selectedDunType, dunTypeStatus
     line.append(label, value);
     return line;
   });
-}
-
-function formatJinhanDunTypeSource(source) {
-  if (source === "auto") {
-    return "自動判斷";
-  }
-
-  if (source === "manual") {
-    return "手動覆寫";
-  }
-
-  return "手動選擇";
 }
 
 function createJinhanGridCells(pan, deitiesByPalace) {
@@ -428,16 +428,49 @@ function createJinhanDeityChip(deity) {
   return chip;
 }
 
-function createJinhanHourRow(hour) {
+function createJinhanHourRow(hour, currentHourIndex, displayIndex) {
   const row = document.createElement("tr");
+  const hourIndex = Number(hour.index);
+  const isCurrent = hourIndex === currentHourIndex || displayIndex === currentHourIndex;
+
+  if (isCurrent) {
+    row.classList.add("jinhan-hour-current");
+  }
+
   row.append(
-    createTableCell(hour.timeRange),
+    createJinhanTimeRangeCell(hour.timeRange, isCurrent),
     createTableCell(hour.pillar),
     createTableCell(hour.deity),
     createTableCell(hour.type === "yellow" ? "黃道" : "黑道", `jinhan-hour-type-${hour.type}`),
     createTableCell(hour.notes.length > 0 ? hour.notes.join("、") : "—")
   );
   return row;
+}
+
+function createJinhanTimeRangeCell(timeRange, isCurrent) {
+  const cell = document.createElement("td");
+
+  if (isCurrent) {
+    const marker = document.createElement("span");
+    marker.className = "jinhan-current-marker";
+    marker.textContent = "▶";
+
+    const badge = document.createElement("span");
+    badge.className = "jinhan-current-badge";
+    badge.textContent = "目前";
+
+    cell.append(marker, badge, document.createTextNode(timeRange));
+    return cell;
+  }
+
+  cell.textContent = timeRange;
+  return cell;
+}
+
+function updateJinhanCurrentHourLabel(currentHourInfo) {
+  elements.jinhanCurrentHourLabel.textContent = currentHourInfo
+    ? `目前時辰：${currentHourInfo.branch}時（${currentHourInfo.timeRange}）`
+    : "目前時辰：--";
 }
 
 function createInlineSpan(text, className) {
@@ -627,6 +660,87 @@ function getElement(selector) {
   }
 
   return element;
+}
+
+function updateWeekdayLabel(dateTimeValue) {
+  elements.weekdayLabel.textContent = formatWeekdayLabel(dateTimeValue);
+}
+
+function formatWeekdayLabel(dateTimeValue) {
+  const date = parseDateTimeLocalValue(dateTimeValue);
+  if (!date) {
+    return "--";
+  }
+
+  return `查詢日：${WEEKDAY_LABELS[date.getDay()]}`;
+}
+
+function getChineseHourIndex(dateTimeValue) {
+  const date = parseDateTimeLocalValue(dateTimeValue);
+  if (!date) {
+    return null;
+  }
+
+  const hour = date.getHours();
+  if (hour === 23 || hour === 0) {
+    return 1;
+  }
+
+  return Math.floor((hour + 1) / 2) + 1;
+}
+
+function getCurrentChineseHourInfo(dateTimeValue) {
+  const index = getChineseHourIndex(dateTimeValue);
+  if (!index) {
+    return null;
+  }
+
+  return CHINESE_HOUR_LABELS.find((item) => item.index === index) ?? null;
+}
+
+function parseDateTimeLocalValue(dateTimeValue) {
+  if (typeof dateTimeValue !== "string" || dateTimeValue.trim() === "") {
+    return null;
+  }
+
+  const match = dateTimeValue
+    .trim()
+    .match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?$/);
+
+  if (!match) {
+    return null;
+  }
+
+  const [, year, month, day, hour, minute, second = "0"] = match;
+  const components = {
+    year: Number(year),
+    month: Number(month),
+    day: Number(day),
+    hour: Number(hour),
+    minute: Number(minute),
+    second: Number(second),
+  };
+  const date = new Date(
+    components.year,
+    components.month - 1,
+    components.day,
+    components.hour,
+    components.minute,
+    components.second
+  );
+
+  if (
+    date.getFullYear() !== components.year ||
+    date.getMonth() !== components.month - 1 ||
+    date.getDate() !== components.day ||
+    date.getHours() !== components.hour ||
+    date.getMinutes() !== components.minute ||
+    date.getSeconds() !== components.second
+  ) {
+    return null;
+  }
+
+  return date;
 }
 
 function toLocalDatetimeValue(date) {

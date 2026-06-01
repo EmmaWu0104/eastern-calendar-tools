@@ -46,6 +46,14 @@ label {
   flex-wrap: wrap;
 }
 
+.weekday-label {
+  min-height: 20px;
+  margin: 8px 0 0;
+  color: #52616f;
+  font-size: 14px;
+  font-weight: 700;
+}
+
 input,
 button {
   min-height: 40px;
@@ -557,6 +565,17 @@ dd {
   font-size: 15px;
 }
 
+.jinhan-current-hour-label {
+  margin: 0 0 8px;
+  padding: 6px 8px;
+  border: 1px solid #fed7aa;
+  border-radius: 6px;
+  background: #fff7ed;
+  color: #7c2d12;
+  font-size: 13px;
+  font-weight: 800;
+}
+
 .jinhan-hours-table {
   width: 100%;
   border-collapse: collapse;
@@ -587,22 +606,22 @@ dd {
 
 .jinhan-hours-table th:nth-child(2),
 .jinhan-hours-table td:nth-child(2) {
-  width: 14%;
+  width: 9%;
 }
 
 .jinhan-hours-table th:nth-child(3),
 .jinhan-hours-table td:nth-child(3) {
-  width: 20%;
+  width: 13%;
 }
 
 .jinhan-hours-table th:nth-child(4),
 .jinhan-hours-table td:nth-child(4) {
-  width: 14%;
+  width: 9%;
 }
 
 .jinhan-hours-table th:nth-child(5),
 .jinhan-hours-table td:nth-child(5) {
-  width: 30%;
+  width: 25%;
   overflow-wrap: anywhere;
   word-break: break-word;
 }
@@ -615,6 +634,37 @@ dd {
 .jinhan-hour-type-black {
   color: #334e68;
   font-weight: 700;
+}
+
+.jinhan-hour-current td {
+  background: #fff3cd;
+  box-shadow: inset 0 1px 0 #fed7aa, inset 0 -1px 0 #fed7aa;
+  font-weight: 800;
+}
+
+.jinhan-hour-current td:first-child {
+  border-left: 5px solid #d97706;
+  color: #7c2d12;
+  font-weight: 800;
+}
+
+.jinhan-current-marker {
+  display: inline-block;
+  margin-right: 4px;
+  font-weight: 800;
+}
+
+.jinhan-current-badge {
+  display: inline-block;
+  margin-right: 4px;
+  padding: 1px 5px;
+  border: 1px solid #f59e0b;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #7c2d12;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1.25;
 }
 
 @media (max-width: 980px) {
