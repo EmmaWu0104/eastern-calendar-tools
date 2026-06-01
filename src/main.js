@@ -1,4 +1,4 @@
-import { calculateBazi } from "./bazi.js";
+import { calculateBaziFromSolarTerms } from "./bazi.js";
 import { getDailyGodsByStem } from "./dailyGods.js";
 import { calculateAllFlyingStarCharts } from "./flyingStars.js";
 import {
@@ -8,6 +8,7 @@ import {
 } from "./jinhanYujing.js";
 import { getJinhanDunType } from "./jinhanDunType.js";
 import { getNaYinByPillar } from "./nayin.js";
+import { loadSolarTerms } from "./solarTerms.js";
 
 const PALACE_DIRECTION_LABELS = {
   xun: "東南",
@@ -69,6 +70,8 @@ const elements = {
 };
 
 let currentCalendarResult = null;
+let currentSolarTerms = null;
+let isJinhanDunTypeManuallyOverridden = false;
 
 elements.datetime.value = toLocalDatetimeValue(new Date());
 elements.calculate.addEventListener("click", handleCalculate);
@@ -79,6 +82,7 @@ elements.datetime.addEventListener("keydown", (event) => {
   }
 });
 elements.jinhanDunType.addEventListener("change", () => {
+  isJinhanDunTypeManuallyOverridden = true;
   renderJinhanYujing(currentCalendarResult);
 });
 
@@ -97,14 +101,18 @@ async function handleCalculate() {
   elements.calculate.disabled = true;
 
   try {
-    const result = await calculateBazi(value);
+    const solarTerms = await loadSolarTerms();
+    const result = calculateBaziFromSolarTerms(value, solarTerms);
     currentCalendarResult = result;
+    currentSolarTerms = solarTerms;
+    isJinhanDunTypeManuallyOverridden = false;
     renderResult(result);
     renderFlyingStars(result, value);
     renderJinhanYujing(result);
     setMessage("", "");
   } catch (error) {
     currentCalendarResult = null;
+    currentSolarTerms = null;
     clearResult();
     const message = error instanceof Error ? error.message : String(error);
     setMessage(`查詢失敗：${message}`, "error");
@@ -133,6 +141,7 @@ function renderResult(result) {
 
 function clearResult() {
   currentCalendarResult = null;
+  currentSolarTerms = null;
   for (const element of [
     elements.yearPillar,
     elements.monthPillar,
@@ -254,9 +263,9 @@ function renderJinhanYujing(calendarResult) {
   }
 
   try {
-    const selectedDunType = elements.jinhanDunType.value || "陽遁";
-    const dunTypeStatus = getJinhanDunType(elements.datetime.value, calendarResult, null);
-    const pan = getJinhanYujingDayPan(dayPillar, selectedDunType);
+    const dunTypeStatus = getJinhanDunType(elements.datetime.value, calendarResult, currentSolarTerms);
+    const selectedDunType = resolveJinhanSelectedDunType(dunTypeStatus);
+    const pan = getJinhanYujingDayPan(dayPillar, selectedDunType.dunType);
 
     if (!pan) {
       clearJinhanYujing("查無金函玉鏡日盤資料");
@@ -277,6 +286,27 @@ function renderJinhanYujing(calendarResult) {
   }
 }
 
+function resolveJinhanSelectedDunType(dunTypeStatus) {
+  const manualDunType = elements.jinhanDunType.value || "陽遁";
+
+  if (
+    !isJinhanDunTypeManuallyOverridden &&
+    dunTypeStatus.status === "resolved" &&
+    dunTypeStatus.dunType
+  ) {
+    elements.jinhanDunType.value = dunTypeStatus.dunType;
+    return {
+      dunType: dunTypeStatus.dunType,
+      source: "auto",
+    };
+  }
+
+  return {
+    dunType: manualDunType,
+    source: isJinhanDunTypeManuallyOverridden ? "manual" : "fallback",
+  };
+}
+
 function clearJinhanYujing(message = "") {
   elements.jinhanMessage.textContent = message;
   elements.jinhanSummary.replaceChildren();
@@ -289,11 +319,24 @@ function createJinhanSummaryItems(dayPillar, pan, selectedDunType, dunTypeStatus
     { label: "日柱", value: `${dayPillar}日` },
     { label: "金函玉鏡盤", value: pan.meta.label },
     { label: "中宮", value: pan.meta.center },
-    { label: "陰陽遁選擇", value: `手動選擇：${selectedDunType}` },
-    { label: "自動判斷", value: "尚未啟用" },
-    { label: "判斷狀態", value: dunTypeStatus.status },
-    { label: "換遁提示", value: dunTypeStatus.reason },
+    { label: "陰陽遁來源", value: formatJinhanDunTypeSource(selectedDunType.source) },
+    { label: "目前使用", value: selectedDunType.dunType },
+    { label: "自動判斷", value: dunTypeStatus.status },
   ];
+
+  if (selectedDunType.source === "manual" && dunTypeStatus.dunType) {
+    items.push({ label: "自動建議", value: dunTypeStatus.dunType });
+  }
+
+  if (dunTypeStatus.mode && dunTypeStatus.mode !== "unknown") {
+    items.push({ label: "換遁模式", value: dunTypeStatus.mode });
+  }
+
+  if (dunTypeStatus.boundary) {
+    items.push({ label: "換遁邊界", value: dunTypeStatus.boundary });
+  }
+
+  items.push({ label: "判斷理由", value: dunTypeStatus.reason });
 
   return items.map((item) => {
     const line = document.createElement("div");
@@ -310,6 +353,18 @@ function createJinhanSummaryItems(dayPillar, pan, selectedDunType, dunTypeStatus
     line.append(label, value);
     return line;
   });
+}
+
+function formatJinhanDunTypeSource(source) {
+  if (source === "auto") {
+    return "自動判斷";
+  }
+
+  if (source === "manual") {
+    return "手動覆寫";
+  }
+
+  return "手動選擇";
 }
 
 function createJinhanGridCells(pan, deitiesByPalace) {
