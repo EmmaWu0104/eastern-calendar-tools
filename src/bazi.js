@@ -9,7 +9,10 @@ import {
   getMonthPillar,
   getYearPillar,
 } from "./ganzhi.js";
-import { getCurrentHouBySolarTermRange } from "./seventyTwoHou.js";
+import {
+  getCurrentHouBySolarTermRange,
+  getNextHouBySolarTermRange,
+} from "./seventyTwoHou.js";
 
 export const RULE_NOTES = Object.freeze([
   "年柱以立春切換。",
@@ -32,6 +35,7 @@ export function calculateBaziFromSolarTerms(dateTimeString, solarTerms) {
   const dayPillar = getDayPillar(dateTimeString);
   const hourPillar = getHourPillar(dateTimeString);
   const currentHou = getCurrentHouFromTermContext(termContext);
+  const nextHou = getNextHouFromTermContext(termContext, solarTerms);
 
   return {
     yearPillar: yearPillar.pillar,
@@ -42,6 +46,7 @@ export function calculateBaziFromSolarTerms(dateTimeString, solarTerms) {
     previousTerm: termContext.previousTerm,
     nextTerm: termContext.nextTerm,
     currentHou,
+    nextHou,
     monthBranch: monthBranch.branch,
     ruleNotes: [...RULE_NOTES],
     meta: {
@@ -68,4 +73,52 @@ function getCurrentHouFromTermContext(termContext) {
     nextTerm.timeMs,
     targetTimeMs
   );
+}
+
+function getNextHouFromTermContext(termContext, solarTerms) {
+  const currentTerm = termContext?.currentTerm;
+  const nextTerm = termContext?.nextTerm;
+  const afterNextTerm = findAfterNextTerm(termContext, solarTerms);
+  const targetTimeMs = termContext?.dateTime?.timeMs;
+
+  if (!currentTerm || !nextTerm || !afterNextTerm || !Number.isFinite(targetTimeMs)) {
+    return null;
+  }
+
+  return getNextHouBySolarTermRange(
+    currentTerm.name,
+    currentTerm.timeMs,
+    nextTerm.name,
+    nextTerm.timeMs,
+    afterNextTerm.timeMs,
+    targetTimeMs
+  );
+}
+
+function findAfterNextTerm(termContext, solarTerms) {
+  const nextTerm = termContext?.nextTerm;
+  if (!nextTerm || !Array.isArray(solarTerms)) {
+    return null;
+  }
+
+  const terms = solarTerms
+    .map((term) => ({
+      ...term,
+      timeMs: getTermTimeMs(term),
+    }))
+    .filter((term) => Number.isFinite(term.timeMs))
+    .sort((a, b) => a.timeMs - b.timeMs);
+  const nextIndex = terms.findIndex(
+    (term) => term.name === nextTerm.name && term.timeMs === nextTerm.timeMs
+  );
+
+  return nextIndex >= 0 && nextIndex + 1 < terms.length ? terms[nextIndex + 1] : null;
+}
+
+function getTermTimeMs(term) {
+  if (Number.isFinite(term?.timeMs)) {
+    return term.timeMs;
+  }
+
+  return typeof term?.asia_taipei === "string" ? Date.parse(term.asia_taipei) : NaN;
 }

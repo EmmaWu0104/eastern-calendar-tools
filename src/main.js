@@ -155,7 +155,7 @@ function renderResult(result) {
   renderTerm(elements.currentTerm, "目前節氣", result.currentTerm);
   renderTerm(elements.nextTerm, "下一節氣", result.nextTerm);
   elements.monthBranch.textContent = `${result.monthBranch}月`;
-  renderCurrentHou(result.currentHou);
+  renderCurrentHou(result.currentHou, result.nextHou);
   elements.ruleNotes.replaceChildren(
     ...result.ruleNotes.map((note) => {
       const item = document.createElement("li");
@@ -204,21 +204,30 @@ function renderTerm(element, label, term) {
   );
 }
 
-function renderCurrentHou(currentHou) {
+function renderCurrentHou(currentHou, nextHou) {
   if (!currentHou) {
     elements.currentHou.textContent = "—";
     return;
   }
 
   const houName = currentHou.shortName || currentHou.name;
-  elements.currentHou.replaceChildren(
+  const houLines = [
     createTermLine("七十二候", `${currentHou.term}${currentHou.phase}・${houName}`, "hou-name"),
     createTermLine(
       "候區間",
       `${formatHouRangeDateTime(currentHou.start)} ～ ${formatHouRangeDateTime(currentHou.end)}`,
       "hou-time"
-    )
-  );
+    ),
+  ];
+
+  if (nextHou) {
+    const nextHouName = nextHou.shortName || nextHou.name;
+    houLines.push(
+      createTermLine("下一候", `${nextHou.term}${nextHou.phase}・${nextHouName}`, "hou-next")
+    );
+  }
+
+  elements.currentHou.replaceChildren(...houLines);
 }
 
 function renderPillar(element, pillar) {

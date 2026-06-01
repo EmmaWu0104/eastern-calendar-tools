@@ -20,6 +20,7 @@ const {
   getCurrentHouBySolarTermRange,
   getHouBySolarTerm,
   getHouDefinitions,
+  getNextHouBySolarTermRange,
 } = await import("../src/seventyTwoHou.js");
 const { normalizeSolarTerms, parseLocalDateTime } = await import("../src/solarTerms.js");
 const {
@@ -888,14 +889,16 @@ function createJinhanDunTypeMockTerm(year, name, localDateTime) {
 }
 
 function runBaziCurrentHouTests(solarTerms) {
+  const dahan = findSolarTermForTest(solarTerms, "大寒", 2026);
   const lichun = findSolarTermForTest(solarTerms, "立春", 2026);
   const yushui = findSolarTermForTest(solarTerms, "雨水", 2026);
+  const jingzhe = findSolarTermForTest(solarTerms, "驚蟄", 2026);
 
-  if (!lichun || !yushui) {
+  if (!dahan || !lichun || !yushui || !jingzhe) {
     failures.push({
       id: "bazi-current-hou-setup",
       key: "solarTerms",
-      expected: "2026 立春 and 雨水",
+      expected: "2026 大寒, 立春, 雨水 and 驚蟄",
       actual: "missing",
     });
     return;
@@ -904,26 +907,38 @@ function runBaziCurrentHouTests(solarTerms) {
   const segmentDuration = (yushui.timeMs - lichun.timeMs) / 3;
   const firstBoundary = Math.ceil(lichun.timeMs + segmentDuration);
   const secondBoundary = Math.ceil(lichun.timeMs + segmentDuration * 2);
+  const dahanSegmentDuration = (lichun.timeMs - dahan.timeMs) / 3;
+  const dahanSecondBoundary = Math.ceil(dahan.timeMs + dahanSegmentDuration * 2);
   const testCases = [
     {
       id: "bazi-current-hou-lichun-first",
       input: formatLocalDateTimeForTest(lichun.timeMs),
       expected: { term: "立春", phase: "初候", name: "東風解凍", houIndex: 1, globalHouIndex: 1 },
+      expectedNext: { term: "立春", phase: "次候", name: "蟄蟲始振", houIndex: 2, globalHouIndex: 2 },
     },
     {
       id: "bazi-current-hou-lichun-second",
       input: formatLocalDateTimeForTest(firstBoundary),
       expected: { term: "立春", phase: "次候", name: "蟄蟲始振", houIndex: 2, globalHouIndex: 2 },
+      expectedNext: { term: "立春", phase: "末候", name: "魚陟負冰", houIndex: 3, globalHouIndex: 3 },
     },
     {
       id: "bazi-current-hou-lichun-third",
       input: formatLocalDateTimeForTest(secondBoundary),
       expected: { term: "立春", phase: "末候", name: "魚陟負冰", houIndex: 3, globalHouIndex: 3 },
+      expectedNext: { term: "雨水", phase: "初候", name: "獺祭魚", houIndex: 1, globalHouIndex: 4 },
     },
     {
       id: "bazi-current-hou-yushui-start",
       input: formatLocalDateTimeForTest(yushui.timeMs),
       expected: { term: "雨水", phase: "初候", name: "獺祭魚", houIndex: 1, globalHouIndex: 4 },
+      expectedNext: { term: "雨水", phase: "次候", name: "鴻雁來", houIndex: 2, globalHouIndex: 5 },
+    },
+    {
+      id: "bazi-current-hou-cross-year-next",
+      input: formatLocalDateTimeForTest(dahanSecondBoundary),
+      expected: { term: "大寒", phase: "末候", name: "水澤腹堅", houIndex: 3, globalHouIndex: 72 },
+      expectedNext: { term: "立春", phase: "初候", name: "東風解凍", houIndex: 1, globalHouIndex: 1 },
     },
   ];
 
@@ -951,6 +966,8 @@ function runBaziCurrentHouTests(solarTerms) {
         });
       }
     }
+
+    assertSeventyTwoHouResult(`${testCase.id}-next`, actual.nextHou, testCase.expectedNext);
   }
 }
 
@@ -1041,6 +1058,38 @@ function runSeventyTwoHouTests() {
     assertSeventyTwoHouResult(testCase.id, actual, testCase.expected);
   }
 
+  const jingzheStart = "2026-03-06T00:00:00";
+  const nextHouCases = [
+    {
+      id: "seventy-two-hou-next-lichun-first",
+      target: lichunStart,
+      expected: { term: "立春", phase: "次候", name: "蟄蟲始振", houIndex: 2, globalHouIndex: 2 },
+    },
+    {
+      id: "seventy-two-hou-next-lichun-second",
+      target: lichunFirstBoundary,
+      expected: { term: "立春", phase: "末候", name: "魚陟負冰", houIndex: 3, globalHouIndex: 3 },
+    },
+    {
+      id: "seventy-two-hou-next-lichun-third",
+      target: lichunSecondBoundary,
+      expected: { term: "雨水", phase: "初候", name: "獺祭魚", houIndex: 1, globalHouIndex: 4 },
+    },
+  ];
+
+  for (const testCase of nextHouCases) {
+    const actual = getNextHouBySolarTermRange(
+      "立春",
+      lichunStart,
+      "雨水",
+      yushuiStart,
+      jingzheStart,
+      testCase.target
+    );
+    seventyTwoHouVerifiedCaseCount += 1;
+    assertSeventyTwoHouResult(testCase.id, actual, testCase.expected);
+  }
+
   seventyTwoHouVerifiedCaseCount += 1;
   const atNextTerm = getCurrentHouBySolarTermRange("立春", lichunStart, yushuiStart, yushuiStart);
   if (atNextTerm !== null) {
@@ -1065,6 +1114,24 @@ function runSeventyTwoHouTests() {
     houIndex: 3,
     globalHouIndex: 66,
   });
+
+  seventyTwoHouVerifiedCaseCount += 1;
+  const crossTermNextHou = getNextHouBySolarTermRange(
+    "立春",
+    lichunStart,
+    "雨水",
+    yushuiStart,
+    null,
+    lichunSecondBoundary
+  );
+  if (crossTermNextHou !== null) {
+    failures.push({
+      id: "seventy-two-hou-next-missing-after-next",
+      key: "result",
+      expected: null,
+      actual: crossTermNextHou?.name,
+    });
+  }
 
   const invalidCases = [
     {
@@ -1104,6 +1171,35 @@ function runSeventyTwoHouTests() {
         actual: actual?.name,
       });
     }
+  }
+
+  seventyTwoHouVerifiedCaseCount += 1;
+  let invalidNextHou = null;
+  try {
+    invalidNextHou = getNextHouBySolarTermRange(
+      "不存在",
+      lichunStart,
+      "雨水",
+      yushuiStart,
+      jingzheStart,
+      lichunStart
+    );
+  } catch (error) {
+    failures.push({
+      id: "seventy-two-hou-next-invalid-term",
+      key: "throw",
+      expected: "not throw",
+      actual: error instanceof Error ? error.message : String(error),
+    });
+  }
+
+  if (invalidNextHou !== null) {
+    failures.push({
+      id: "seventy-two-hou-next-invalid-term",
+      key: "result",
+      expected: null,
+      actual: invalidNextHou?.name,
+    });
   }
 
   seventyTwoHouVerifiedCaseCount += 1;

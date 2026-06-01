@@ -36,16 +36,56 @@ export function getCurrentHouBySolarTermRange(termName, termStart, nextTermStart
   const firstBoundary = startMs + segmentDuration;
   const secondBoundary = startMs + segmentDuration * 2;
   const segmentIndex = targetMs < firstBoundary ? 0 : targetMs < secondBoundary ? 1 : 2;
-  const hou = definitions[segmentIndex];
-  const houStartMs = startMs + segmentDuration * segmentIndex;
-  const houEndMs = segmentIndex === 2 ? nextStartMs : startMs + segmentDuration * (segmentIndex + 1);
 
-  return {
-    term: normalizeTextKey(termName),
-    ...clonePlainData(hou),
-    start: new Date(houStartMs).toISOString(),
-    end: new Date(houEndMs).toISOString(),
-  };
+  return createHouResult(termName, definitions[segmentIndex], segmentIndex, startMs, nextStartMs);
+}
+
+export function getNextHouBySolarTermRange(
+  termName,
+  termStart,
+  nextTermName,
+  nextTermStart,
+  afterNextTermStart,
+  targetDateTime
+) {
+  const currentHou = getCurrentHouBySolarTermRange(termName, termStart, nextTermStart, targetDateTime);
+  if (!currentHou) {
+    return null;
+  }
+
+  const currentTermDefinitions = getHouBySolarTerm(termName);
+  const startMs = parseTimeMs(termStart);
+  const nextStartMs = parseTimeMs(nextTermStart);
+
+  if (
+    currentHou.houIndex < 3 &&
+    currentTermDefinitions.length === 3 &&
+    Number.isFinite(startMs) &&
+    Number.isFinite(nextStartMs) &&
+    nextStartMs > startMs
+  ) {
+    const nextSegmentIndex = currentHou.houIndex;
+    return createHouResult(
+      termName,
+      currentTermDefinitions[nextSegmentIndex],
+      nextSegmentIndex,
+      startMs,
+      nextStartMs
+    );
+  }
+
+  const nextTermDefinitions = getHouBySolarTerm(nextTermName);
+  const afterNextStartMs = parseTimeMs(afterNextTermStart);
+  if (
+    nextTermDefinitions.length !== 3 ||
+    !Number.isFinite(nextStartMs) ||
+    !Number.isFinite(afterNextStartMs) ||
+    afterNextStartMs <= nextStartMs
+  ) {
+    return null;
+  }
+
+  return createHouResult(nextTermName, nextTermDefinitions[0], 0, nextStartMs, afterNextStartMs);
 }
 
 function normalizeTextKey(value) {
@@ -66,6 +106,19 @@ function parseTimeMs(value) {
   }
 
   return NaN;
+}
+
+function createHouResult(termName, hou, segmentIndex, startMs, nextStartMs) {
+  const segmentDuration = (nextStartMs - startMs) / 3;
+  const houStartMs = startMs + segmentDuration * segmentIndex;
+  const houEndMs = segmentIndex === 2 ? nextStartMs : startMs + segmentDuration * (segmentIndex + 1);
+
+  return {
+    term: normalizeTextKey(termName),
+    ...clonePlainData(hou),
+    start: new Date(houStartMs).toISOString(),
+    end: new Date(houEndMs).toISOString(),
+  };
 }
 
 function clonePlainData(value) {
