@@ -205,7 +205,7 @@ jinhanPanCount = jinhanStats.pans;
 jinhanBlackYellowHourCount = jinhanStats.blackYellowHours;
 
 runJinhanYujingLookupTests();
-runJinhanDunTypeSkeletonTests();
+runJinhanDunTypeV1Tests();
 
 if (failures.length > 0) {
   console.error("測試失敗：");
@@ -224,7 +224,7 @@ if (failures.length > 0) {
     `金函玉鏡資料檢查通過：${jinhanDayPillarCount} day pillars, ${jinhanPanCount} pans, ${jinhanBlackYellowHourCount} blackYellowHours`
   );
   console.log(`金函玉鏡查表測試通過：${jinhanLookupVerifiedCaseCount} cases`);
-  console.log(`金函玉鏡超神接氣骨架測試通過：${jinhanDunTypeVerifiedCaseCount} cases`);
+  console.log(`金函玉鏡超神接氣 v1 測試通過：${jinhanDunTypeVerifiedCaseCount} cases`);
   if (pendingCases.length > 0) {
     console.log(`待人工驗證案例略過：${pendingCases.length} cases`);
     for (const testCase of pendingCases) {
@@ -614,27 +614,199 @@ function getJinhanDeityLabelsByPalace(deitiesByPalace) {
   );
 }
 
-function runJinhanDunTypeSkeletonTests() {
+function runJinhanDunTypeV1Tests() {
   const testCases = [
     {
-      id: "jinhan-dun-type-normal-input",
-      input: ["2026-01-01T00:00", { dayPillar: "甲子" }, []],
-      forbiddenDunType: null,
+      id: "jinhan-dun-type-missing-solar-terms",
+      input: ["2026-01-01T00:00", { dayPillar: "甲子" }, null],
+      expected: {
+        status: JINHAN_DUN_TYPE_STATUS.UNSUPPORTED,
+        dunType: null,
+        mode: JINHAN_DUN_TYPE_MODE.UNKNOWN,
+        boundary: null,
+      },
     },
     {
-      id: "jinhan-dun-type-empty-input",
-      input: [null, null, null],
-      forbiddenDunType: null,
+      id: "jinhan-dun-type-winter-zheng-shou",
+      input: [
+        "2026-12-17T00:00",
+        { dayPillar: "甲子" },
+        createJinhanDunTypeMockTerms({
+          previousWinter: "2025-12-21T10:00:00",
+          summer: "2026-06-19T10:00:00",
+          winter: "2026-12-16T10:00:00",
+        }),
+      ],
+      expected: {
+        status: JINHAN_DUN_TYPE_STATUS.RESOLVED,
+        dunType: "陽遁",
+        mode: JINHAN_DUN_TYPE_MODE.ZHENG_SHOU,
+        boundary: "冬至",
+      },
     },
     {
-      id: "jinhan-dun-type-winter-solstice-no-auto",
-      input: ["2026-12-22T00:00", { dayPillar: "甲子" }, []],
-      forbiddenDunType: "陽遁",
+      id: "jinhan-dun-type-winter-jie-qi",
+      input: [
+        "2026-12-17T00:00",
+        { dayPillar: "甲子" },
+        createJinhanDunTypeMockTerms({
+          previousWinter: "2025-12-21T10:00:00",
+          summer: "2026-06-19T10:00:00",
+          winter: "2026-12-18T10:00:00",
+        }),
+      ],
+      expected: {
+        status: JINHAN_DUN_TYPE_STATUS.RESOLVED,
+        dunType: "陽遁",
+        mode: JINHAN_DUN_TYPE_MODE.JIE_QI,
+        boundary: "冬至",
+      },
     },
     {
-      id: "jinhan-dun-type-summer-solstice-no-auto",
-      input: ["2026-06-21T00:00", { dayPillar: "甲子" }, []],
-      forbiddenDunType: "陰遁",
+      id: "jinhan-dun-type-winter-chao-shen-before-switch",
+      input: [
+        "2026-12-25T00:00",
+        { dayPillar: "甲子" },
+        createJinhanDunTypeMockTerms({
+          previousWinter: "2025-12-21T10:00:00",
+          summer: "2026-06-19T10:00:00",
+          winter: "2026-12-24T10:00:00",
+        }),
+      ],
+      expected: {
+        status: JINHAN_DUN_TYPE_STATUS.RESOLVED,
+        dunType: "陰遁",
+        mode: JINHAN_DUN_TYPE_MODE.CHAO_SHEN,
+        boundary: "冬至",
+      },
+    },
+    {
+      id: "jinhan-dun-type-winter-chao-shen-after-switch",
+      input: [
+        "2026-12-26T00:00",
+        { dayPillar: "甲子" },
+        createJinhanDunTypeMockTerms({
+          previousWinter: "2025-12-21T10:00:00",
+          summer: "2026-06-19T10:00:00",
+          winter: "2026-12-24T10:00:00",
+        }),
+      ],
+      expected: {
+        status: JINHAN_DUN_TYPE_STATUS.RESOLVED,
+        dunType: "陽遁",
+        mode: JINHAN_DUN_TYPE_MODE.CHAO_SHEN,
+        boundary: "冬至",
+      },
+    },
+    {
+      id: "jinhan-dun-type-summer-zheng-shou",
+      input: [
+        "2026-06-20T00:00",
+        { dayPillar: "甲子" },
+        createJinhanDunTypeMockTerms({
+          previousWinter: "2025-12-21T10:00:00",
+          summer: "2026-06-19T10:00:00",
+          winter: "2026-12-16T10:00:00",
+        }),
+      ],
+      expected: {
+        status: JINHAN_DUN_TYPE_STATUS.RESOLVED,
+        dunType: "陰遁",
+        mode: JINHAN_DUN_TYPE_MODE.ZHENG_SHOU,
+        boundary: "夏至",
+      },
+    },
+    {
+      id: "jinhan-dun-type-summer-jie-qi",
+      input: [
+        "2026-06-20T00:00",
+        { dayPillar: "甲子" },
+        createJinhanDunTypeMockTerms({
+          previousWinter: "2025-12-21T10:00:00",
+          summer: "2026-06-22T10:00:00",
+          winter: "2026-12-16T10:00:00",
+        }),
+      ],
+      expected: {
+        status: JINHAN_DUN_TYPE_STATUS.RESOLVED,
+        dunType: "陰遁",
+        mode: JINHAN_DUN_TYPE_MODE.JIE_QI,
+        boundary: "夏至",
+      },
+    },
+    {
+      id: "jinhan-dun-type-summer-chao-shen-before-switch",
+      input: [
+        "2026-06-27T00:00",
+        { dayPillar: "甲子" },
+        createJinhanDunTypeMockTerms({
+          previousWinter: "2025-12-21T10:00:00",
+          summer: "2026-06-26T10:00:00",
+          winter: "2026-12-16T10:00:00",
+        }),
+      ],
+      expected: {
+        status: JINHAN_DUN_TYPE_STATUS.RESOLVED,
+        dunType: "陽遁",
+        mode: JINHAN_DUN_TYPE_MODE.CHAO_SHEN,
+        boundary: "夏至",
+      },
+    },
+    {
+      id: "jinhan-dun-type-summer-chao-shen-after-switch",
+      input: [
+        "2026-06-29T00:00",
+        { dayPillar: "甲子" },
+        createJinhanDunTypeMockTerms({
+          previousWinter: "2025-12-21T10:00:00",
+          summer: "2026-06-26T10:00:00",
+          winter: "2026-12-16T10:00:00",
+        }),
+      ],
+      expected: {
+        status: JINHAN_DUN_TYPE_STATUS.RESOLVED,
+        dunType: "陰遁",
+        mode: JINHAN_DUN_TYPE_MODE.CHAO_SHEN,
+        boundary: "夏至",
+      },
+    },
+    {
+      id: "jinhan-dun-type-january-uses-previous-winter",
+      input: [
+        "2026-01-01T00:00",
+        { dayPillar: "甲子" },
+        createJinhanDunTypeMockTerms({
+          previousWinter: "2025-12-21T10:00:00",
+          summer: "2026-06-19T10:00:00",
+          winter: "2026-12-16T10:00:00",
+        }),
+      ],
+      expected: {
+        status: JINHAN_DUN_TYPE_STATUS.RESOLVED,
+        dunType: "陽遁",
+        mode: JINHAN_DUN_TYPE_MODE.ZHENG_SHOU,
+        boundary: "冬至",
+      },
+    },
+    {
+      id: "jinhan-dun-type-term-after-2300-uses-next-ganzhi-day",
+      input: [
+        "2025-12-22T00:30",
+        { dayPillar: "乙丑" },
+        createJinhanDunTypeMockTerms({
+          prePreviousWinter: "2024-12-21T10:00:00",
+          previousSummer: "2025-06-19T10:00:00",
+          previousWinter: "2025-12-21T23:10:00",
+          summer: "2026-06-19T10:00:00",
+          winter: "2026-12-16T10:00:00",
+        }),
+      ],
+      expected: {
+        status: JINHAN_DUN_TYPE_STATUS.RESOLVED,
+        dunType: "陽遁",
+        mode: JINHAN_DUN_TYPE_MODE.JIE_QI,
+        boundary: "冬至",
+      },
     },
   ];
 
@@ -653,28 +825,12 @@ function runJinhanDunTypeSkeletonTests() {
     }
 
     jinhanDunTypeVerifiedCaseCount += 1;
-    assertJinhanDunTypeManualRequired(testCase.id, actual);
-
-    if (testCase.forbiddenDunType && actual.dunType === testCase.forbiddenDunType) {
-      failures.push({
-        id: testCase.id,
-        key: "dunType",
-        expected: `not ${testCase.forbiddenDunType}`,
-        actual: actual.dunType,
-      });
-    }
+    assertJinhanDunTypeResult(testCase.id, actual, testCase.expected);
   }
 }
 
-function assertJinhanDunTypeManualRequired(id, actual) {
-  const expectedValues = {
-    status: JINHAN_DUN_TYPE_STATUS.MANUAL_REQUIRED,
-    dunType: null,
-    mode: JINHAN_DUN_TYPE_MODE.PENDING,
-    boundary: null,
-  };
-
-  for (const [key, expectedValue] of Object.entries(expectedValues)) {
+function assertJinhanDunTypeResult(id, actual, expected) {
+  for (const [key, expectedValue] of Object.entries(expected)) {
     if (actual?.[key] !== expectedValue) {
       failures.push({
         id,
@@ -693,4 +849,29 @@ function assertJinhanDunTypeManualRequired(id, actual) {
       actual: actual?.reason,
     });
   }
+}
+
+function createJinhanDunTypeMockTerms({
+  prePreviousWinter,
+  previousSummer,
+  previousWinter,
+  summer,
+  winter,
+}) {
+  return [
+    prePreviousWinter ? createJinhanDunTypeMockTerm(2024, "冬至", prePreviousWinter) : null,
+    previousSummer ? createJinhanDunTypeMockTerm(2025, "夏至", previousSummer) : null,
+    previousWinter ? createJinhanDunTypeMockTerm(2025, "冬至", previousWinter) : null,
+    summer ? createJinhanDunTypeMockTerm(2026, "夏至", summer) : null,
+    winter ? createJinhanDunTypeMockTerm(2026, "冬至", winter) : null,
+  ].filter(Boolean);
+}
+
+function createJinhanDunTypeMockTerm(year, name, localDateTime) {
+  return {
+    year_taipei: year,
+    name,
+    asia_taipei: `${localDateTime}+08:00`,
+    timeMs: new Date(localDateTime).getTime(),
+  };
 }
