@@ -130,7 +130,6 @@ async function handleCalculate() {
     currentCalendarResult = result;
     currentSolarTerms = solarTerms;
     isJinhanDunTypeManuallyOverridden = false;
-    updateWeekdayLabel(value);
     renderResult(result);
     renderFlyingStars(result, value);
     renderJinhanYujing(result);
@@ -149,8 +148,9 @@ async function handleCalculate() {
 function renderResult(result) {
   renderPillar(elements.yearPillar, result.yearPillar);
   renderPillar(elements.monthPillar, result.monthPillar);
-  renderPillar(elements.dayPillar, result.dayPillar, result.jianchu);
+  renderPillar(elements.dayPillar, result.dayPillar, result.jianchu, result.dailyInfo);
   renderPillar(elements.hourPillar, result.hourPillar);
+  updateWeekdayLabel(elements.datetime.value, result.dailyInfo);
   renderDailyGods(result.dayPillar);
   renderTerm(elements.currentTerm, "目前節氣", result.currentTerm);
   renderTerm(elements.nextTerm, "下一節氣", result.nextTerm);
@@ -230,7 +230,7 @@ function renderCurrentHou(currentHou, nextHou) {
   elements.currentHou.replaceChildren(...houLines);
 }
 
-function renderPillar(element, pillar, jianchu = undefined) {
+function renderPillar(element, pillar, jianchu = undefined, dailyInfo = undefined) {
   if (typeof pillar !== "string" || pillar.length < 2) {
     element.textContent = "--";
     return;
@@ -246,6 +246,10 @@ function renderPillar(element, pillar, jianchu = undefined) {
     parts.push(createPillarPart(`建除：${jianchu?.fullName ?? "—"}`, "pillar-extra jianchu-label"));
   }
 
+  if (dailyInfo !== undefined) {
+    parts.push(...createDailyInfoPillarParts(dailyInfo));
+  }
+
   element.replaceChildren(...parts);
 }
 
@@ -254,6 +258,32 @@ function createPillarPart(text, className) {
   part.className = className;
   part.textContent = text;
   return part;
+}
+
+function createDailyInfoPillarParts(dailyInfo) {
+  const lines = [];
+
+  if (dailyInfo?.clash?.label) {
+    lines.push(createPillarPart(`❌ ${dailyInfo.clash.label}`, "pillar-extra daily-info-line"));
+  }
+
+  if (dailyInfo?.suiPo?.isSuiPo) {
+    lines.push(createPillarPart(`💀 ${dailyInfo.suiPo.label}`, "pillar-extra daily-info-line"));
+  }
+
+  if (dailyInfo?.tianShe?.isTianShe) {
+    lines.push(createPillarPart(`😇 ${dailyInfo.tianShe.label}`, "pillar-extra daily-info-line"));
+  }
+
+  if (dailyInfo?.sanfu) {
+    lines.push(createPillarPart(`♨ ${dailyInfo.sanfu.label}`, "pillar-extra daily-info-line"));
+  }
+
+  if (dailyInfo?.seasonalMarker) {
+    lines.push(createPillarPart(`💀 ${dailyInfo.seasonalMarker.label}`, "pillar-extra daily-info-line"));
+  }
+
+  return lines;
 }
 
 function renderDailyGods(dayPillar) {
@@ -711,8 +741,15 @@ function getElement(selector) {
   return element;
 }
 
-function updateWeekdayLabel(dateTimeValue) {
-  elements.weekdayLabel.textContent = formatWeekdayLabel(dateTimeValue);
+function updateWeekdayLabel(dateTimeValue, dailyInfo = null) {
+  const weekdayLine = document.createElement("span");
+  weekdayLine.className = "weekday-line";
+  weekdayLine.textContent = formatWeekdayLabel(dateTimeValue);
+
+  const clothingBlock = createDailyClothingBlock(dailyInfo?.clothing);
+  elements.weekdayLabel.replaceChildren(
+    ...(clothingBlock ? [weekdayLine, clothingBlock] : [weekdayLine])
+  );
 }
 
 function formatWeekdayLabel(dateTimeValue) {
@@ -722,6 +759,46 @@ function formatWeekdayLabel(dateTimeValue) {
   }
 
   return `查詢日：${WEEKDAY_LABELS[date.getDay()]}`;
+}
+
+function createDailyClothingBlock(clothing) {
+  if (!clothing) {
+    return null;
+  }
+
+  const block = document.createElement("span");
+  block.className = "daily-clothing";
+
+  const title = document.createElement("span");
+  title.className = "daily-clothing-title";
+  title.textContent = "衣著：";
+
+  const lines = document.createElement("span");
+  lines.className = "daily-clothing-lines";
+  lines.append(
+    createDailyClothingLine("🧥", clothing.best),
+    createDailyClothingLine("🧥", clothing.good),
+    createDailyClothingLine("⛔", clothing.avoid)
+  );
+
+  block.append(title, lines);
+  return block;
+}
+
+function createDailyClothingLine(icon, item) {
+  const line = document.createElement("span");
+  line.className = "daily-clothing-line";
+  line.textContent = formatClothingLine(icon, item);
+  return line;
+}
+
+function formatClothingLine(icon, item) {
+  if (!item) {
+    return `${icon} —`;
+  }
+
+  const colors = Array.isArray(item.colors) ? item.colors.join("、") : "";
+  return `${icon} ${item.label} ${item.element}（${colors}）`;
 }
 
 function getChineseHourIndex(dateTimeValue) {

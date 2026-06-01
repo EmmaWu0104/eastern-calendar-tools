@@ -54,6 +54,39 @@ label {
   font-weight: 700;
 }
 
+.weekday-line,
+.daily-clothing,
+.daily-clothing-title,
+.daily-clothing-lines,
+.daily-clothing-line {
+  display: block;
+}
+
+.daily-clothing {
+  margin-top: 8px;
+  padding: 8px 10px;
+  border: 1px solid #d8dee6;
+  border-radius: 6px;
+  background: #fbfcfe;
+  color: #1f2933;
+}
+
+.daily-clothing-title {
+  margin-bottom: 4px;
+  color: #52616f;
+  font-weight: 800;
+}
+
+.daily-clothing-lines {
+  display: grid;
+  gap: 3px;
+}
+
+.daily-clothing-line {
+  line-height: 1.45;
+  font-weight: 700;
+}
+
 input,
 button {
   min-height: 40px;
@@ -186,6 +219,11 @@ dd {
 
 .jianchu-label {
   color: #1f2933;
+  font-weight: 800;
+}
+
+.daily-info-line {
+  color: #52616f;
   font-weight: 800;
 }
 
