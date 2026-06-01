@@ -149,7 +149,7 @@ async function handleCalculate() {
 function renderResult(result) {
   renderPillar(elements.yearPillar, result.yearPillar);
   renderPillar(elements.monthPillar, result.monthPillar);
-  renderPillar(elements.dayPillar, result.dayPillar);
+  renderPillar(elements.dayPillar, result.dayPillar, result.jianchu);
   renderPillar(elements.hourPillar, result.hourPillar);
   renderDailyGods(result.dayPillar);
   renderTerm(elements.currentTerm, "目前節氣", result.currentTerm);
@@ -230,17 +230,23 @@ function renderCurrentHou(currentHou, nextHou) {
   elements.currentHou.replaceChildren(...houLines);
 }
 
-function renderPillar(element, pillar) {
+function renderPillar(element, pillar, jianchu = undefined) {
   if (typeof pillar !== "string" || pillar.length < 2) {
     element.textContent = "--";
     return;
   }
 
-  element.replaceChildren(
+  const parts = [
     createPillarPart(pillar[0], "pillar-stem"),
     createPillarPart(pillar[1], "pillar-branch"),
     createPillarPart(getNaYinByPillar(pillar), "pillar-nayin")
-  );
+  ];
+
+  if (jianchu !== undefined) {
+    parts.push(createPillarPart(`建除：${jianchu?.fullName ?? "—"}`, "pillar-extra jianchu-label"));
+  }
+
+  element.replaceChildren(...parts);
 }
 
 function createPillarPart(text, className) {

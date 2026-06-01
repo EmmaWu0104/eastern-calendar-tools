@@ -177,6 +177,18 @@ dd {
   line-height: 1.2;
 }
 
+.pillar-extra {
+  display: block;
+  margin-top: 2px;
+  font-size: 12px;
+  line-height: 1.2;
+}
+
+.jianchu-label {
+  color: #1f2933;
+  font-weight: 800;
+}
+
 .details dd {
   font-size: 18px;
 }

@@ -6,6 +6,11 @@ const { calculateBaziFromSolarTerms } = await import("../src/bazi.js");
 const { getDailyGodsByStem } = await import("../src/dailyGods.js");
 const { SEXAGENARY_CYCLE } = await import("../src/ganzhi.js");
 const {
+  getEarthlyBranchIndex,
+  getJianchuByBranches,
+  getJianchuSequence,
+} = await import("../src/jianchu.js");
+const {
   getJinhanDunType,
   JINHAN_DUN_TYPE_MODE,
   JINHAN_DUN_TYPE_STATUS,
@@ -58,6 +63,7 @@ let verifiedCaseCount = 0;
 let flyingStarsVerifiedCaseCount = 0;
 let dailyGodsVerifiedCaseCount = 0;
 let naYinVerifiedCaseCount = 0;
+let jianchuVerifiedCaseCount = 0;
 let jinhanDayPillarCount = 0;
 let jinhanPanCount = 0;
 let jinhanBlackYellowHourCount = 0;
@@ -65,6 +71,7 @@ let jinhanLookupVerifiedCaseCount = 0;
 let jinhanDunTypeVerifiedCaseCount = 0;
 let seventyTwoHouVerifiedCaseCount = 0;
 let baziCurrentHouVerifiedCaseCount = 0;
+let baziJianchuVerifiedCaseCount = 0;
 
 const parsedLocalDateTime = parseLocalDateTime("2026-06-05T09:08:07.123");
 const localDateTimeExpected = {
@@ -207,6 +214,128 @@ for (const testCase of naYinTestCases) {
   }
 }
 
+const jianchuTestCases = [
+  {
+    id: "jianchu-si-si",
+    monthBranch: "巳",
+    dayBranch: "巳",
+    expected: { name: "建", fullName: "建日", index: 0, monthBranch: "巳", dayBranch: "巳" },
+  },
+  {
+    id: "jianchu-si-wu",
+    monthBranch: "巳",
+    dayBranch: "午",
+    expected: { name: "除", fullName: "除日", index: 1, monthBranch: "巳", dayBranch: "午" },
+  },
+  {
+    id: "jianchu-si-hai",
+    monthBranch: "巳",
+    dayBranch: "亥",
+    expected: { name: "破", fullName: "破日", index: 6, monthBranch: "巳", dayBranch: "亥" },
+  },
+  {
+    id: "jianchu-yin-yin",
+    monthBranch: "寅",
+    dayBranch: "寅",
+    expected: { name: "建", fullName: "建日", index: 0, monthBranch: "寅", dayBranch: "寅" },
+  },
+  {
+    id: "jianchu-yin-mao",
+    monthBranch: "寅",
+    dayBranch: "卯",
+    expected: { name: "除", fullName: "除日", index: 1, monthBranch: "寅", dayBranch: "卯" },
+  },
+  {
+    id: "jianchu-yin-shen",
+    monthBranch: "寅",
+    dayBranch: "申",
+    expected: { name: "破", fullName: "破日", index: 6, monthBranch: "寅", dayBranch: "申" },
+  },
+  {
+    id: "jianchu-zi-hai",
+    monthBranch: "子",
+    dayBranch: "亥",
+    expected: { name: "閉", fullName: "閉日", index: 11, monthBranch: "子", dayBranch: "亥" },
+  },
+];
+
+for (const testCase of jianchuTestCases) {
+  const actual = getJianchuByBranches(testCase.monthBranch, testCase.dayBranch);
+  jianchuVerifiedCaseCount += 1;
+
+  if (!actual) {
+    failures.push({
+      id: testCase.id,
+      key: "result",
+      expected: "jianchu object",
+      actual,
+    });
+    continue;
+  }
+
+  for (const [key, expectedValue] of Object.entries(testCase.expected)) {
+    if (actual[key] !== expectedValue) {
+      failures.push({
+        id: testCase.id,
+        key,
+        expected: expectedValue,
+        actual: actual[key],
+      });
+    }
+  }
+}
+
+const invalidJianchuCases = [
+  { id: "jianchu-invalid-month", monthBranch: "無", dayBranch: "巳" },
+  { id: "jianchu-invalid-day", monthBranch: "巳", dayBranch: "無" },
+];
+
+for (const testCase of invalidJianchuCases) {
+  jianchuVerifiedCaseCount += 1;
+  let actual;
+  try {
+    actual = getJianchuByBranches(testCase.monthBranch, testCase.dayBranch);
+  } catch (error) {
+    failures.push({
+      id: testCase.id,
+      key: "throw",
+      expected: "not throw",
+      actual: error instanceof Error ? error.message : String(error),
+    });
+    continue;
+  }
+
+  if (actual !== null) {
+    failures.push({
+      id: testCase.id,
+      key: "result",
+      expected: null,
+      actual: actual?.name,
+    });
+  }
+}
+
+jianchuVerifiedCaseCount += 1;
+const jianchuSequence = getJianchuSequence();
+if (jianchuSequence.length !== 12 || jianchuSequence[0] !== "建" || jianchuSequence[11] !== "閉") {
+  failures.push({
+    id: "jianchu-sequence",
+    key: "sequence",
+    expected: "12 items from 建 to 閉",
+    actual: jianchuSequence.join(","),
+  });
+}
+
+jianchuVerifiedCaseCount += 1;
+if (getEarthlyBranchIndex("子") !== 0 || getEarthlyBranchIndex("亥") !== 11 || getEarthlyBranchIndex("無") !== -1) {
+  failures.push({
+    id: "jianchu-branch-index",
+    key: "index",
+    expected: "子=0, 亥=11, invalid=-1",
+    actual: `子=${getEarthlyBranchIndex("子")}, 亥=${getEarthlyBranchIndex("亥")}, 無=${getEarthlyBranchIndex("無")}`,
+  });
+}
+
 const jinhanStats = validateJinhanYujingData(jinhanYujingData);
 jinhanDayPillarCount = jinhanStats.dayPillars;
 jinhanPanCount = jinhanStats.pans;
@@ -215,6 +344,7 @@ jinhanBlackYellowHourCount = jinhanStats.blackYellowHours;
 runJinhanYujingLookupTests();
 runJinhanDunTypeV1Tests();
 runBaziCurrentHouTests(solarTerms);
+runBaziJianchuTests(solarTerms);
 runSeventyTwoHouTests();
 
 if (failures.length > 0) {
@@ -230,12 +360,14 @@ if (failures.length > 0) {
   console.log(`九宮飛星測試通過：${flyingStarsVerifiedCaseCount} cases`);
   console.log(`日干吉神測試通過：${dailyGodsVerifiedCaseCount} cases`);
   console.log(`納音測試通過：${naYinVerifiedCaseCount} cases`);
+  console.log(`建除十二神測試通過：${jianchuVerifiedCaseCount} cases`);
   console.log(
     `金函玉鏡資料檢查通過：${jinhanDayPillarCount} day pillars, ${jinhanPanCount} pans, ${jinhanBlackYellowHourCount} blackYellowHours`
   );
   console.log(`金函玉鏡查表測試通過：${jinhanLookupVerifiedCaseCount} cases`);
   console.log(`金函玉鏡超神接氣 v1 測試通過：${jinhanDunTypeVerifiedCaseCount} cases`);
   console.log(`干支曆七十二候整合測試通過：${baziCurrentHouVerifiedCaseCount} cases`);
+  console.log(`干支曆建除十二神整合測試通過：${baziJianchuVerifiedCaseCount} cases`);
   console.log(`七十二候測試通過：${seventyTwoHouVerifiedCaseCount} cases`);
   if (pendingCases.length > 0) {
     console.log(`待人工驗證案例略過：${pendingCases.length} cases`);
@@ -968,6 +1100,90 @@ function runBaziCurrentHouTests(solarTerms) {
     }
 
     assertSeventyTwoHouResult(`${testCase.id}-next`, actual.nextHou, testCase.expectedNext);
+  }
+}
+
+function runBaziJianchuTests(solarTerms) {
+  const testCases = [
+    {
+      id: "bazi-jianchu-si-month-hai-day",
+      input: "2026-05-25T12:00:00",
+      expected: {
+        fullName: "破日",
+        index: 6,
+        monthBranch: "巳",
+        dayBranch: "亥",
+      },
+    },
+    {
+      id: "bazi-jianchu-before-2300",
+      input: "2026-05-29T22:59:00",
+      expected: {
+        fullName: "開日",
+        monthBranch: "巳",
+        dayBranchFromPillar: true,
+      },
+    },
+    {
+      id: "bazi-jianchu-after-2300",
+      input: "2026-05-29T23:00:00",
+      expected: {
+        fullName: "閉日",
+        monthBranch: "巳",
+        dayBranchFromPillar: true,
+      },
+    },
+  ];
+
+  for (const testCase of testCases) {
+    const actual = calculateBaziFromSolarTerms(testCase.input, solarTerms);
+    baziJianchuVerifiedCaseCount += 1;
+
+    if (!actual.jianchu) {
+      failures.push({
+        id: testCase.id,
+        key: "jianchu",
+        expected: "jianchu object",
+        actual: actual.jianchu,
+      });
+      continue;
+    }
+
+    for (const [key, expectedValue] of Object.entries(testCase.expected)) {
+      if (key === "dayBranchFromPillar") {
+        const expectedDayBranch = actual.dayPillar[1];
+        if (actual.jianchu.dayBranch !== expectedDayBranch) {
+          failures.push({
+            id: testCase.id,
+            key: "jianchu.dayBranch",
+            expected: expectedDayBranch,
+            actual: actual.jianchu.dayBranch,
+          });
+        }
+        continue;
+      }
+
+      if (actual.jianchu[key] !== expectedValue) {
+        failures.push({
+          id: testCase.id,
+          key: `jianchu.${key}`,
+          expected: expectedValue,
+          actual: actual.jianchu[key],
+        });
+      }
+    }
+  }
+
+  const beforeSwitch = calculateBaziFromSolarTerms("2026-05-29T22:59:00", solarTerms);
+  const afterSwitch = calculateBaziFromSolarTerms("2026-05-29T23:00:00", solarTerms);
+  baziJianchuVerifiedCaseCount += 1;
+  if (beforeSwitch.jianchu?.dayBranch === afterSwitch.jianchu?.dayBranch) {
+    failures.push({
+      id: "bazi-jianchu-2300-day-branch-switch",
+      key: "dayBranch",
+      expected: "changed at 23:00",
+      actual: beforeSwitch.jianchu?.dayBranch,
+    });
   }
 }
 

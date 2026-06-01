@@ -9,6 +9,7 @@ import {
   getMonthPillar,
   getYearPillar,
 } from "./ganzhi.js";
+import { getJianchuByBranches } from "./jianchu.js";
 import {
   getCurrentHouBySolarTermRange,
   getNextHouBySolarTermRange,
@@ -36,6 +37,7 @@ export function calculateBaziFromSolarTerms(dateTimeString, solarTerms) {
   const hourPillar = getHourPillar(dateTimeString);
   const currentHou = getCurrentHouFromTermContext(termContext);
   const nextHou = getNextHouFromTermContext(termContext, solarTerms);
+  const jianchu = getJianchuFromBranches(monthBranch.branch, dayPillar.pillar);
 
   return {
     yearPillar: yearPillar.pillar,
@@ -48,6 +50,7 @@ export function calculateBaziFromSolarTerms(dateTimeString, solarTerms) {
     currentHou,
     nextHou,
     monthBranch: monthBranch.branch,
+    jianchu,
     ruleNotes: [...RULE_NOTES],
     meta: {
       dateTime: termContext.dateTime,
@@ -56,6 +59,11 @@ export function calculateBaziFromSolarTerms(dateTimeString, solarTerms) {
       monthSwitchTerm: monthBranch.term,
     },
   };
+}
+
+function getJianchuFromBranches(monthBranch, dayPillar) {
+  const dayBranch = typeof dayPillar === "string" ? dayPillar[1] : "";
+  return getJianchuByBranches(monthBranch, dayBranch);
 }
 
 function getCurrentHouFromTermContext(termContext) {
