@@ -492,7 +492,7 @@ function createJinhanTimeRangeCell(timeRange, isCurrent) {
 
     const badge = document.createElement("span");
     badge.className = "jinhan-current-badge";
-    badge.textContent = "目前";
+    badge.textContent = "現";
 
     cell.append(marker, badge, document.createTextNode(timeRange));
     return cell;
