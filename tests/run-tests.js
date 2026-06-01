@@ -83,6 +83,7 @@ let jinhanDunTypeVerifiedCaseCount = 0;
 let seventyTwoHouVerifiedCaseCount = 0;
 let baziCurrentHouVerifiedCaseCount = 0;
 let baziJianchuVerifiedCaseCount = 0;
+let baziDailyInfoVerifiedCaseCount = 0;
 
 const parsedLocalDateTime = parseLocalDateTime("2026-06-05T09:08:07.123");
 const localDateTimeExpected = {
@@ -357,6 +358,7 @@ runJinhanDunTypeV1Tests();
 runDailyInfoTests();
 runBaziCurrentHouTests(solarTerms);
 runBaziJianchuTests(solarTerms);
+runBaziDailyInfoTests(solarTerms);
 runSeventyTwoHouTests();
 
 if (failures.length > 0) {
@@ -381,6 +383,7 @@ if (failures.length > 0) {
   console.log(`金函玉鏡超神接氣 v1 測試通過：${jinhanDunTypeVerifiedCaseCount} cases`);
   console.log(`干支曆七十二候整合測試通過：${baziCurrentHouVerifiedCaseCount} cases`);
   console.log(`干支曆建除十二神整合測試通過：${baziJianchuVerifiedCaseCount} cases`);
+  console.log(`干支曆每日資訊整合測試通過：${baziDailyInfoVerifiedCaseCount} cases`);
   console.log(`七十二候測試通過：${seventyTwoHouVerifiedCaseCount} cases`);
   if (pendingCases.length > 0) {
     console.log(`待人工驗證案例略過：${pendingCases.length} cases`);
@@ -1364,6 +1367,105 @@ function runBaziJianchuTests(solarTerms) {
       key: "dayBranch",
       expected: "changed at 23:00",
       actual: beforeSwitch.jianchu?.dayBranch,
+    });
+  }
+}
+
+function runBaziDailyInfoTests(solarTerms) {
+  const noonWuDay = calculateBaziFromSolarTerms("2026-05-20T12:00:00", solarTerms);
+  baziDailyInfoVerifiedCaseCount += 1;
+  if (!noonWuDay.dailyInfo) {
+    failures.push({
+      id: "bazi-daily-info-exists",
+      key: "dailyInfo",
+      expected: "dailyInfo object",
+      actual: noonWuDay.dailyInfo,
+    });
+  } else {
+    assertEqual("bazi-daily-info-clothing-element", "dayElement", "火", noonWuDay.dailyInfo.clothing?.dayElement);
+    assertEqual("bazi-daily-info-clothing-best", "best.element", "土", noonWuDay.dailyInfo.clothing?.best?.element);
+    assertEqual("bazi-daily-info-clash", "label", "衝煞：鼠", noonWuDay.dailyInfo.clash?.label);
+    assertEqual("bazi-daily-info-tianshe-summer", "isTianShe", true, noonWuDay.dailyInfo.tianShe?.isTianShe);
+  }
+
+  const suiPoDay = calculateBaziFromSolarTerms("2026-02-07T12:00:00", solarTerms);
+  baziDailyInfoVerifiedCaseCount += 1;
+  assertEqual("bazi-daily-info-suipo", "isSuiPo", true, suiPoDay.dailyInfo?.suiPo?.isSuiPo);
+  assertEqual("bazi-daily-info-suipo-label", "label", "歲破日", suiPoDay.dailyInfo?.suiPo?.label);
+
+  const springTianShe = calculateBaziFromSolarTerms("2026-03-05T12:00:00", solarTerms);
+  baziDailyInfoVerifiedCaseCount += 1;
+  assertEqual("bazi-daily-info-tianshe-spring", "isTianShe", true, springTianShe.dailyInfo?.tianShe?.isTianShe);
+
+  const autumnTianShe = calculateBaziFromSolarTerms("2026-10-01T12:00:00", solarTerms);
+  baziDailyInfoVerifiedCaseCount += 1;
+  assertEqual("bazi-daily-info-tianshe-autumn", "isTianShe", true, autumnTianShe.dailyInfo?.tianShe?.isTianShe);
+
+  const winterTianShe = calculateBaziFromSolarTerms("2026-12-16T12:00:00", solarTerms);
+  baziDailyInfoVerifiedCaseCount += 1;
+  assertEqual("bazi-daily-info-tianshe-winter", "isTianShe", true, winterTianShe.dailyInfo?.tianShe?.isTianShe);
+
+  const springMarker = calculateBaziFromSolarTerms("2026-03-19T12:00:00", solarTerms);
+  baziDailyInfoVerifiedCaseCount += 1;
+  assertEqual(
+    "bazi-daily-info-seasonal-spring-marker",
+    "label",
+    "離日：木離日",
+    springMarker.dailyInfo?.seasonalMarker?.label
+  );
+
+  const lichunMarker = calculateBaziFromSolarTerms("2026-02-03T12:00:00", solarTerms);
+  baziDailyInfoVerifiedCaseCount += 1;
+  assertEqual(
+    "bazi-daily-info-seasonal-lichun-marker",
+    "label",
+    "絕日：木旺水絕",
+    lichunMarker.dailyInfo?.seasonalMarker?.label
+  );
+
+  const after2300Marker = calculateBaziFromSolarTerms("1914-02-04T22:00:00", solarTerms);
+  baziDailyInfoVerifiedCaseCount += 1;
+  assertEqual(
+    "bazi-daily-info-seasonal-2300-effective-day",
+    "label",
+    "絕日：木旺水絕",
+    after2300Marker.dailyInfo?.seasonalMarker?.label
+  );
+
+  const sanfuCases = [
+    { id: "bazi-daily-info-sanfu-chufu", input: "2026-07-15T12:00:00", expectedType: "初伏" },
+    { id: "bazi-daily-info-sanfu-zhongfu", input: "2026-07-25T12:00:00", expectedType: "中伏" },
+    { id: "bazi-daily-info-sanfu-mofu", input: "2026-08-14T12:00:00", expectedType: "末伏" },
+  ];
+
+  for (const testCase of sanfuCases) {
+    const actual = calculateBaziFromSolarTerms(testCase.input, solarTerms);
+    baziDailyInfoVerifiedCaseCount += 1;
+    assertEqual(testCase.id, "sanfu.type", testCase.expectedType, actual.dailyInfo?.sanfu?.type);
+  }
+
+  const beforeSwitch = calculateBaziFromSolarTerms("2026-05-29T22:59:00", solarTerms);
+  const afterSwitch = calculateBaziFromSolarTerms("2026-05-29T23:00:00", solarTerms);
+  baziDailyInfoVerifiedCaseCount += 1;
+  assertEqual(
+    "bazi-daily-info-before-2300-day-branch",
+    "clothing.dayBranch",
+    beforeSwitch.dayPillar[1],
+    beforeSwitch.dailyInfo?.clothing?.dayBranch
+  );
+  assertEqual(
+    "bazi-daily-info-after-2300-day-branch",
+    "clothing.dayBranch",
+    afterSwitch.dayPillar[1],
+    afterSwitch.dailyInfo?.clothing?.dayBranch
+  );
+
+  if (beforeSwitch.dailyInfo?.clash?.label === afterSwitch.dailyInfo?.clash?.label) {
+    failures.push({
+      id: "bazi-daily-info-2300-clash-switch",
+      key: "clash.label",
+      expected: "changed at 23:00 with day branch",
+      actual: beforeSwitch.dailyInfo?.clash?.label,
     });
   }
 }
