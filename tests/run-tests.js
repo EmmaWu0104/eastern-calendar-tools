@@ -56,17 +56,19 @@ if (resolvedTimeZone !== TEST_TIME_ZONE) {
   );
 }
 
-const [termsRaw, casesRaw, flyingStarsCasesRaw, jinhanYujingRaw] = await Promise.all([
+const [termsRaw, casesRaw, flyingStarsCasesRaw, jinhanYujingRaw, qimenYuanJuTableRaw] = await Promise.all([
   readFile(new URL("../data/solar_terms_1899_2101.json", import.meta.url), "utf8"),
   readFile(new URL("./testcases.json", import.meta.url), "utf8"),
   readFile(new URL("./flying-stars-testcases.json", import.meta.url), "utf8"),
   readFile(new URL("../data/jinhan_yujing_day_pan.json", import.meta.url), "utf8"),
+  readFile(new URL("../data/qimen/qimen_yuan_ju_table.json", import.meta.url), "utf8"),
 ]);
 
 const solarTerms = normalizeSolarTerms(JSON.parse(termsRaw));
 const testCases = JSON.parse(casesRaw);
 const flyingStarsTestCases = JSON.parse(flyingStarsCasesRaw);
 const jinhanYujingData = JSON.parse(jinhanYujingRaw);
+const qimenYuanJuTableData = JSON.parse(qimenYuanJuTableRaw);
 const failures = [];
 const pendingCases = [];
 let verifiedCaseCount = 0;
@@ -80,6 +82,9 @@ let jinhanPanCount = 0;
 let jinhanBlackYellowHourCount = 0;
 let jinhanLookupVerifiedCaseCount = 0;
 let jinhanDunTypeVerifiedCaseCount = 0;
+let qimenYuanJuTermCount = 0;
+let qimenPlateFileCount = 0;
+let qimenPlateNullCount = 0;
 let seventyTwoHouVerifiedCaseCount = 0;
 let baziCurrentHouVerifiedCaseCount = 0;
 let baziJianchuVerifiedCaseCount = 0;
@@ -353,6 +358,11 @@ jinhanDayPillarCount = jinhanStats.dayPillars;
 jinhanPanCount = jinhanStats.pans;
 jinhanBlackYellowHourCount = jinhanStats.blackYellowHours;
 
+const qimenStats = await validateQimenData(qimenYuanJuTableData);
+qimenYuanJuTermCount = qimenStats.termCount;
+qimenPlateFileCount = qimenStats.plateFiles;
+qimenPlateNullCount = qimenStats.nullPlates;
+
 runJinhanYujingLookupTests();
 runJinhanDunTypeV1Tests();
 runDailyInfoTests();
@@ -381,6 +391,9 @@ if (failures.length > 0) {
   );
   console.log(`金函玉鏡查表測試通過：${jinhanLookupVerifiedCaseCount} cases`);
   console.log(`金函玉鏡超神接氣 v1 測試通過：${jinhanDunTypeVerifiedCaseCount} cases`);
+  console.log(
+    `奇門遁甲資料檢查通過：${qimenYuanJuTermCount} terms, ${qimenPlateFileCount} plate files, ${qimenPlateNullCount} null plates`
+  );
   console.log(`干支曆七十二候整合測試通過：${baziCurrentHouVerifiedCaseCount} cases`);
   console.log(`干支曆建除十二神整合測試通過：${baziJianchuVerifiedCaseCount} cases`);
   console.log(`干支曆每日資訊整合測試通過：${baziDailyInfoVerifiedCaseCount} cases`);
@@ -437,6 +450,279 @@ function getDailyGodLabelsByPalace(result) {
       .flat()
       .map((palace) => [palace.id, palace.gods.map((god) => god.shortLabel).join("")])
   );
+}
+
+async function validateQimenData(yuanJuTable) {
+  const expectedTerms = {
+    冬至: { dunType: "yang", ju: { 上元: 1, 中元: 7, 下元: 4 } },
+    小寒: { dunType: "yang", ju: { 上元: 2, 中元: 8, 下元: 5 } },
+    大寒: { dunType: "yang", ju: { 上元: 3, 中元: 9, 下元: 6 } },
+    立春: { dunType: "yang", ju: { 上元: 8, 中元: 5, 下元: 2 } },
+    雨水: { dunType: "yang", ju: { 上元: 9, 中元: 6, 下元: 3 } },
+    驚蟄: { dunType: "yang", ju: { 上元: 1, 中元: 7, 下元: 4 } },
+    春分: { dunType: "yang", ju: { 上元: 3, 中元: 9, 下元: 6 } },
+    清明: { dunType: "yang", ju: { 上元: 7, 中元: 1, 下元: 4 } },
+    穀雨: { dunType: "yang", ju: { 上元: 5, 中元: 2, 下元: 8 } },
+    立夏: { dunType: "yang", ju: { 上元: 4, 中元: 1, 下元: 7 } },
+    小滿: { dunType: "yang", ju: { 上元: 5, 中元: 2, 下元: 8 } },
+    芒種: { dunType: "yang", ju: { 上元: 6, 中元: 3, 下元: 9 } },
+    夏至: { dunType: "yin", ju: { 上元: 9, 中元: 3, 下元: 6 } },
+    小暑: { dunType: "yin", ju: { 上元: 8, 中元: 2, 下元: 5 } },
+    大暑: { dunType: "yin", ju: { 上元: 7, 中元: 1, 下元: 4 } },
+    立秋: { dunType: "yin", ju: { 上元: 2, 中元: 5, 下元: 8 } },
+    處暑: { dunType: "yin", ju: { 上元: 1, 中元: 7, 下元: 4 } },
+    白露: { dunType: "yin", ju: { 上元: 9, 中元: 3, 下元: 6 } },
+    秋分: { dunType: "yin", ju: { 上元: 7, 中元: 1, 下元: 4 } },
+    寒露: { dunType: "yin", ju: { 上元: 6, 中元: 3, 下元: 9 } },
+    霜降: { dunType: "yin", ju: { 上元: 5, 中元: 8, 下元: 2 } },
+    立冬: { dunType: "yin", ju: { 上元: 6, 中元: 9, 下元: 3 } },
+    小雪: { dunType: "yin", ju: { 上元: 5, 中元: 8, 下元: 2 } },
+    大雪: { dunType: "yin", ju: { 上元: 4, 中元: 7, 下元: 1 } },
+  };
+  const yuanNames = ["上元", "中元", "下元"];
+  const terms = yuanJuTable.terms;
+  const termNames = terms && typeof terms === "object" ? Object.keys(terms) : [];
+  let plateFiles = 0;
+  let nullPlates = 0;
+
+  if (!yuanJuTable.meta?.schemaVersion) {
+    failures.push({
+      id: "qimen-yuan-ju-table",
+      key: "meta.schemaVersion",
+      expected: "present",
+      actual: yuanJuTable.meta?.schemaVersion ?? "missing",
+    });
+  }
+
+  if ("method" in (yuanJuTable.meta ?? {}) || "method" in yuanJuTable) {
+    failures.push({
+      id: "qimen-yuan-ju-table",
+      key: "method",
+      expected: "not present",
+      actual: "present",
+    });
+  }
+
+  if (!terms || typeof terms !== "object" || Array.isArray(terms)) {
+    failures.push({
+      id: "qimen-yuan-ju-table",
+      key: "terms",
+      expected: "object",
+      actual: Array.isArray(terms) ? "array" : typeof terms,
+    });
+  }
+
+  if (termNames.length !== 24) {
+    failures.push({
+      id: "qimen-yuan-ju-table",
+      key: "termCount",
+      expected: 24,
+      actual: termNames.length,
+    });
+  }
+
+  for (const [termName, expectedTerm] of Object.entries(expectedTerms)) {
+    const actualTerm = terms?.[termName];
+    if (!actualTerm) {
+      failures.push({
+        id: `qimen-yuan-ju-${termName}`,
+        key: "term",
+        expected: "present",
+        actual: "missing",
+      });
+      continue;
+    }
+
+    if (actualTerm.dunType !== expectedTerm.dunType) {
+      failures.push({
+        id: `qimen-yuan-ju-${termName}`,
+        key: "dunType",
+        expected: expectedTerm.dunType,
+        actual: actualTerm.dunType,
+      });
+    }
+
+    if (!actualTerm.ju || typeof actualTerm.ju !== "object" || Array.isArray(actualTerm.ju)) {
+      failures.push({
+        id: `qimen-yuan-ju-${termName}`,
+        key: "ju",
+        expected: "object",
+        actual: Array.isArray(actualTerm.ju) ? "array" : typeof actualTerm.ju,
+      });
+      continue;
+    }
+
+    const actualYuanNames = Object.keys(actualTerm.ju);
+    for (const yuanName of actualYuanNames) {
+      if (!yuanNames.includes(yuanName)) {
+        failures.push({
+          id: `qimen-yuan-ju-${termName}`,
+          key: `ju.${yuanName}`,
+          expected: "上元, 中元 or 下元",
+          actual: yuanName,
+        });
+      }
+    }
+
+    for (const yuanName of yuanNames) {
+      const actualJu = actualTerm.ju[yuanName];
+      if (!Number.isInteger(actualJu) || actualJu < 1 || actualJu > 9) {
+        failures.push({
+          id: `qimen-yuan-ju-${termName}`,
+          key: `ju.${yuanName}`,
+          expected: "integer 1-9",
+          actual: actualJu,
+        });
+      }
+
+      if (actualJu !== expectedTerm.ju[yuanName]) {
+        failures.push({
+          id: `qimen-yuan-ju-${termName}`,
+          key: `ju.${yuanName}`,
+          expected: expectedTerm.ju[yuanName],
+          actual: actualJu,
+        });
+      }
+    }
+  }
+
+  const expectedPillarSet = new Set(SEXAGENARY_CYCLE);
+  for (const dunType of ["yang", "yin"]) {
+    for (let ju = 1; ju <= 9; ju += 1) {
+      const filePath = `../data/qimen/plates/${dunType}/ju-${ju}.json`;
+      let plateData;
+      try {
+        const raw = await readFile(new URL(filePath, import.meta.url), "utf8");
+        plateData = JSON.parse(raw);
+      } catch (error) {
+        failures.push({
+          id: `qimen-plate-${dunType}-ju-${ju}`,
+          key: "file",
+          expected: "existing parseable JSON",
+          actual: error instanceof Error ? error.message : String(error),
+        });
+        continue;
+      }
+
+      plateFiles += 1;
+      nullPlates += validateQimenPlateFile(dunType, ju, plateData, expectedPillarSet);
+    }
+  }
+
+  return {
+    termCount: termNames.length,
+    plateFiles,
+    nullPlates,
+  };
+}
+
+function validateQimenPlateFile(dunType, ju, plateData, expectedPillarSet) {
+  const id = `qimen-plate-${dunType}-ju-${ju}`;
+  const expectedDunName = dunType === "yang" ? "陽遁" : "陰遁";
+  const meta = plateData.meta;
+  const plates = plateData.plates;
+  let nullCount = 0;
+
+  if (!meta?.schemaVersion) {
+    failures.push({
+      id,
+      key: "meta.schemaVersion",
+      expected: "present",
+      actual: meta?.schemaVersion ?? "missing",
+    });
+  }
+
+  if (meta?.dunType !== dunType) {
+    failures.push({
+      id,
+      key: "meta.dunType",
+      expected: dunType,
+      actual: meta?.dunType,
+    });
+  }
+
+  if (meta?.dunName !== expectedDunName) {
+    failures.push({
+      id,
+      key: "meta.dunName",
+      expected: expectedDunName,
+      actual: meta?.dunName,
+    });
+  }
+
+  if (meta?.ju !== ju) {
+    failures.push({
+      id,
+      key: "meta.ju",
+      expected: ju,
+      actual: meta?.ju,
+    });
+  }
+
+  if (meta?.plateCount !== 60) {
+    failures.push({
+      id,
+      key: "meta.plateCount",
+      expected: 60,
+      actual: meta?.plateCount,
+    });
+  }
+
+  if (!plates || typeof plates !== "object" || Array.isArray(plates)) {
+    failures.push({
+      id,
+      key: "plates",
+      expected: "object",
+      actual: Array.isArray(plates) ? "array" : typeof plates,
+    });
+    return nullCount;
+  }
+
+  const plateKeys = Object.keys(plates);
+  if (plateKeys.length !== 60) {
+    failures.push({
+      id,
+      key: "plates.count",
+      expected: 60,
+      actual: plateKeys.length,
+    });
+  }
+
+  for (const pillar of SEXAGENARY_CYCLE) {
+    if (!(pillar in plates)) {
+      failures.push({
+        id,
+        key: `plates.${pillar}`,
+        expected: "present",
+        actual: "missing",
+      });
+    }
+  }
+
+  for (const pillar of plateKeys) {
+    if (!expectedPillarSet.has(pillar)) {
+      failures.push({
+        id,
+        key: `plates.${pillar}`,
+        expected: "60 sexagenary hour pillar",
+        actual: pillar,
+      });
+    }
+
+    if (plates[pillar] === null) {
+      nullCount += 1;
+      continue;
+    }
+
+    failures.push({
+      id,
+      key: `plates.${pillar}`,
+      expected: null,
+      actual: typeof plates[pillar],
+    });
+  }
+
+  return nullCount;
 }
 
 function validateJinhanYujingData(data) {
