@@ -31,6 +31,7 @@ const {
   getJinhanYujingDayPan,
 } = await import("../src/jinhanYujing.js");
 const { getNaYinByPillar } = await import("../src/nayin.js");
+const { resolveQimenJu } = await import("../src/qimenResolver.js");
 const {
   getCurrentHouBySolarTermRange,
   getHouBySolarTerm,
@@ -85,6 +86,7 @@ let jinhanDunTypeVerifiedCaseCount = 0;
 let qimenYuanJuTermCount = 0;
 let qimenPlateFileCount = 0;
 let qimenPlateNullCount = 0;
+let qimenResolverVerifiedCaseCount = 0;
 let seventyTwoHouVerifiedCaseCount = 0;
 let baziCurrentHouVerifiedCaseCount = 0;
 let baziJianchuVerifiedCaseCount = 0;
@@ -365,6 +367,7 @@ qimenPlateNullCount = qimenStats.nullPlates;
 
 runJinhanYujingLookupTests();
 runJinhanDunTypeV1Tests();
+runQimenResolverTests();
 runDailyInfoTests();
 runBaziCurrentHouTests(solarTerms);
 runBaziJianchuTests(solarTerms);
@@ -394,6 +397,7 @@ if (failures.length > 0) {
   console.log(
     `奇門遁甲資料檢查通過：${qimenYuanJuTermCount} terms, ${qimenPlateFileCount} plate files, ${qimenPlateNullCount} null plates`
   );
+  console.log(`奇門置閏法 resolver 初版測試通過：${qimenResolverVerifiedCaseCount} cases`);
   console.log(`干支曆七十二候整合測試通過：${baziCurrentHouVerifiedCaseCount} cases`);
   console.log(`干支曆建除十二神整合測試通過：${baziJianchuVerifiedCaseCount} cases`);
   console.log(`干支曆每日資訊整合測試通過：${baziDailyInfoVerifiedCaseCount} cases`);
@@ -1320,6 +1324,156 @@ function createJinhanDunTypeMockTerm(year, name, localDateTime) {
     asia_taipei: `${localDateTime}+08:00`,
     timeMs: new Date(localDateTime).getTime(),
   };
+}
+
+function runQimenResolverTests() {
+  const testCases = [
+    {
+      id: "qimen-2027-mangzhong-middle",
+      input: "2027-06-06T12:00:00+08:00",
+      expected: {
+        actualSolarTerm: "芒種",
+        qimenSolarTerm: "芒種",
+        yuan: "中元",
+        dunType: "yang",
+        dunName: "陽遁",
+        ju: 3,
+        isIntercalary: false,
+      },
+    },
+    {
+      id: "qimen-2027-mangzhong-lower",
+      input: "2027-06-13T12:00:00+08:00",
+      expected: {
+        qimenSolarTerm: "芒種",
+        yuan: "下元",
+        dunType: "yang",
+        dunName: "陽遁",
+        ju: 9,
+        isIntercalary: false,
+      },
+    },
+    {
+      id: "qimen-2027-early-xiazhi-yin",
+      input: "2027-06-14T12:00:00+08:00",
+      expected: {
+        actualSolarTerm: "芒種",
+        qimenSolarTerm: "夏至",
+        status: "超神",
+        yuan: "上元",
+        dunType: "yin",
+        dunName: "陰遁",
+        ju: 9,
+        isIntercalary: false,
+      },
+    },
+    {
+      id: "qimen-2027-actual-xiazhi",
+      input: "2027-06-22T00:30:00+08:00",
+      expected: {
+        actualSolarTerm: "夏至",
+        qimenSolarTerm: "夏至",
+        dunType: "yin",
+        dunName: "陰遁",
+      },
+    },
+    {
+      id: "qimen-2027-daxue-lower",
+      input: "2027-12-07T18:00:00+08:00",
+      expected: {
+        actualSolarTerm: "大雪",
+        qimenSolarTerm: "大雪",
+        yuan: "下元",
+        dunType: "yin",
+        dunName: "陰遁",
+        ju: 1,
+        isIntercalary: false,
+      },
+    },
+    {
+      id: "qimen-2027-daxue-intercalary-upper",
+      input: "2027-12-11T12:00:00+08:00",
+      expected: {
+        actualSolarTerm: "大雪",
+        qimenSolarTerm: "大雪",
+        status: "置閏",
+        yuan: "上元",
+        dunType: "yin",
+        dunName: "陰遁",
+        ju: 4,
+        isIntercalary: true,
+      },
+    },
+    {
+      id: "qimen-2027-daxue-intercalary-middle",
+      input: "2027-12-16T12:00:00+08:00",
+      expected: {
+        qimenSolarTerm: "大雪",
+        yuan: "中元",
+        dunType: "yin",
+        dunName: "陰遁",
+        ju: 7,
+        isIntercalary: true,
+      },
+    },
+    {
+      id: "qimen-2027-dongzhi-still-intercalary-daxue",
+      input: "2027-12-22T12:00:00+08:00",
+      expected: {
+        actualSolarTerm: "冬至",
+        qimenSolarTerm: "大雪",
+        status: "置閏後接氣",
+        yuan: "下元",
+        dunType: "yin",
+        dunName: "陰遁",
+        ju: 1,
+        isIntercalary: true,
+      },
+    },
+    {
+      id: "qimen-2027-daxue-intercalary-lower-end",
+      input: "2027-12-25T12:00:00+08:00",
+      expected: {
+        qimenSolarTerm: "大雪",
+        yuan: "下元",
+        dunType: "yin",
+        dunName: "陰遁",
+        ju: 1,
+        isIntercalary: true,
+      },
+    },
+    {
+      id: "qimen-2027-dongzhi-upper-yang",
+      input: "2027-12-26T12:00:00+08:00",
+      expected: {
+        actualSolarTerm: "冬至",
+        qimenSolarTerm: "冬至",
+        yuan: "上元",
+        dunType: "yang",
+        dunName: "陽遁",
+        ju: 1,
+        isIntercalary: false,
+      },
+    },
+  ];
+
+  for (const testCase of testCases) {
+    const actual = resolveQimenJu(testCase.input);
+    qimenResolverVerifiedCaseCount += 1;
+
+    for (const [key, expectedValue] of Object.entries(testCase.expected)) {
+      assertEqual(testCase.id, key, expectedValue, actual[key]);
+    }
+
+    if (typeof actual.hourPillar !== "string" || actual.hourPillar.length !== 2) {
+      failures.push({
+        id: testCase.id,
+        key: "hourPillar",
+        expected: "two-character pillar",
+        actual: actual.hourPillar,
+      });
+    }
+  }
 }
 
 function runDailyInfoTests() {
