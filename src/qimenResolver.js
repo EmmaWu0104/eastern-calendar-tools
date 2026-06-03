@@ -412,6 +412,42 @@ export function analyzeQimenIntercalationCandidate({
   };
 }
 
+export function analyzeQimenIntercalationWindowsForYear({ year, candidates }) {
+  if (!Number.isInteger(year)) {
+    throw new TypeError("year 需為整數");
+  }
+
+  if (!Array.isArray(candidates)) {
+    throw new TypeError("candidates 需為陣列");
+  }
+
+  return candidates.map((candidate) => {
+    if (!INTERCALATION_WINDOW_TERMS.has(candidate.qimenSolarTerm)) {
+      throw new RangeError(`年度置閏窗口只支援芒種或大雪：${candidate.qimenSolarTerm}`);
+    }
+
+    const actualSolarTermTime = findActualSolarTermTimeByYear(candidate.qimenSolarTerm, year);
+
+    return analyzeQimenIntercalationCandidate({
+      qimenSolarTerm: candidate.qimenSolarTerm,
+      qimenUpperStart: candidate.qimenUpperStart,
+      actualSolarTermTime,
+    });
+  });
+}
+
+function findActualSolarTermTimeByYear(termName, year) {
+  const term = solarTerms.find((candidate) => {
+    return candidate.name === termName && candidate.year_taipei === year;
+  });
+
+  if (!term) {
+    throw new RangeError(`找不到 ${year} 年 ${termName} 節氣資料`);
+  }
+
+  return term.asia_taipei;
+}
+
 function getIntercalationCandidateReason({
   qimenSolarTerm,
   isChaoShen,

@@ -34,6 +34,7 @@ const { getNaYinByPillar } = await import("../src/nayin.js");
 const {
   addQimenEffectiveDays,
   analyzeQimenIntercalationCandidate,
+  analyzeQimenIntercalationWindowsForYear,
   buildSeedDrivenQimenTimelineFixture2027,
   buildQimenTermRanges,
   buildQimenTermAssignmentsFromSeeds,
@@ -110,6 +111,7 @@ let qimenTimelineBuildVerifiedCaseCount = 0;
 let qimenTimelineFromSeedFlowVerifiedCaseCount = 0;
 let qimenSeedDrivenFixtureVerifiedCaseCount = 0;
 let qimenIntercalationCandidateVerifiedCaseCount = 0;
+let qimenIntercalationWindowYearVerifiedCaseCount = 0;
 let qimenResolverVerifiedCaseCount = 0;
 let seventyTwoHouVerifiedCaseCount = 0;
 let baziCurrentHouVerifiedCaseCount = 0;
@@ -398,6 +400,7 @@ runQimenTimelineBuildTests();
 runQimenTimelineFromSeedFlowTests();
 runQimenSeedDrivenFixtureTests();
 runQimenIntercalationCandidateTests();
+runQimenIntercalationWindowYearTests();
 runQimenResolverTests();
 runDailyInfoTests();
 runBaziCurrentHouTests(solarTerms);
@@ -435,6 +438,7 @@ if (failures.length > 0) {
   console.log(`奇門Seed流程timeline測試通過：${qimenTimelineFromSeedFlowVerifiedCaseCount} cases`);
   console.log(`奇門2027 Seed fixture測試通過：${qimenSeedDrivenFixtureVerifiedCaseCount} cases`);
   console.log(`奇門置閏候選判斷測試通過：${qimenIntercalationCandidateVerifiedCaseCount} cases`);
+  console.log(`奇門年度置閏窗口分析測試通過：${qimenIntercalationWindowYearVerifiedCaseCount} cases`);
   console.log(`奇門置閏法 resolver 初版測試通過：${qimenResolverVerifiedCaseCount} cases`);
   console.log(`干支曆七十二候整合測試通過：${baziCurrentHouVerifiedCaseCount} cases`);
   console.log(`干支曆建除十二神整合測試通過：${baziJianchuVerifiedCaseCount} cases`);
@@ -2519,6 +2523,104 @@ function runQimenIntercalationCandidateTests() {
       actualSolarTermTime: "2027-12-07T16:38:00+08:00",
     });
   });
+}
+
+function runQimenIntercalationWindowYearTests() {
+  const windows2027 = analyzeQimenIntercalationWindowsForYear({
+    year: 2027,
+    candidates: [
+      {
+        qimenSolarTerm: "芒種",
+        qimenUpperStart: "2027-05-29T23:00:00+08:00",
+      },
+      {
+        qimenSolarTerm: "大雪",
+        qimenUpperStart: "2027-11-25T23:00:00+08:00",
+      },
+    ],
+  });
+  qimenIntercalationWindowYearVerifiedCaseCount += 1;
+  assertEqual("qimen-year-window-2027", "length", 2, windows2027.length);
+  assertQimenIntercalationWindow("qimen-year-window-2027-mangzhong", windows2027[0], {
+    qimenSolarTerm: "芒種",
+    actualSolarTermTime: findSolarTermForTest(solarTerms, "芒種", 2027)?.asia_taipei,
+    chaoShenDays: 8,
+    reachesNineDays: false,
+    isIntercalationWindow: true,
+    shouldIntercalate: false,
+    intercalarySolarTerm: null,
+  });
+  assertQimenIntercalationWindow("qimen-year-window-2027-daxue", windows2027[1], {
+    qimenSolarTerm: "大雪",
+    actualSolarTermTime: findSolarTermForTest(solarTerms, "大雪", 2027)?.asia_taipei,
+    chaoShenDays: 12,
+    reachesNineDays: true,
+    isIntercalationWindow: true,
+    shouldIntercalate: true,
+    intercalarySolarTerm: "大雪",
+  });
+
+  const mangzhongOnly = analyzeQimenIntercalationWindowsForYear({
+    year: 2027,
+    candidates: [
+      {
+        qimenSolarTerm: "芒種",
+        qimenUpperStart: "2027-05-29T23:00:00+08:00",
+      },
+    ],
+  });
+  qimenIntercalationWindowYearVerifiedCaseCount += 1;
+  assertEqual("qimen-year-window-mangzhong-only", "length", 1, mangzhongOnly.length);
+  assertEqual("qimen-year-window-mangzhong-only", "shouldIntercalate", false, mangzhongOnly[0]?.shouldIntercalate);
+  assertEqual("qimen-year-window-mangzhong-only", "chaoShenDays", 8, mangzhongOnly[0]?.chaoShenDays);
+
+  qimenIntercalationWindowYearVerifiedCaseCount += 1;
+  assertThrowsRangeError("qimen-year-window-invalid-candidate-term", () => {
+    analyzeQimenIntercalationWindowsForYear({
+      year: 2027,
+      candidates: [
+        {
+          qimenSolarTerm: "小滿",
+          qimenUpperStart: "2027-05-10T23:00:00+08:00",
+        },
+      ],
+    });
+  });
+
+  qimenIntercalationWindowYearVerifiedCaseCount += 1;
+  assertThrowsTypeError("qimen-year-window-invalid-candidates", () => {
+    analyzeQimenIntercalationWindowsForYear({
+      year: 2027,
+      candidates: null,
+    });
+  });
+
+  qimenIntercalationWindowYearVerifiedCaseCount += 1;
+  assertThrowsTypeError("qimen-year-window-invalid-year", () => {
+    analyzeQimenIntercalationWindowsForYear({
+      year: "2027",
+      candidates: [],
+    });
+  });
+
+  qimenIntercalationWindowYearVerifiedCaseCount += 1;
+  assertThrowsRangeError("qimen-year-window-missing-year", () => {
+    analyzeQimenIntercalationWindowsForYear({
+      year: 1800,
+      candidates: [
+        {
+          qimenSolarTerm: "芒種",
+          qimenUpperStart: "1800-05-29T23:00:00+08:00",
+        },
+      ],
+    });
+  });
+}
+
+function assertQimenIntercalationWindow(id, actual, expected) {
+  for (const [key, expectedValue] of Object.entries(expected)) {
+    assertEqual(id, key, expectedValue, actual?.[key]);
+  }
 }
 
 function runQimenResolverTests() {
