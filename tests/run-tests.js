@@ -36,6 +36,7 @@ const {
   buildQimenTermRanges,
   buildQimenTermAssignmentsFromSeeds,
   buildQimenTimelineFromFuTouDays,
+  buildQimenTimelineFromFuTouSeeds,
   buildQimenYuanRange,
   getDayPillarForEffectiveDay,
   getQimenEffectiveDayStart,
@@ -103,6 +104,7 @@ let qimenHelperVerifiedCaseCount = 0;
 let qimenFuTouScanVerifiedCaseCount = 0;
 let qimenTermAssignmentVerifiedCaseCount = 0;
 let qimenTimelineBuildVerifiedCaseCount = 0;
+let qimenTimelineFromSeedFlowVerifiedCaseCount = 0;
 let qimenResolverVerifiedCaseCount = 0;
 let seventyTwoHouVerifiedCaseCount = 0;
 let baziCurrentHouVerifiedCaseCount = 0;
@@ -388,6 +390,7 @@ runQimenHelperTests();
 runQimenFuTouScanTests();
 runQimenTermAssignmentTests();
 runQimenTimelineBuildTests();
+runQimenTimelineFromSeedFlowTests();
 runQimenResolverTests();
 runDailyInfoTests();
 runBaziCurrentHouTests(solarTerms);
@@ -422,6 +425,7 @@ if (failures.length > 0) {
   console.log(`奇門符頭掃描測試通過：${qimenFuTouScanVerifiedCaseCount} cases`);
   console.log(`奇門節氣指定展開測試通過：${qimenTermAssignmentVerifiedCaseCount} cases`);
   console.log(`奇門三元timeline產生測試通過：${qimenTimelineBuildVerifiedCaseCount} cases`);
+  console.log(`奇門Seed流程timeline測試通過：${qimenTimelineFromSeedFlowVerifiedCaseCount} cases`);
   console.log(`奇門置閏法 resolver 初版測試通過：${qimenResolverVerifiedCaseCount} cases`);
   console.log(`干支曆七十二候整合測試通過：${baziCurrentHouVerifiedCaseCount} cases`);
   console.log(`干支曆建除十二神整合測試通過：${baziJianchuVerifiedCaseCount} cases`);
@@ -2016,6 +2020,172 @@ function assertThrowsTypeError(id, callback) {
     key: "throw",
     expected: "TypeError",
     actual: "not throw",
+  });
+}
+
+function runQimenTimelineFromSeedFlowTests() {
+  const mangzhongTimeline = buildQimenTimelineFromFuTouSeeds({
+    startEffectiveDay: "2027-05-20T23:00:00+08:00",
+    endEffectiveDay: "2027-06-20T23:00:00+08:00",
+    seeds: [
+      {
+        effectiveDayStart: "2027-05-29T23:00:00+08:00",
+        qimenSolarTerm: "芒種",
+        isIntercalary: false,
+      },
+      {
+        effectiveDayStart: "2027-06-13T23:00:00+08:00",
+        qimenSolarTerm: "夏至",
+        isIntercalary: false,
+      },
+    ],
+  });
+  qimenTimelineFromSeedFlowVerifiedCaseCount += 1;
+  assertEqual("qimen-seed-flow-mangzhong", "length", 4, mangzhongTimeline.length);
+  assertQimenTimelineEntries("qimen-seed-flow-mangzhong", mangzhongTimeline, [
+    {
+      qimenSolarTerm: "芒種",
+      yuan: "上元",
+      start: "2027-05-29T23:00:00+08:00",
+      end: "2027-06-03T23:00:00+08:00",
+      isIntercalary: false,
+      sourceDayPillar: "己酉",
+    },
+    {
+      qimenSolarTerm: "芒種",
+      yuan: "中元",
+      start: "2027-06-03T23:00:00+08:00",
+      end: "2027-06-08T23:00:00+08:00",
+      isIntercalary: false,
+      sourceDayPillar: "甲寅",
+    },
+    {
+      qimenSolarTerm: "芒種",
+      yuan: "下元",
+      start: "2027-06-08T23:00:00+08:00",
+      end: "2027-06-13T23:00:00+08:00",
+      isIntercalary: false,
+      sourceDayPillar: "己未",
+    },
+    {
+      qimenSolarTerm: "夏至",
+      yuan: "上元",
+      start: "2027-06-13T23:00:00+08:00",
+      end: "2027-06-18T23:00:00+08:00",
+      isIntercalary: false,
+      sourceDayPillar: "甲子",
+    },
+  ]);
+
+  const daxueTimeline = buildQimenTimelineFromFuTouSeeds({
+    startEffectiveDay: "2027-11-20T23:00:00+08:00",
+    endEffectiveDay: "2027-12-12T23:00:00+08:00",
+    seeds: [
+      {
+        effectiveDayStart: "2027-11-25T23:00:00+08:00",
+        qimenSolarTerm: "大雪",
+        isIntercalary: false,
+      },
+    ],
+  });
+  qimenTimelineFromSeedFlowVerifiedCaseCount += 1;
+  assertEqual("qimen-seed-flow-daxue", "length", 3, daxueTimeline.length);
+  assertQimenTimelineEntries("qimen-seed-flow-daxue", daxueTimeline, [
+    {
+      qimenSolarTerm: "大雪",
+      yuan: "上元",
+      start: "2027-11-25T23:00:00+08:00",
+      end: "2027-11-30T23:00:00+08:00",
+      isIntercalary: false,
+      sourceDayPillar: "己酉",
+    },
+    {
+      qimenSolarTerm: "大雪",
+      yuan: "中元",
+      start: "2027-11-30T23:00:00+08:00",
+      end: "2027-12-05T23:00:00+08:00",
+      isIntercalary: false,
+      sourceDayPillar: "甲寅",
+    },
+    {
+      qimenSolarTerm: "大雪",
+      yuan: "下元",
+      start: "2027-12-05T23:00:00+08:00",
+      end: "2027-12-10T23:00:00+08:00",
+      isIntercalary: false,
+      sourceDayPillar: "己未",
+    },
+  ]);
+  assertEqual(
+    "qimen-seed-flow-daxue-excludes-unseeded-upper",
+    "nextUpper",
+    false,
+    daxueTimeline.some((entry) => entry.start === "2027-12-10T23:00:00+08:00")
+  );
+
+  const intercalaryDaxueTimeline = buildQimenTimelineFromFuTouSeeds({
+    startEffectiveDay: "2027-12-10T23:00:00+08:00",
+    endEffectiveDay: "2027-12-26T23:00:00+08:00",
+    seeds: [
+      {
+        effectiveDayStart: "2027-12-10T23:00:00+08:00",
+        qimenSolarTerm: "大雪",
+        isIntercalary: true,
+      },
+    ],
+  });
+  qimenTimelineFromSeedFlowVerifiedCaseCount += 1;
+  assertEqual("qimen-seed-flow-intercalary-daxue", "length", 3, intercalaryDaxueTimeline.length);
+  assertQimenTimelineEntries("qimen-seed-flow-intercalary-daxue", intercalaryDaxueTimeline, [
+    {
+      qimenSolarTerm: "大雪",
+      yuan: "上元",
+      start: "2027-12-10T23:00:00+08:00",
+      end: "2027-12-15T23:00:00+08:00",
+      isIntercalary: true,
+      sourceDayPillar: "甲子",
+    },
+    {
+      qimenSolarTerm: "大雪",
+      yuan: "中元",
+      start: "2027-12-15T23:00:00+08:00",
+      end: "2027-12-20T23:00:00+08:00",
+      isIntercalary: true,
+      sourceDayPillar: "己巳",
+    },
+    {
+      qimenSolarTerm: "大雪",
+      yuan: "下元",
+      start: "2027-12-20T23:00:00+08:00",
+      end: "2027-12-25T23:00:00+08:00",
+      isIntercalary: true,
+      sourceDayPillar: "甲戌",
+    },
+  ]);
+  assertEqual(
+    "qimen-seed-flow-intercalary-daxue-excludes-unseeded-upper",
+    "nextUpper",
+    false,
+    intercalaryDaxueTimeline.some((entry) => entry.start === "2027-12-25T23:00:00+08:00")
+  );
+
+  qimenTimelineFromSeedFlowVerifiedCaseCount += 1;
+  assertThrowsRangeError("qimen-seed-flow-seed-not-found", () => {
+    buildQimenTimelineFromFuTouSeeds({
+      startEffectiveDay: "2027-05-20T23:00:00+08:00",
+      endEffectiveDay: "2027-06-20T23:00:00+08:00",
+      seeds: [{ effectiveDayStart: "2027-06-01T23:00:00+08:00", qimenSolarTerm: "芒種" }],
+    });
+  });
+
+  qimenTimelineFromSeedFlowVerifiedCaseCount += 1;
+  assertThrowsRangeError("qimen-seed-flow-include-unassigned", () => {
+    buildQimenTimelineFromFuTouSeeds({
+      startEffectiveDay: "2027-05-20T23:00:00+08:00",
+      endEffectiveDay: "2027-06-20T23:00:00+08:00",
+      seeds: [],
+      includeUnassigned: true,
+    });
   });
 }
 

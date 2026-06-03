@@ -294,6 +294,42 @@ export function buildQimenTermAssignmentsFromSeeds({ fuTouDays, seeds }) {
   return assignments;
 }
 
+export function buildQimenTimelineFromFuTouSeeds({
+  startEffectiveDay,
+  endEffectiveDay,
+  seeds,
+  includeUnassigned = false,
+}) {
+  if (includeUnassigned) {
+    throw new RangeError("includeUnassigned 尚未支援");
+  }
+
+  const fuTouDays = scanQimenFuTouDays(startEffectiveDay, endEffectiveDay);
+  const termAssignments = buildQimenTermAssignmentsFromSeeds({ fuTouDays, seeds });
+  const assignedFuTouDays = trimIncompleteFinalSeedTerm(fuTouDays.filter((fuTouDay) => {
+    return termAssignments[fuTouDay.effectiveDayStart];
+  }));
+
+  return buildQimenTimelineFromFuTouDays({
+    fuTouDays: assignedFuTouDays,
+    termAssignments,
+  });
+}
+
+function trimIncompleteFinalSeedTerm(fuTouDays) {
+  const lastFuTouDay = fuTouDays.at(-1);
+  if (!lastFuTouDay || lastFuTouDay.yuan === "下元") {
+    return fuTouDays;
+  }
+
+  const lastUpperIndex = fuTouDays.findLastIndex((fuTouDay) => fuTouDay.yuan === "上元");
+  if (lastUpperIndex < 0) {
+    return [];
+  }
+
+  return fuTouDays.slice(0, lastUpperIndex + 1);
+}
+
 function buildInitialQimenTimeline() {
   return [
     ...buildQimenTermRanges({
