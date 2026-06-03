@@ -123,6 +123,14 @@ const DUN_NAME_BY_TYPE = Object.freeze({
   yang: "陽遁",
   yin: "陰遁",
 });
+const YUAN_SEQUENCE = Object.freeze(["上元", "中元", "下元"]);
+const YUAN_BRANCHES = Object.freeze({
+  上元: new Set(["子", "午", "卯", "酉"]),
+  中元: new Set(["寅", "申", "巳", "亥"]),
+  下元: new Set(["辰", "戌", "丑", "未"]),
+});
+const TAIPEI_OFFSET_MS = 8 * 60 * 60 * 1000;
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 const solarTerms = normalizeSolarTerms(rawSolarTerms);
 
@@ -189,6 +197,74 @@ export function findQimenTimelineEntry(dateTimeText) {
   });
 
   return entry ? cloneTimelineEntry(entry) : null;
+}
+
+export function isQimenFuTou(dayPillar) {
+  if (typeof dayPillar !== "string" || dayPillar.length !== 2) {
+    return false;
+  }
+
+  return dayPillar[0] === "甲" || dayPillar[0] === "己";
+}
+
+export function getQimenYuanByFuTou(dayPillar) {
+  if (!isQimenFuTou(dayPillar)) {
+    return null;
+  }
+
+  const branch = dayPillar[1];
+  for (const [yuan, branches] of Object.entries(YUAN_BRANCHES)) {
+    if (branches.has(branch)) {
+      return yuan;
+    }
+  }
+
+  return null;
+}
+
+export function getQimenEffectiveDayStart(dateTimeText) {
+  const targetMs = toTimeMs(dateTimeText);
+  const taipeiDate = new Date(targetMs + TAIPEI_OFFSET_MS);
+  const year = taipeiDate.getUTCFullYear();
+  const month = taipeiDate.getUTCMonth();
+  const day = taipeiDate.getUTCDate();
+  const hour = taipeiDate.getUTCHours();
+  const minute = taipeiDate.getUTCMinutes();
+  const second = taipeiDate.getUTCSeconds();
+  const isSameDayStart = hour > 23 || (hour === 23 && (minute > 0 || second >= 0));
+  const startCivilMs = Date.UTC(year, month, day, 23, 0, 0) - TAIPEI_OFFSET_MS;
+  const effectiveStartMs = isSameDayStart ? startCivilMs : startCivilMs - DAY_MS;
+
+  return formatTaipeiDateTime(effectiveStartMs);
+}
+
+export function addQimenEffectiveDays(effectiveDayStartText, days) {
+  if (!Number.isInteger(days)) {
+    throw new RangeError("有效日加減天數需為整數");
+  }
+
+  return formatTaipeiDateTime(toTimeMs(effectiveDayStartText) + days * DAY_MS);
+}
+
+export function buildQimenYuanRange({ qimenSolarTerm, yuan, start, isIntercalary = false }) {
+  return {
+    qimenSolarTerm,
+    yuan,
+    start,
+    end: addQimenEffectiveDays(start, 5),
+    isIntercalary,
+  };
+}
+
+export function buildQimenTermRanges({ qimenSolarTerm, start, isIntercalary = false }) {
+  return YUAN_SEQUENCE.map((yuan, index) => {
+    return buildQimenYuanRange({
+      qimenSolarTerm,
+      yuan,
+      start: addQimenEffectiveDays(start, index * 5),
+      isIntercalary,
+    });
+  });
 }
 
 function findActualSolarTerm(dateTimeText) {
@@ -280,7 +356,10 @@ function hasExplicitOffset(dateTimeText) {
 }
 
 function toTimeMs(dateTimeText) {
-  const timeMs = Date.parse(dateTimeText);
+  const normalized = typeof dateTimeText === "string" && !hasExplicitOffset(dateTimeText)
+    ? `${dateTimeText}+08:00`
+    : dateTimeText;
+  const timeMs = Date.parse(normalized);
   if (!Number.isFinite(timeMs)) {
     throw new Error(`日期時間格式錯誤：${dateTimeText}`);
   }
@@ -290,4 +369,16 @@ function toTimeMs(dateTimeText) {
 
 function cloneTimelineEntry(entry) {
   return { ...entry };
+}
+
+function formatTaipeiDateTime(timeMs) {
+  const taipeiDate = new Date(timeMs + TAIPEI_OFFSET_MS);
+  const year = String(taipeiDate.getUTCFullYear()).padStart(4, "0");
+  const month = String(taipeiDate.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(taipeiDate.getUTCDate()).padStart(2, "0");
+  const hour = String(taipeiDate.getUTCHours()).padStart(2, "0");
+  const minute = String(taipeiDate.getUTCMinutes()).padStart(2, "0");
+  const second = String(taipeiDate.getUTCSeconds()).padStart(2, "0");
+
+  return `${year}-${month}-${day}T${hour}:${minute}:${second}+08:00`;
 }

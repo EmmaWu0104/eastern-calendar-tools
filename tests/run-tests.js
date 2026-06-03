@@ -31,7 +31,15 @@ const {
   getJinhanYujingDayPan,
 } = await import("../src/jinhanYujing.js");
 const { getNaYinByPillar } = await import("../src/nayin.js");
-const { resolveQimenJu } = await import("../src/qimenResolver.js");
+const {
+  addQimenEffectiveDays,
+  buildQimenTermRanges,
+  buildQimenYuanRange,
+  getQimenEffectiveDayStart,
+  getQimenYuanByFuTou,
+  isQimenFuTou,
+  resolveQimenJu,
+} = await import("../src/qimenResolver.js");
 const {
   getCurrentHouBySolarTermRange,
   getHouBySolarTerm,
@@ -86,6 +94,7 @@ let jinhanDunTypeVerifiedCaseCount = 0;
 let qimenYuanJuTermCount = 0;
 let qimenPlateFileCount = 0;
 let qimenPlateNullCount = 0;
+let qimenHelperVerifiedCaseCount = 0;
 let qimenResolverVerifiedCaseCount = 0;
 let seventyTwoHouVerifiedCaseCount = 0;
 let baziCurrentHouVerifiedCaseCount = 0;
@@ -367,6 +376,7 @@ qimenPlateNullCount = qimenStats.nullPlates;
 
 runJinhanYujingLookupTests();
 runJinhanDunTypeV1Tests();
+runQimenHelperTests();
 runQimenResolverTests();
 runDailyInfoTests();
 runBaziCurrentHouTests(solarTerms);
@@ -397,6 +407,7 @@ if (failures.length > 0) {
   console.log(
     `奇門遁甲資料檢查通過：${qimenYuanJuTermCount} terms, ${qimenPlateFileCount} plate files, ${qimenPlateNullCount} null plates`
   );
+  console.log(`奇門置閏法 helper 測試通過：${qimenHelperVerifiedCaseCount} cases`);
   console.log(`奇門置閏法 resolver 初版測試通過：${qimenResolverVerifiedCaseCount} cases`);
   console.log(`干支曆七十二候整合測試通過：${baziCurrentHouVerifiedCaseCount} cases`);
   console.log(`干支曆建除十二神整合測試通過：${baziJianchuVerifiedCaseCount} cases`);
@@ -1324,6 +1335,158 @@ function createJinhanDunTypeMockTerm(year, name, localDateTime) {
     asia_taipei: `${localDateTime}+08:00`,
     timeMs: new Date(localDateTime).getTime(),
   };
+}
+
+function runQimenHelperTests() {
+  const fuTouCases = [
+    { id: "qimen-futou-jiazi", dayPillar: "甲子", expected: true },
+    { id: "qimen-futou-jimao", dayPillar: "己卯", expected: true },
+    { id: "qimen-futou-jihai", dayPillar: "己亥", expected: true },
+    { id: "qimen-futou-yichou", dayPillar: "乙丑", expected: false },
+    { id: "qimen-futou-gengwu", dayPillar: "庚午", expected: false },
+    { id: "qimen-futou-empty", dayPillar: "", expected: false },
+    { id: "qimen-futou-null", dayPillar: null, expected: false },
+    { id: "qimen-futou-short", dayPillar: "甲", expected: false },
+  ];
+
+  for (const testCase of fuTouCases) {
+    qimenHelperVerifiedCaseCount += 1;
+    assertEqual(testCase.id, "result", testCase.expected, isQimenFuTou(testCase.dayPillar));
+  }
+
+  const yuanCases = [
+    { id: "qimen-yuan-jiazi", dayPillar: "甲子", expected: "上元" },
+    { id: "qimen-yuan-jimao", dayPillar: "己卯", expected: "上元" },
+    { id: "qimen-yuan-jiawu", dayPillar: "甲午", expected: "上元" },
+    { id: "qimen-yuan-jiyou", dayPillar: "己酉", expected: "上元" },
+    { id: "qimen-yuan-jiayin", dayPillar: "甲寅", expected: "中元" },
+    { id: "qimen-yuan-jisi", dayPillar: "己巳", expected: "中元" },
+    { id: "qimen-yuan-jiashen", dayPillar: "甲申", expected: "中元" },
+    { id: "qimen-yuan-jihai", dayPillar: "己亥", expected: "中元" },
+    { id: "qimen-yuan-jiachen", dayPillar: "甲辰", expected: "下元" },
+    { id: "qimen-yuan-jiwei", dayPillar: "己未", expected: "下元" },
+    { id: "qimen-yuan-jiaxu", dayPillar: "甲戌", expected: "下元" },
+    { id: "qimen-yuan-jichou", dayPillar: "己丑", expected: "下元" },
+    { id: "qimen-yuan-invalid-yichou", dayPillar: "乙丑", expected: null },
+    { id: "qimen-yuan-invalid-empty", dayPillar: "", expected: null },
+    { id: "qimen-yuan-invalid-null", dayPillar: null, expected: null },
+    { id: "qimen-yuan-invalid-short", dayPillar: "甲", expected: null },
+  ];
+
+  for (const testCase of yuanCases) {
+    qimenHelperVerifiedCaseCount += 1;
+    assertEqual(testCase.id, "result", testCase.expected, getQimenYuanByFuTou(testCase.dayPillar));
+  }
+
+  const effectiveDayCases = [
+    {
+      id: "qimen-effective-day-noon",
+      input: "2027-12-22T12:00:00+08:00",
+      expected: "2027-12-21T23:00:00+08:00",
+    },
+    {
+      id: "qimen-effective-day-before-2300",
+      input: "2027-12-22T22:59:59+08:00",
+      expected: "2027-12-21T23:00:00+08:00",
+    },
+    {
+      id: "qimen-effective-day-at-2300",
+      input: "2027-12-22T23:00:00+08:00",
+      expected: "2027-12-22T23:00:00+08:00",
+    },
+    {
+      id: "qimen-effective-day-after-midnight",
+      input: "2027-12-23T00:30:00+08:00",
+      expected: "2027-12-22T23:00:00+08:00",
+    },
+  ];
+
+  for (const testCase of effectiveDayCases) {
+    qimenHelperVerifiedCaseCount += 1;
+    assertEqual(testCase.id, "start", testCase.expected, getQimenEffectiveDayStart(testCase.input));
+  }
+
+  const addDayCases = [
+    {
+      id: "qimen-add-effective-days-5-winter",
+      start: "2027-12-10T23:00:00+08:00",
+      days: 5,
+      expected: "2027-12-15T23:00:00+08:00",
+    },
+    {
+      id: "qimen-add-effective-days-15-winter",
+      start: "2027-12-10T23:00:00+08:00",
+      days: 15,
+      expected: "2027-12-25T23:00:00+08:00",
+    },
+    {
+      id: "qimen-add-effective-days-5-summer",
+      start: "2027-06-13T23:00:00+08:00",
+      days: 5,
+      expected: "2027-06-18T23:00:00+08:00",
+    },
+  ];
+
+  for (const testCase of addDayCases) {
+    qimenHelperVerifiedCaseCount += 1;
+    assertEqual(testCase.id, "result", testCase.expected, addQimenEffectiveDays(testCase.start, testCase.days));
+  }
+
+  const yuanRange = buildQimenYuanRange({
+    qimenSolarTerm: "大雪",
+    yuan: "上元",
+    start: "2027-12-10T23:00:00+08:00",
+    isIntercalary: true,
+  });
+  qimenHelperVerifiedCaseCount += 1;
+  assertQimenRange("qimen-build-yuan-range", yuanRange, {
+    qimenSolarTerm: "大雪",
+    yuan: "上元",
+    start: "2027-12-10T23:00:00+08:00",
+    end: "2027-12-15T23:00:00+08:00",
+    isIntercalary: true,
+  });
+
+  const termRanges = buildQimenTermRanges({
+    qimenSolarTerm: "大雪",
+    start: "2027-12-10T23:00:00+08:00",
+    isIntercalary: true,
+  });
+  qimenHelperVerifiedCaseCount += 1;
+  assertEqual("qimen-build-term-ranges", "length", 3, termRanges.length);
+  const expectedRanges = [
+    {
+      qimenSolarTerm: "大雪",
+      yuan: "上元",
+      start: "2027-12-10T23:00:00+08:00",
+      end: "2027-12-15T23:00:00+08:00",
+      isIntercalary: true,
+    },
+    {
+      qimenSolarTerm: "大雪",
+      yuan: "中元",
+      start: "2027-12-15T23:00:00+08:00",
+      end: "2027-12-20T23:00:00+08:00",
+      isIntercalary: true,
+    },
+    {
+      qimenSolarTerm: "大雪",
+      yuan: "下元",
+      start: "2027-12-20T23:00:00+08:00",
+      end: "2027-12-25T23:00:00+08:00",
+      isIntercalary: true,
+    },
+  ];
+
+  for (const [index, expectedRange] of expectedRanges.entries()) {
+    assertQimenRange(`qimen-build-term-ranges-${index + 1}`, termRanges[index], expectedRange);
+  }
+}
+
+function assertQimenRange(id, actual, expected) {
+  for (const [key, expectedValue] of Object.entries(expected)) {
+    assertEqual(id, key, expectedValue, actual?.[key]);
+  }
 }
 
 function runQimenResolverTests() {
