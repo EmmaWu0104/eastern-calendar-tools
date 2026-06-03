@@ -33,6 +33,7 @@ const {
 const { getNaYinByPillar } = await import("../src/nayin.js");
 const {
   addQimenEffectiveDays,
+  analyzeQimenIntercalationCandidate,
   buildSeedDrivenQimenTimelineFixture2027,
   buildQimenTermRanges,
   buildQimenTermAssignmentsFromSeeds,
@@ -108,6 +109,7 @@ let qimenTermAssignmentVerifiedCaseCount = 0;
 let qimenTimelineBuildVerifiedCaseCount = 0;
 let qimenTimelineFromSeedFlowVerifiedCaseCount = 0;
 let qimenSeedDrivenFixtureVerifiedCaseCount = 0;
+let qimenIntercalationCandidateVerifiedCaseCount = 0;
 let qimenResolverVerifiedCaseCount = 0;
 let seventyTwoHouVerifiedCaseCount = 0;
 let baziCurrentHouVerifiedCaseCount = 0;
@@ -395,6 +397,7 @@ runQimenTermAssignmentTests();
 runQimenTimelineBuildTests();
 runQimenTimelineFromSeedFlowTests();
 runQimenSeedDrivenFixtureTests();
+runQimenIntercalationCandidateTests();
 runQimenResolverTests();
 runDailyInfoTests();
 runBaziCurrentHouTests(solarTerms);
@@ -431,6 +434,7 @@ if (failures.length > 0) {
   console.log(`奇門三元timeline產生測試通過：${qimenTimelineBuildVerifiedCaseCount} cases`);
   console.log(`奇門Seed流程timeline測試通過：${qimenTimelineFromSeedFlowVerifiedCaseCount} cases`);
   console.log(`奇門2027 Seed fixture測試通過：${qimenSeedDrivenFixtureVerifiedCaseCount} cases`);
+  console.log(`奇門置閏候選判斷測試通過：${qimenIntercalationCandidateVerifiedCaseCount} cases`);
   console.log(`奇門置閏法 resolver 初版測試通過：${qimenResolverVerifiedCaseCount} cases`);
   console.log(`干支曆七十二候整合測試通過：${baziCurrentHouVerifiedCaseCount} cases`);
   console.log(`干支曆建除十二神整合測試通過：${baziJianchuVerifiedCaseCount} cases`);
@@ -2423,6 +2427,98 @@ function assertQimenTimelineFields(id, actual, expected, keys) {
   for (const key of keys) {
     assertEqual(id, key, expected[key], actual?.[key]);
   }
+}
+
+function runQimenIntercalationCandidateTests() {
+  const testCases = [
+    {
+      id: "qimen-intercalation-candidate-2027-mangzhong-no",
+      input: {
+        qimenSolarTerm: "芒種",
+        qimenUpperStart: "2027-05-29T23:00:00+08:00",
+        actualSolarTermTime: "2027-06-06T05:26:00+08:00",
+      },
+      expected: {
+        qimenSolarTerm: "芒種",
+        chaoShenDays: 8,
+        reachesNineDays: false,
+        isIntercalationWindow: true,
+        shouldIntercalate: false,
+        intercalarySolarTerm: null,
+      },
+    },
+    {
+      id: "qimen-intercalation-candidate-2027-daxue-yes",
+      input: {
+        qimenSolarTerm: "大雪",
+        qimenUpperStart: "2027-11-25T23:00:00+08:00",
+        actualSolarTermTime: "2027-12-07T16:38:00+08:00",
+      },
+      expected: {
+        qimenSolarTerm: "大雪",
+        chaoShenDays: 12,
+        reachesNineDays: true,
+        isIntercalationWindow: true,
+        shouldIntercalate: true,
+        intercalarySolarTerm: "大雪",
+      },
+    },
+    {
+      id: "qimen-intercalation-candidate-non-window",
+      input: {
+        qimenSolarTerm: "小滿",
+        qimenUpperStart: "2027-05-10T23:00:00+08:00",
+        actualSolarTermTime: "2027-05-22T12:00:00+08:00",
+      },
+      expected: {
+        reachesNineDays: true,
+        isIntercalationWindow: false,
+        shouldIntercalate: false,
+        intercalarySolarTerm: null,
+      },
+    },
+    {
+      id: "qimen-intercalation-candidate-not-chaoshen",
+      input: {
+        qimenSolarTerm: "冬至",
+        qimenUpperStart: "2027-12-25T23:00:00+08:00",
+        actualSolarTermTime: "2027-12-22T10:42:00+08:00",
+      },
+      expected: {
+        chaoShenDays: 0,
+        reachesNineDays: false,
+        shouldIntercalate: false,
+        intercalarySolarTerm: null,
+      },
+    },
+  ];
+
+  for (const testCase of testCases) {
+    const actual = analyzeQimenIntercalationCandidate(testCase.input);
+    qimenIntercalationCandidateVerifiedCaseCount += 1;
+
+    for (const [key, expectedValue] of Object.entries(testCase.expected)) {
+      assertEqual(testCase.id, key, expectedValue, actual[key]);
+    }
+
+    if (typeof actual.reason !== "string" || actual.reason.length === 0) {
+      failures.push({
+        id: testCase.id,
+        key: "reason",
+        expected: "non-empty string",
+        actual: actual.reason,
+      });
+    }
+  }
+
+  qimenIntercalationCandidateVerifiedCaseCount += 1;
+  assertThrowsRangeError("qimen-intercalation-candidate-invalid-term", () => {
+    analyzeQimenIntercalationCandidate({
+      qimenSolarTerm: "不存在",
+      qimenUpperStart: "2027-11-25T23:00:00+08:00",
+      actualSolarTermTime: "2027-12-07T16:38:00+08:00",
+    });
+  });
 }
 
 function runQimenResolverTests() {

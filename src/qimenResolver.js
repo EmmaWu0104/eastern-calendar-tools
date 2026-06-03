@@ -40,6 +40,7 @@ const YUAN_BRANCHES = Object.freeze({
   中元: new Set(["寅", "申", "巳", "亥"]),
   下元: new Set(["辰", "戌", "丑", "未"]),
 });
+const INTERCALATION_WINDOW_TERMS = new Set(["芒種", "大雪"]);
 const TAIPEI_OFFSET_MS = 8 * 60 * 60 * 1000;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -370,6 +371,71 @@ export function buildSeedDrivenQimenTimelineFixture2027() {
       ],
     }),
   ].sort((a, b) => toTimeMs(a.start) - toTimeMs(b.start));
+}
+
+export function analyzeQimenIntercalationCandidate({
+  qimenSolarTerm,
+  qimenUpperStart,
+  actualSolarTermTime,
+}) {
+  if (!QIMEN_TERM_SEQUENCE.includes(qimenSolarTerm)) {
+    throw new RangeError(`未知奇門節氣：${qimenSolarTerm}`);
+  }
+
+  const qimenUpperStartMs = toTimeMs(qimenUpperStart);
+  const actualSolarTermTimeMs = toTimeMs(actualSolarTermTime);
+  const isChaoShen = qimenUpperStartMs < actualSolarTermTimeMs;
+  const actualEffectiveDayStart = getQimenEffectiveDayStart(actualSolarTermTime);
+  const chaoShenDays = isChaoShen
+    ? Math.floor((toTimeMs(actualEffectiveDayStart) - qimenUpperStartMs) / DAY_MS) + 1
+    : 0;
+  const reachesNineDays = chaoShenDays >= 9;
+  const isIntercalationWindow = INTERCALATION_WINDOW_TERMS.has(qimenSolarTerm);
+  const shouldIntercalate = reachesNineDays && isIntercalationWindow;
+
+  return {
+    qimenSolarTerm,
+    qimenUpperStart,
+    actualSolarTermTime,
+    chaoShenDays,
+    reachesNineDays,
+    isIntercalationWindow,
+    shouldIntercalate,
+    intercalarySolarTerm: shouldIntercalate ? qimenSolarTerm : null,
+    reason: getIntercalationCandidateReason({
+      qimenSolarTerm,
+      isChaoShen,
+      reachesNineDays,
+      isIntercalationWindow,
+      shouldIntercalate,
+    }),
+  };
+}
+
+function getIntercalationCandidateReason({
+  qimenSolarTerm,
+  isChaoShen,
+  reachesNineDays,
+  isIntercalationWindow,
+  shouldIntercalate,
+}) {
+  if (!isChaoShen) {
+    return `奇門${qimenSolarTerm}上元未早於實際${qimenSolarTerm}，不是超神狀態。`;
+  }
+
+  if (shouldIntercalate) {
+    return `奇門${qimenSolarTerm}上元早於實際${qimenSolarTerm}，超神達九日，且${qimenSolarTerm}為可置閏窗口。`;
+  }
+
+  if (!reachesNineDays) {
+    return `奇門${qimenSolarTerm}上元早於實際${qimenSolarTerm}，但超神未達九日。`;
+  }
+
+  if (!isIntercalationWindow) {
+    return `奇門${qimenSolarTerm}上元早於實際${qimenSolarTerm}且超神達九日，但${qimenSolarTerm}不是可置閏窗口。`;
+  }
+
+  return `奇門${qimenSolarTerm}不符合置閏條件。`;
 }
 
 function trimIncompleteFinalSeedTerm(fuTouDays) {
