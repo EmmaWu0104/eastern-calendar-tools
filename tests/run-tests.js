@@ -33,6 +33,7 @@ const {
 const { getNaYinByPillar } = await import("../src/nayin.js");
 const {
   addQimenEffectiveDays,
+  buildSeedDrivenQimenTimelineFixture2027,
   buildQimenTermRanges,
   buildQimenTermAssignmentsFromSeeds,
   buildQimenTimelineFromFuTouDays,
@@ -105,6 +106,7 @@ let qimenFuTouScanVerifiedCaseCount = 0;
 let qimenTermAssignmentVerifiedCaseCount = 0;
 let qimenTimelineBuildVerifiedCaseCount = 0;
 let qimenTimelineFromSeedFlowVerifiedCaseCount = 0;
+let qimenSeedDrivenFixtureVerifiedCaseCount = 0;
 let qimenResolverVerifiedCaseCount = 0;
 let seventyTwoHouVerifiedCaseCount = 0;
 let baziCurrentHouVerifiedCaseCount = 0;
@@ -391,6 +393,7 @@ runQimenFuTouScanTests();
 runQimenTermAssignmentTests();
 runQimenTimelineBuildTests();
 runQimenTimelineFromSeedFlowTests();
+runQimenSeedDrivenFixtureTests();
 runQimenResolverTests();
 runDailyInfoTests();
 runBaziCurrentHouTests(solarTerms);
@@ -426,6 +429,7 @@ if (failures.length > 0) {
   console.log(`奇門節氣指定展開測試通過：${qimenTermAssignmentVerifiedCaseCount} cases`);
   console.log(`奇門三元timeline產生測試通過：${qimenTimelineBuildVerifiedCaseCount} cases`);
   console.log(`奇門Seed流程timeline測試通過：${qimenTimelineFromSeedFlowVerifiedCaseCount} cases`);
+  console.log(`奇門2027 Seed fixture測試通過：${qimenSeedDrivenFixtureVerifiedCaseCount} cases`);
   console.log(`奇門置閏法 resolver 初版測試通過：${qimenResolverVerifiedCaseCount} cases`);
   console.log(`干支曆七十二候整合測試通過：${baziCurrentHouVerifiedCaseCount} cases`);
   console.log(`干支曆建除十二神整合測試通過：${baziJianchuVerifiedCaseCount} cases`);
@@ -2187,6 +2191,187 @@ function runQimenTimelineFromSeedFlowTests() {
       includeUnassigned: true,
     });
   });
+}
+
+function runQimenSeedDrivenFixtureTests() {
+  const fixture = buildSeedDrivenQimenTimelineFixture2027();
+  qimenSeedDrivenFixtureVerifiedCaseCount += 1;
+
+  if (!Array.isArray(fixture) || fixture.length === 0) {
+    failures.push({
+      id: "qimen-seed-fixture-structure",
+      key: "fixture",
+      expected: "non-empty array",
+      actual: Array.isArray(fixture) ? fixture.length : typeof fixture,
+    });
+  }
+
+  for (const [index, entry] of fixture.entries()) {
+    for (const field of ["qimenSolarTerm", "yuan", "start", "end", "isIntercalary"]) {
+      if (!(field in entry)) {
+        failures.push({
+          id: "qimen-seed-fixture-structure",
+          key: `${index}.${field}`,
+          expected: "present",
+          actual: "missing",
+        });
+      }
+    }
+
+    if (Date.parse(entry.start) >= Date.parse(entry.end)) {
+      failures.push({
+        id: "qimen-seed-fixture-structure",
+        key: `${index}.range`,
+        expected: "start < end",
+        actual: `${entry.start} >= ${entry.end}`,
+      });
+    }
+
+    if ("sourceDayPillar" in entry && (typeof entry.sourceDayPillar !== "string" || entry.sourceDayPillar.length !== 2)) {
+      failures.push({
+        id: "qimen-seed-fixture-structure",
+        key: `${index}.sourceDayPillar`,
+        expected: "two-character string",
+        actual: entry.sourceDayPillar,
+      });
+    }
+  }
+
+  assertSeedFixtureMatchesInitialTimeline(
+    "qimen-seed-fixture-mangzhong-xiazhi",
+    fixture,
+    getQimenTimelineForRange("2027-05-29T23:00:00+08:00", "2027-06-18T23:00:00+08:00"),
+    [
+      {
+        qimenSolarTerm: "芒種",
+        yuan: "上元",
+        start: "2027-05-29T23:00:00+08:00",
+        end: "2027-06-03T23:00:00+08:00",
+        isIntercalary: false,
+      },
+      {
+        qimenSolarTerm: "芒種",
+        yuan: "中元",
+        start: "2027-06-03T23:00:00+08:00",
+        end: "2027-06-08T23:00:00+08:00",
+        isIntercalary: false,
+      },
+      {
+        qimenSolarTerm: "芒種",
+        yuan: "下元",
+        start: "2027-06-08T23:00:00+08:00",
+        end: "2027-06-13T23:00:00+08:00",
+        isIntercalary: false,
+      },
+      {
+        qimenSolarTerm: "夏至",
+        yuan: "上元",
+        start: "2027-06-13T23:00:00+08:00",
+        end: "2027-06-18T23:00:00+08:00",
+        isIntercalary: false,
+      },
+    ]
+  );
+
+  assertSeedFixtureMatchesInitialTimeline(
+    "qimen-seed-fixture-daxue",
+    fixture,
+    getQimenTimelineForRange("2027-11-25T23:00:00+08:00", "2027-12-10T23:00:00+08:00"),
+    [
+      {
+        qimenSolarTerm: "大雪",
+        yuan: "上元",
+        start: "2027-11-25T23:00:00+08:00",
+        end: "2027-11-30T23:00:00+08:00",
+        isIntercalary: false,
+      },
+      {
+        qimenSolarTerm: "大雪",
+        yuan: "中元",
+        start: "2027-11-30T23:00:00+08:00",
+        end: "2027-12-05T23:00:00+08:00",
+        isIntercalary: false,
+      },
+      {
+        qimenSolarTerm: "大雪",
+        yuan: "下元",
+        start: "2027-12-05T23:00:00+08:00",
+        end: "2027-12-10T23:00:00+08:00",
+        isIntercalary: false,
+      },
+    ]
+  );
+
+  assertSeedFixtureMatchesInitialTimeline(
+    "qimen-seed-fixture-intercalary-daxue",
+    fixture,
+    getQimenTimelineForRange("2027-12-10T23:00:00+08:00", "2027-12-25T23:00:00+08:00"),
+    [
+      {
+        qimenSolarTerm: "大雪",
+        yuan: "上元",
+        start: "2027-12-10T23:00:00+08:00",
+        end: "2027-12-15T23:00:00+08:00",
+        isIntercalary: true,
+      },
+      {
+        qimenSolarTerm: "大雪",
+        yuan: "中元",
+        start: "2027-12-15T23:00:00+08:00",
+        end: "2027-12-20T23:00:00+08:00",
+        isIntercalary: true,
+      },
+      {
+        qimenSolarTerm: "大雪",
+        yuan: "下元",
+        start: "2027-12-20T23:00:00+08:00",
+        end: "2027-12-25T23:00:00+08:00",
+        isIntercalary: true,
+      },
+    ]
+  );
+
+  assertSeedFixtureMatchesInitialTimeline(
+    "qimen-seed-fixture-dongzhi-upper",
+    fixture,
+    getQimenTimelineForRange("2027-12-25T23:00:00+08:00", "2027-12-30T23:00:00+08:00"),
+    [
+      {
+        qimenSolarTerm: "冬至",
+        yuan: "上元",
+        start: "2027-12-25T23:00:00+08:00",
+        end: "2027-12-30T23:00:00+08:00",
+        isIntercalary: false,
+      },
+    ]
+  );
+}
+
+function assertSeedFixtureMatchesInitialTimeline(id, fixture, initialEntries, expectedEntries) {
+  qimenSeedDrivenFixtureVerifiedCaseCount += 1;
+
+  for (const expectedEntry of expectedEntries) {
+    assertQimenTimelineCommonFields(
+      `${id}-expected-${expectedEntry.start}`,
+      findTimelineEntryByStart(fixture, expectedEntry.start),
+      expectedEntry
+    );
+    assertQimenTimelineCommonFields(
+      `${id}-initial-${expectedEntry.start}`,
+      findTimelineEntryByStart(initialEntries, expectedEntry.start),
+      expectedEntry
+    );
+  }
+}
+
+function findTimelineEntryByStart(entries, start) {
+  return entries.find((entry) => entry.start === start);
+}
+
+function assertQimenTimelineCommonFields(id, actual, expected) {
+  for (const key of ["qimenSolarTerm", "yuan", "start", "end", "isIntercalary"]) {
+    assertEqual(id, key, expected[key], actual?.[key]);
+  }
 }
 
 function runQimenResolverTests() {

@@ -316,6 +316,60 @@ export function buildQimenTimelineFromFuTouSeeds({
   });
 }
 
+export function buildSeedDrivenQimenTimelineFixture2027() {
+  return [
+    ...buildQimenTimelineFromFuTouSeeds({
+      startEffectiveDay: "2027-05-20T23:00:00+08:00",
+      endEffectiveDay: "2027-06-25T23:00:00+08:00",
+      seeds: [
+        {
+          effectiveDayStart: "2027-05-29T23:00:00+08:00",
+          qimenSolarTerm: "芒種",
+          isIntercalary: false,
+        },
+        {
+          effectiveDayStart: "2027-06-13T23:00:00+08:00",
+          qimenSolarTerm: "夏至",
+          isIntercalary: false,
+        },
+      ],
+    }),
+    ...buildQimenTimelineFromFuTouSeeds({
+      startEffectiveDay: "2027-11-20T23:00:00+08:00",
+      endEffectiveDay: "2027-12-12T23:00:00+08:00",
+      seeds: [
+        {
+          effectiveDayStart: "2027-11-25T23:00:00+08:00",
+          qimenSolarTerm: "大雪",
+          isIntercalary: false,
+        },
+      ],
+    }),
+    ...buildQimenTimelineFromFuTouSeeds({
+      startEffectiveDay: "2027-12-10T23:00:00+08:00",
+      endEffectiveDay: "2027-12-26T23:00:00+08:00",
+      seeds: [
+        {
+          effectiveDayStart: "2027-12-10T23:00:00+08:00",
+          qimenSolarTerm: "大雪",
+          isIntercalary: true,
+        },
+      ],
+    }),
+    ...buildQimenTimelineFromFuTouSeeds({
+      startEffectiveDay: "2027-12-25T23:00:00+08:00",
+      endEffectiveDay: "2028-01-10T23:00:00+08:00",
+      seeds: [
+        {
+          effectiveDayStart: "2027-12-25T23:00:00+08:00",
+          qimenSolarTerm: "冬至",
+          isIntercalary: false,
+        },
+      ],
+    }),
+  ].sort((a, b) => toTimeMs(a.start) - toTimeMs(b.start));
+}
+
 function trimIncompleteFinalSeedTerm(fuTouDays) {
   const lastFuTouDay = fuTouDays.at(-1);
   if (!lastFuTouDay || lastFuTouDay.yuan === "下元") {
