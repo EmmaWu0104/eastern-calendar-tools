@@ -213,6 +213,32 @@ export function buildQimenTermRanges({ qimenSolarTerm, start, isIntercalary = fa
   });
 }
 
+export function buildQimenTimelineFromFuTouDays({ fuTouDays, termAssignments }) {
+  if (!Array.isArray(fuTouDays)) {
+    throw new TypeError("fuTouDays 需為陣列");
+  }
+
+  if (!termAssignments || typeof termAssignments !== "object" || Array.isArray(termAssignments)) {
+    throw new RangeError("termAssignments 需為物件");
+  }
+
+  return fuTouDays.map((fuTouDay) => {
+    const assignment = termAssignments[fuTouDay.effectiveDayStart];
+    if (!assignment?.qimenSolarTerm || typeof assignment.isIntercalary !== "boolean") {
+      throw new RangeError(`缺少奇門節氣指定：${fuTouDay.effectiveDayStart}`);
+    }
+
+    return {
+      qimenSolarTerm: assignment.qimenSolarTerm,
+      yuan: fuTouDay.yuan,
+      start: fuTouDay.effectiveDayStart,
+      end: addQimenEffectiveDays(fuTouDay.effectiveDayStart, 5),
+      isIntercalary: assignment.isIntercalary,
+      sourceDayPillar: fuTouDay.dayPillar,
+    };
+  });
+}
+
 function buildInitialQimenTimeline() {
   return [
     ...buildQimenTermRanges({
