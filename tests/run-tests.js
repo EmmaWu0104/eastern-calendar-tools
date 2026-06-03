@@ -40,6 +40,7 @@ const {
   buildQimenTimelineFromFuTouSeeds,
   buildQimenYuanRange,
   getDayPillarForEffectiveDay,
+  findQimenTimelineEntry,
   getQimenEffectiveDayStart,
   getQimenTimelineForRange,
   getQimenYuanByFuTou,
@@ -2345,6 +2346,52 @@ function runQimenSeedDrivenFixtureTests() {
       },
     ]
   );
+
+  qimenSeedDrivenFixtureVerifiedCaseCount += 1;
+  const intercalaryDaxueTimeline = getQimenTimelineForRange(
+    "2027-12-10T23:00:00+08:00",
+    "2027-12-15T23:00:00+08:00"
+  );
+  assertQimenTimelineFields(
+    "qimen-seed-driven-initial-range-source",
+    intercalaryDaxueTimeline[0],
+    {
+      qimenSolarTerm: "大雪",
+      yuan: "上元",
+      start: "2027-12-10T23:00:00+08:00",
+      end: "2027-12-15T23:00:00+08:00",
+      isIntercalary: true,
+      sourceDayPillar: "甲子",
+    },
+    ["qimenSolarTerm", "yuan", "start", "end", "isIntercalary", "sourceDayPillar"]
+  );
+
+  qimenSeedDrivenFixtureVerifiedCaseCount += 1;
+  assertQimenTimelineFields(
+    "qimen-seed-driven-find-entry-source",
+    findQimenTimelineEntry("2027-12-11T12:00:00+08:00"),
+    {
+      qimenSolarTerm: "大雪",
+      yuan: "上元",
+      isIntercalary: true,
+      sourceDayPillar: "甲子",
+    },
+    ["qimenSolarTerm", "yuan", "isIntercalary", "sourceDayPillar"]
+  );
+
+  const initialTimeline = getQimenTimelineForRange(
+    "2027-05-29T23:00:00+08:00",
+    fixture.at(-1).end
+  );
+  qimenSeedDrivenFixtureVerifiedCaseCount += 1;
+  for (const fixtureEntry of fixture) {
+    assertQimenTimelineFields(
+      `qimen-seed-driven-full-entry-${fixtureEntry.start}`,
+      findTimelineEntryByStart(initialTimeline, fixtureEntry.start),
+      fixtureEntry,
+      ["qimenSolarTerm", "yuan", "start", "end", "isIntercalary", "sourceDayPillar"]
+    );
+  }
 }
 
 function assertSeedFixtureMatchesInitialTimeline(id, fixture, initialEntries, expectedEntries) {
@@ -2369,7 +2416,11 @@ function findTimelineEntryByStart(entries, start) {
 }
 
 function assertQimenTimelineCommonFields(id, actual, expected) {
-  for (const key of ["qimenSolarTerm", "yuan", "start", "end", "isIntercalary"]) {
+  assertQimenTimelineFields(id, actual, expected, ["qimenSolarTerm", "yuan", "start", "end", "isIntercalary"]);
+}
+
+function assertQimenTimelineFields(id, actual, expected, keys) {
+  for (const key of keys) {
     assertEqual(id, key, expected[key], actual?.[key]);
   }
 }

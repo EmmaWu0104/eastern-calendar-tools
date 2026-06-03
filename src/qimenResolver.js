@@ -45,7 +45,9 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 
 // 初版驗證資料：先覆蓋 2027 芒種、大雪核心案例。
 // 後續應改為由符頭三元推進與置閏規則產生 timeline。
-const INITIAL_QIMEN_TIMELINE = Object.freeze(buildInitialQimenTimeline());
+const INITIAL_QIMEN_TIMELINE = Object.freeze(
+  buildSeedDrivenQimenTimelineFixture2027().map(cloneTimelineEntry)
+);
 
 const solarTerms = normalizeSolarTerms(rawSolarTerms);
 
@@ -382,36 +384,6 @@ function trimIncompleteFinalSeedTerm(fuTouDays) {
   }
 
   return fuTouDays.slice(0, lastUpperIndex + 1);
-}
-
-function buildInitialQimenTimeline() {
-  return [
-    ...buildQimenTermRanges({
-      qimenSolarTerm: "芒種",
-      start: "2027-05-29T23:00:00+08:00",
-      isIntercalary: false,
-    }),
-    ...buildQimenTermRanges({
-      qimenSolarTerm: "夏至",
-      start: "2027-06-13T23:00:00+08:00",
-      isIntercalary: false,
-    }),
-    ...buildQimenTermRanges({
-      qimenSolarTerm: "大雪",
-      start: "2027-11-25T23:00:00+08:00",
-      isIntercalary: false,
-    }),
-    ...buildQimenTermRanges({
-      qimenSolarTerm: "大雪",
-      start: "2027-12-10T23:00:00+08:00",
-      isIntercalary: true,
-    }),
-    ...buildQimenTermRanges({
-      qimenSolarTerm: "冬至",
-      start: "2027-12-25T23:00:00+08:00",
-      isIntercalary: false,
-    }),
-  ];
 }
 
 function findActualSolarTerm(dateTimeText) {
