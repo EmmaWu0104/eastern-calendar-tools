@@ -1,6 +1,6 @@
 import qimenYuanJuTable from "../data/qimen/qimen_yuan_ju_table.json" with { type: "json" };
 import rawSolarTerms from "../data/solar_terms_1899_2101.json" with { type: "json" };
-import { getHourPillar } from "./ganzhi.js";
+import { getDayPillar, getHourPillar } from "./ganzhi.js";
 import { normalizeSolarTerms } from "./solarTerms.js";
 
 export const QIMEN_TERM_SEQUENCE = Object.freeze([
@@ -135,6 +135,37 @@ export function getQimenYuanByFuTou(dayPillar) {
   }
 
   return null;
+}
+
+export function getDayPillarForEffectiveDay(effectiveDayStartText) {
+  return getDayPillar(toTaipeiLocalDateTimeText(effectiveDayStartText)).pillar;
+}
+
+export function scanQimenFuTouDays(startEffectiveDayText, endEffectiveDayText) {
+  const startMs = toTimeMs(startEffectiveDayText);
+  const endMs = toTimeMs(endEffectiveDayText);
+
+  if (startMs >= endMs) {
+    throw new RangeError("符頭掃描範圍需符合 start < end");
+  }
+
+  const result = [];
+  let current = formatTaipeiDateTime(startMs);
+
+  while (toTimeMs(current) < endMs) {
+    const dayPillar = getDayPillarForEffectiveDay(current);
+    if (isQimenFuTou(dayPillar)) {
+      result.push({
+        effectiveDayStart: current,
+        dayPillar,
+        yuan: getQimenYuanByFuTou(dayPillar),
+      });
+    }
+
+    current = addQimenEffectiveDays(current, 1);
+  }
+
+  return result;
 }
 
 export function getQimenEffectiveDayStart(dateTimeText) {

@@ -35,11 +35,13 @@ const {
   addQimenEffectiveDays,
   buildQimenTermRanges,
   buildQimenYuanRange,
+  getDayPillarForEffectiveDay,
   getQimenEffectiveDayStart,
   getQimenTimelineForRange,
   getQimenYuanByFuTou,
   isQimenFuTou,
   resolveQimenJu,
+  scanQimenFuTouDays,
 } = await import("../src/qimenResolver.js");
 const {
   getCurrentHouBySolarTermRange,
@@ -96,6 +98,7 @@ let qimenYuanJuTermCount = 0;
 let qimenPlateFileCount = 0;
 let qimenPlateNullCount = 0;
 let qimenHelperVerifiedCaseCount = 0;
+let qimenFuTouScanVerifiedCaseCount = 0;
 let qimenResolverVerifiedCaseCount = 0;
 let seventyTwoHouVerifiedCaseCount = 0;
 let baziCurrentHouVerifiedCaseCount = 0;
@@ -378,6 +381,7 @@ qimenPlateNullCount = qimenStats.nullPlates;
 runJinhanYujingLookupTests();
 runJinhanDunTypeV1Tests();
 runQimenHelperTests();
+runQimenFuTouScanTests();
 runQimenResolverTests();
 runDailyInfoTests();
 runBaziCurrentHouTests(solarTerms);
@@ -409,6 +413,7 @@ if (failures.length > 0) {
     `奇門遁甲資料檢查通過：${qimenYuanJuTermCount} terms, ${qimenPlateFileCount} plate files, ${qimenPlateNullCount} null plates`
   );
   console.log(`奇門置閏法 helper 測試通過：${qimenHelperVerifiedCaseCount} cases`);
+  console.log(`奇門符頭掃描測試通過：${qimenFuTouScanVerifiedCaseCount} cases`);
   console.log(`奇門置閏法 resolver 初版測試通過：${qimenResolverVerifiedCaseCount} cases`);
   console.log(`干支曆七十二候整合測試通過：${baziCurrentHouVerifiedCaseCount} cases`);
   console.log(`干支曆建除十二神整合測試通過：${baziJianchuVerifiedCaseCount} cases`);
@@ -1502,6 +1507,131 @@ function assertQimenRange(id, actual, expected) {
   for (const [key, expectedValue] of Object.entries(expected)) {
     assertEqual(id, key, expectedValue, actual?.[key]);
   }
+}
+
+function runQimenFuTouScanTests() {
+  const dayPillarCases = [
+    { id: "qimen-effective-day-pillar-mangzhong-upper", input: "2027-05-29T23:00:00+08:00", expected: "己酉" },
+    { id: "qimen-effective-day-pillar-mangzhong-middle", input: "2027-06-03T23:00:00+08:00", expected: "甲寅" },
+    { id: "qimen-effective-day-pillar-mangzhong-lower", input: "2027-06-08T23:00:00+08:00", expected: "己未" },
+    { id: "qimen-effective-day-pillar-xiazhi-upper", input: "2027-06-13T23:00:00+08:00", expected: "甲子" },
+    { id: "qimen-effective-day-pillar-daxue-intercalary-upper", input: "2027-12-10T23:00:00+08:00", expected: "甲子" },
+    { id: "qimen-effective-day-pillar-dongzhi-upper", input: "2027-12-25T23:00:00+08:00", expected: "己卯" },
+  ];
+
+  for (const testCase of dayPillarCases) {
+    const dayPillar = getDayPillarForEffectiveDay(testCase.input);
+    qimenFuTouScanVerifiedCaseCount += 1;
+    assertEqual(testCase.id, "dayPillar", testCase.expected, dayPillar);
+    assertEqual(testCase.id, "dayPillar.length", 2, dayPillar.length);
+    assertEqual(testCase.id, "isQimenFuTou", true, isQimenFuTou(dayPillar));
+  }
+
+  const mangzhongFuTouDays = scanQimenFuTouDays(
+    "2027-05-20T23:00:00+08:00",
+    "2027-06-20T23:00:00+08:00"
+  );
+  assertScannedFuTouEntries("qimen-scan-mangzhong", mangzhongFuTouDays);
+  const expectedMangzhongFuTouDays = [
+    { effectiveDayStart: "2027-05-29T23:00:00+08:00", dayPillar: "己酉", yuan: "上元" },
+    { effectiveDayStart: "2027-06-03T23:00:00+08:00", dayPillar: "甲寅", yuan: "中元" },
+    { effectiveDayStart: "2027-06-08T23:00:00+08:00", dayPillar: "己未", yuan: "下元" },
+    { effectiveDayStart: "2027-06-13T23:00:00+08:00", dayPillar: "甲子", yuan: "上元" },
+  ];
+
+  for (const expectedEntry of expectedMangzhongFuTouDays) {
+    qimenFuTouScanVerifiedCaseCount += 1;
+    assertFuTouScanIncludes("qimen-scan-mangzhong", mangzhongFuTouDays, expectedEntry);
+  }
+
+  const daxueFuTouDays = scanQimenFuTouDays(
+    "2027-11-20T23:00:00+08:00",
+    "2027-12-31T23:00:00+08:00"
+  );
+  assertScannedFuTouEntries("qimen-scan-daxue", daxueFuTouDays);
+  const expectedDaxueFuTouDays = [
+    { effectiveDayStart: "2027-11-25T23:00:00+08:00", dayPillar: "己酉", yuan: "上元" },
+    { effectiveDayStart: "2027-11-30T23:00:00+08:00", dayPillar: "甲寅", yuan: "中元" },
+    { effectiveDayStart: "2027-12-05T23:00:00+08:00", dayPillar: "己未", yuan: "下元" },
+    { effectiveDayStart: "2027-12-10T23:00:00+08:00", dayPillar: "甲子", yuan: "上元" },
+    { effectiveDayStart: "2027-12-15T23:00:00+08:00", dayPillar: "己巳", yuan: "中元" },
+    { effectiveDayStart: "2027-12-20T23:00:00+08:00", dayPillar: "甲戌", yuan: "下元" },
+    { effectiveDayStart: "2027-12-25T23:00:00+08:00", dayPillar: "己卯", yuan: "上元" },
+  ];
+
+  for (const expectedEntry of expectedDaxueFuTouDays) {
+    qimenFuTouScanVerifiedCaseCount += 1;
+    assertFuTouScanIncludes("qimen-scan-daxue", daxueFuTouDays, expectedEntry);
+  }
+
+  qimenFuTouScanVerifiedCaseCount += 1;
+  assertThrowsRangeError("qimen-scan-invalid-range", () => {
+    scanQimenFuTouDays("2027-12-31T23:00:00+08:00", "2027-12-01T23:00:00+08:00");
+  });
+}
+
+function assertScannedFuTouEntries(id, entries) {
+  for (const entry of entries) {
+    if (typeof entry.dayPillar !== "string" || entry.dayPillar.length !== 2) {
+      failures.push({
+        id,
+        key: `${entry.effectiveDayStart}.dayPillar`,
+        expected: "two-character day pillar",
+        actual: entry.dayPillar,
+      });
+    }
+
+    if (!isQimenFuTou(entry.dayPillar)) {
+      failures.push({
+        id,
+        key: `${entry.effectiveDayStart}.isQimenFuTou`,
+        expected: true,
+        actual: false,
+      });
+    }
+  }
+}
+
+function assertFuTouScanIncludes(id, entries, expected) {
+  const actual = entries.find((entry) => entry.effectiveDayStart === expected.effectiveDayStart);
+  if (!actual) {
+    failures.push({
+      id,
+      key: expected.effectiveDayStart,
+      expected: "present",
+      actual: "missing",
+    });
+    return;
+  }
+
+  for (const [key, expectedValue] of Object.entries(expected)) {
+    assertEqual(`${id}-${expected.effectiveDayStart}`, key, expectedValue, actual[key]);
+  }
+}
+
+function assertThrowsRangeError(id, callback) {
+  try {
+    callback();
+  } catch (error) {
+    if (error instanceof RangeError) {
+      return;
+    }
+
+    failures.push({
+      id,
+      key: "throw",
+      expected: "RangeError",
+      actual: error instanceof Error ? error.constructor.name : String(error),
+    });
+    return;
+  }
+
+  failures.push({
+    id,
+    key: "throw",
+    expected: "RangeError",
+    actual: "not throw",
+  });
 }
 
 function runQimenResolverTests() {
