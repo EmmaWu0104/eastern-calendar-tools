@@ -239,6 +239,61 @@ export function buildQimenTimelineFromFuTouDays({ fuTouDays, termAssignments }) 
   });
 }
 
+export function buildQimenTermAssignmentsFromSeeds({ fuTouDays, seeds }) {
+  if (!Array.isArray(fuTouDays)) {
+    throw new TypeError("fuTouDays 需為陣列");
+  }
+
+  if (!Array.isArray(seeds)) {
+    throw new TypeError("seeds 需為陣列");
+  }
+
+  const fuTouDayByStart = Object.fromEntries(
+    fuTouDays.map((fuTouDay) => [fuTouDay.effectiveDayStart, fuTouDay])
+  );
+  const seedByStart = {};
+
+  for (const seed of seeds) {
+    const fuTouDay = fuTouDayByStart[seed.effectiveDayStart];
+    if (!fuTouDay) {
+      throw new RangeError(`seed 不在符頭序列中：${seed.effectiveDayStart}`);
+    }
+
+    if (fuTouDay.yuan !== "上元") {
+      throw new RangeError(`seed 必須指定在上元符頭：${seed.effectiveDayStart}`);
+    }
+
+    if (!seed.qimenSolarTerm) {
+      throw new RangeError(`seed 缺少奇門節氣：${seed.effectiveDayStart}`);
+    }
+
+    seedByStart[seed.effectiveDayStart] = {
+      qimenSolarTerm: seed.qimenSolarTerm,
+      isIntercalary: seed.isIntercalary ?? false,
+    };
+  }
+
+  const assignments = {};
+  let activeAssignment = null;
+
+  for (const fuTouDay of fuTouDays) {
+    const seed = seedByStart[fuTouDay.effectiveDayStart];
+    if (seed) {
+      activeAssignment = seed;
+    } else if (fuTouDay.yuan === "上元") {
+      activeAssignment = null;
+    }
+
+    if (!activeAssignment) {
+      continue;
+    }
+
+    assignments[fuTouDay.effectiveDayStart] = { ...activeAssignment };
+  }
+
+  return assignments;
+}
+
 function buildInitialQimenTimeline() {
   return [
     ...buildQimenTermRanges({
