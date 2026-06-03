@@ -36,6 +36,7 @@ const {
   buildQimenTermRanges,
   buildQimenYuanRange,
   getQimenEffectiveDayStart,
+  getQimenTimelineForRange,
   getQimenYuanByFuTou,
   isQimenFuTou,
   resolveQimenJu,
@@ -1480,6 +1481,20 @@ function runQimenHelperTests() {
 
   for (const [index, expectedRange] of expectedRanges.entries()) {
     assertQimenRange(`qimen-build-term-ranges-${index + 1}`, termRanges[index], expectedRange);
+  }
+
+  const intercalaryTimeline = getQimenTimelineForRange(
+    "2027-12-10T23:00:00+08:00",
+    "2027-12-25T23:00:00+08:00"
+  );
+  qimenHelperVerifiedCaseCount += 1;
+  assertEqual("qimen-timeline-intercalary-daxue", "length", 3, intercalaryTimeline.length);
+  for (const [index, expectedRange] of expectedRanges.entries()) {
+    assertQimenRange(
+      `qimen-timeline-intercalary-daxue-${index + 1}`,
+      intercalaryTimeline[index],
+      expectedRange
+    );
   }
 }
 

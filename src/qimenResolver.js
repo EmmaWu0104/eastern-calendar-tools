@@ -30,95 +30,6 @@ export const QIMEN_TERM_SEQUENCE = Object.freeze([
   "大雪",
 ]);
 
-// 初版驗證資料：先覆蓋 2027 芒種、大雪核心案例。
-// 後續應改為由符頭三元推進與置閏規則產生 timeline。
-const INITIAL_QIMEN_TIMELINE = Object.freeze([
-  {
-    qimenSolarTerm: "芒種",
-    yuan: "上元",
-    start: "2027-05-30T23:00:00+08:00",
-    end: "2027-06-04T23:00:00+08:00",
-    isIntercalary: false,
-  },
-  {
-    qimenSolarTerm: "芒種",
-    yuan: "中元",
-    start: "2027-06-04T23:00:00+08:00",
-    end: "2027-06-09T23:00:00+08:00",
-    isIntercalary: false,
-  },
-  {
-    qimenSolarTerm: "芒種",
-    yuan: "下元",
-    start: "2027-06-09T23:00:00+08:00",
-    end: "2027-06-13T23:00:00+08:00",
-    isIntercalary: false,
-  },
-  {
-    qimenSolarTerm: "夏至",
-    yuan: "上元",
-    start: "2027-06-13T23:00:00+08:00",
-    end: "2027-06-18T23:00:00+08:00",
-    isIntercalary: false,
-  },
-  {
-    qimenSolarTerm: "夏至",
-    yuan: "中元",
-    start: "2027-06-18T23:00:00+08:00",
-    end: "2027-06-23T23:00:00+08:00",
-    isIntercalary: false,
-  },
-  {
-    qimenSolarTerm: "大雪",
-    yuan: "上元",
-    start: "2027-11-25T23:00:00+08:00",
-    end: "2027-11-30T23:00:00+08:00",
-    isIntercalary: false,
-  },
-  {
-    qimenSolarTerm: "大雪",
-    yuan: "中元",
-    start: "2027-11-30T23:00:00+08:00",
-    end: "2027-12-05T23:00:00+08:00",
-    isIntercalary: false,
-  },
-  {
-    qimenSolarTerm: "大雪",
-    yuan: "下元",
-    start: "2027-12-05T23:00:00+08:00",
-    end: "2027-12-10T23:00:00+08:00",
-    isIntercalary: false,
-  },
-  {
-    qimenSolarTerm: "大雪",
-    yuan: "上元",
-    start: "2027-12-10T23:00:00+08:00",
-    end: "2027-12-15T23:00:00+08:00",
-    isIntercalary: true,
-  },
-  {
-    qimenSolarTerm: "大雪",
-    yuan: "中元",
-    start: "2027-12-15T23:00:00+08:00",
-    end: "2027-12-20T23:00:00+08:00",
-    isIntercalary: true,
-  },
-  {
-    qimenSolarTerm: "大雪",
-    yuan: "下元",
-    start: "2027-12-20T23:00:00+08:00",
-    end: "2027-12-25T23:00:00+08:00",
-    isIntercalary: true,
-  },
-  {
-    qimenSolarTerm: "冬至",
-    yuan: "上元",
-    start: "2027-12-25T23:00:00+08:00",
-    end: "2027-12-30T23:00:00+08:00",
-    isIntercalary: false,
-  },
-]);
-
 const DUN_NAME_BY_TYPE = Object.freeze({
   yang: "陽遁",
   yin: "陰遁",
@@ -131,6 +42,10 @@ const YUAN_BRANCHES = Object.freeze({
 });
 const TAIPEI_OFFSET_MS = 8 * 60 * 60 * 1000;
 const DAY_MS = 24 * 60 * 60 * 1000;
+
+// 初版驗證資料：先覆蓋 2027 芒種、大雪核心案例。
+// 後續應改為由符頭三元推進與置閏規則產生 timeline。
+const INITIAL_QIMEN_TIMELINE = Object.freeze(buildInitialQimenTimeline());
 
 const solarTerms = normalizeSolarTerms(rawSolarTerms);
 
@@ -265,6 +180,36 @@ export function buildQimenTermRanges({ qimenSolarTerm, start, isIntercalary = fa
       isIntercalary,
     });
   });
+}
+
+function buildInitialQimenTimeline() {
+  return [
+    ...buildQimenTermRanges({
+      qimenSolarTerm: "芒種",
+      start: "2027-05-29T23:00:00+08:00",
+      isIntercalary: false,
+    }),
+    ...buildQimenTermRanges({
+      qimenSolarTerm: "夏至",
+      start: "2027-06-13T23:00:00+08:00",
+      isIntercalary: false,
+    }),
+    ...buildQimenTermRanges({
+      qimenSolarTerm: "大雪",
+      start: "2027-11-25T23:00:00+08:00",
+      isIntercalary: false,
+    }),
+    ...buildQimenTermRanges({
+      qimenSolarTerm: "大雪",
+      start: "2027-12-10T23:00:00+08:00",
+      isIntercalary: true,
+    }),
+    ...buildQimenTermRanges({
+      qimenSolarTerm: "冬至",
+      start: "2027-12-25T23:00:00+08:00",
+      isIntercalary: false,
+    }),
+  ];
 }
 
 function findActualSolarTerm(dateTimeText) {
