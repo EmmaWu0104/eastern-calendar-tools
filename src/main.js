@@ -206,13 +206,12 @@ function renderTerm(element, label, term) {
 
 function renderCurrentHou(currentHou, nextHou) {
   if (!currentHou) {
-    elements.currentHou.textContent = "—";
+    elements.currentHou.replaceChildren(createTermLine("七十二候", "—", "hou-empty"));
     return;
   }
 
-  const houName = currentHou.shortName || currentHou.name;
   const houLines = [
-    createTermLine("七十二候", `${currentHou.term}${currentHou.phase}・${houName}`, "hou-name"),
+    createHouVariantSection("七十二候", currentHou, "hou-name"),
     createTermLine(
       "候區間",
       `${formatHouRangeDateTime(currentHou.start)} ～ ${formatHouRangeDateTime(currentHou.end)}`,
@@ -221,10 +220,9 @@ function renderCurrentHou(currentHou, nextHou) {
   ];
 
   if (nextHou) {
-    const nextHouName = nextHou.shortName || nextHou.name;
-    houLines.push(
-      createTermLine("下一候", `${nextHou.term}${nextHou.phase}・${nextHouName}`, "hou-next")
-    );
+    houLines.push(createHouVariantSection("下一候", nextHou, "hou-next"));
+  } else {
+    houLines.push(createTermLine("下一候", "—", "hou-next hou-empty"));
   }
 
   elements.currentHou.replaceChildren(...houLines);
@@ -705,6 +703,61 @@ function createTermLine(label, value, className) {
   line.className = className;
   line.textContent = `${label}：${value}`;
   return line;
+}
+
+function createHouVariantSection(title, hou, className) {
+  const section = document.createElement("div");
+  section.className = `hou-section ${className}`;
+
+  const heading = document.createElement("div");
+  heading.className = "hou-section-title";
+  heading.textContent = title;
+
+  const lines = document.createElement("div");
+  lines.className = "hou-variant-lines";
+  lines.append(createHouVariantLine(hou, "zh"), createHouVariantLine(hou, "jp"));
+
+  section.append(heading, lines);
+  return section;
+}
+
+function createHouVariantLine(hou, variantKey) {
+  const line = document.createElement("div");
+  line.className = `hou-variant-line hou-variant-${variantKey}`;
+
+  const variant = getHouVariant(hou, variantKey);
+  const label = document.createElement("span");
+  label.className = "hou-variant-label";
+  label.textContent = `${variant.label}：`;
+
+  const text = document.createElement("span");
+  text.className = "hou-variant-text";
+  text.textContent = formatHouVariantLine(hou, variant);
+
+  line.append(label, text);
+  return line;
+}
+
+function getHouVariant(hou, variantKey) {
+  const variant = hou?.variants?.[variantKey];
+  const fallbackName = variantKey === "zh" ? hou?.shortName || hou?.name || "—" : "—";
+
+  return {
+    label: getNonEmptyText(variant?.label, variantKey === "zh" ? "中" : "日"),
+    name: getNonEmptyText(variant?.name, fallbackName),
+    shortName: getNonEmptyText(variant?.shortName, getNonEmptyText(variant?.name, fallbackName)),
+  };
+}
+
+function formatHouVariantLine(hou, variant) {
+  const termPhase = `${getNonEmptyText(hou?.term, "")}${getNonEmptyText(hou?.phase, "")}`;
+  const name = getNonEmptyText(variant.shortName, getNonEmptyText(variant.name, "—"));
+
+  return termPhase ? `${termPhase}・${name}` : name;
+}
+
+function getNonEmptyText(value, fallback) {
+  return typeof value === "string" && value.trim() !== "" ? value : fallback;
 }
 
 function formatTermDateTime(term) {

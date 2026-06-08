@@ -241,6 +241,42 @@ dd {
   font-weight: 800;
 }
 
+.hou-section {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.hou-section-title {
+  color: #1f2933;
+  font-weight: 800;
+}
+
+.hou-variant-lines {
+  display: grid;
+  gap: 2px;
+}
+
+.hou-variant-line {
+  display: flex;
+  min-width: 0;
+  color: #334e68;
+  font-size: 15px;
+  font-weight: 650;
+  line-height: 1.45;
+}
+
+.hou-variant-label {
+  flex: 0 0 auto;
+  color: #52616f;
+  font-weight: 800;
+}
+
+.hou-variant-text {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
 .hou-time {
   color: #52616f;
   font-size: 15px;
@@ -254,6 +290,16 @@ dd {
   font-size: 15px;
   font-weight: 700;
   line-height: 1.4;
+}
+
+.hou-next .hou-section-title {
+  color: #52616f;
+}
+
+.hou-empty {
+  color: #52616f;
+  font-size: 15px;
+  font-weight: 700;
 }
 
 .daily-gods-panel {
