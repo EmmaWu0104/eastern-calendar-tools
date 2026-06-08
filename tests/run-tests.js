@@ -3214,6 +3214,14 @@ function runSeventyTwoHouTests() {
   const globalIndexes = allHou.map((hou) => hou.globalHouIndex);
   const uniqueGlobalIndexes = new Set(globalIndexes);
   const expectedGlobalIndexes = Array.from({ length: 72 }, (_, index) => index + 1);
+  const expectedJpVariantNames = new Map([
+    [2, "黄鶯睍睆"],
+    [7, "蟄虫啓戸"],
+    [26, "腐草為蛍"],
+    [47, "蟄虫坏戸"],
+    [58, "虹蔵不見"],
+    [72, "鶏始乳"],
+  ]);
 
   seventyTwoHouVerifiedCaseCount += 1;
   if (termNames.length !== 24) {
@@ -3264,6 +3272,76 @@ function runSeventyTwoHouTests() {
         actual: "missing",
       });
     }
+  }
+
+  seventyTwoHouVerifiedCaseCount += 1;
+  for (const hou of allHou) {
+    if (!hou.variants || typeof hou.variants !== "object") {
+      failures.push({
+        id: "seventy-two-hou-variants",
+        key: `${hou.globalHouIndex}.variants`,
+        expected: "present",
+        actual: hou.variants,
+      });
+      continue;
+    }
+
+    if (!hou.variants.zh || typeof hou.variants.zh !== "object") {
+      failures.push({
+        id: "seventy-two-hou-variants",
+        key: `${hou.globalHouIndex}.variants.zh`,
+        expected: "present",
+        actual: hou.variants.zh,
+      });
+    }
+
+    if (!hou.variants.jp || typeof hou.variants.jp !== "object") {
+      failures.push({
+        id: "seventy-two-hou-variants",
+        key: `${hou.globalHouIndex}.variants.jp`,
+        expected: "present",
+        actual: hou.variants.jp,
+      });
+    }
+
+    assertEqual("seventy-two-hou-variants", `${hou.globalHouIndex}.variants.zh.label`, "中", hou.variants.zh?.label);
+    assertEqual("seventy-two-hou-variants", `${hou.globalHouIndex}.variants.jp.label`, "日", hou.variants.jp?.label);
+    assertEqual("seventy-two-hou-variants", `${hou.globalHouIndex}.variants.zh.name`, hou.name, hou.variants.zh?.name);
+    assertEqual(
+      "seventy-two-hou-variants",
+      `${hou.globalHouIndex}.variants.zh.shortName`,
+      hou.shortName,
+      hou.variants.zh?.shortName
+    );
+
+    if (typeof hou.variants.jp?.name !== "string" || hou.variants.jp.name.trim() === "") {
+      failures.push({
+        id: "seventy-two-hou-variants",
+        key: `${hou.globalHouIndex}.variants.jp.name`,
+        expected: "non-empty string",
+        actual: hou.variants.jp?.name,
+      });
+    }
+
+    if (typeof hou.variants.jp?.shortName !== "string" || hou.variants.jp.shortName.trim() === "") {
+      failures.push({
+        id: "seventy-two-hou-variants",
+        key: `${hou.globalHouIndex}.variants.jp.shortName`,
+        expected: "non-empty string",
+        actual: hou.variants.jp?.shortName,
+      });
+    }
+  }
+
+  seventyTwoHouVerifiedCaseCount += 1;
+  for (const [globalHouIndex, expectedName] of expectedJpVariantNames) {
+    const hou = allHou.find((candidate) => candidate.globalHouIndex === globalHouIndex);
+    assertEqual(
+      "seventy-two-hou-jp-variant-samples",
+      `${globalHouIndex}.variants.jp.name`,
+      expectedName,
+      hou?.variants?.jp?.name
+    );
   }
 
   const lichunStart = "2026-02-04T00:00:00";

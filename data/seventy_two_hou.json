@@ -6,7 +6,19 @@
       "phase": "初候",
       "name": "東風解凍",
       "shortName": "東風解凍",
-      "description": ""
+      "description": "",
+      "variants": {
+        "zh": {
+          "label": "中",
+          "name": "東風解凍",
+          "shortName": "東風解凍"
+        },
+        "jp": {
+          "label": "日",
+          "name": "東風解凍",
+          "shortName": "東風解凍"
+        }
+      }
     },
     {
       "houIndex": 2,
@@ -14,7 +26,19 @@
       "phase": "次候",
       "name": "蟄蟲始振",
       "shortName": "蟄蟲始振",
-      "description": ""
+      "description": "",
+      "variants": {
+        "zh": {
+          "label": "中",
+          "name": "蟄蟲始振",
+          "shortName": "蟄蟲始振"
+        },
+        "jp": {
+          "label": "日",
+          "name": "黄鶯睍睆",
+          "shortName": "黄鶯睍睆"
+        }
+      }
     },
     {
       "houIndex": 3,
@@ -22,7 +46,19 @@
       "phase": "末候",
       "name": "魚陟負冰",
       "shortName": "魚陟負冰",
-      "description": ""
+      "description": "",
+      "variants": {
+        "zh": {
+          "label": "中",
+          "name": "魚陟負冰",
+          "shortName": "魚陟負冰"
+        },
+        "jp": {
+          "label": "日",
+          "name": "魚上氷",
+          "shortName": "魚上氷"
+        }
+      }
     }
   ],
   "雨水": [
@@ -32,7 +68,19 @@
       "phase": "初候",
       "name": "獺祭魚",
       "shortName": "獺祭魚",
-      "description": ""
+      "description": "",
+      "variants": {
+        "zh": {
+          "label": "中",
+          "name": "獺祭魚",
+          "shortName": "獺祭魚"
+        },
+        "jp": {
+          "label": "日",
+          "name": "土脉潤起",
+          "shortName": "土脉潤起"
+        }
+      }
     },
     {
       "houIndex": 2,
@@ -40,7 +88,19 @@
       "phase": "次候",
       "name": "鴻雁來",
       "shortName": "鴻雁來",
-      "description": ""
+      "description": "",
+      "variants": {
+        "zh": {
+          "label": "中",
+          "name": "鴻雁來",
+          "shortName": "鴻雁來"
+        },
+        "jp": {
+          "label": "日",
+          "name": "霞始靆",
+          "shortName": "霞始靆"
+        }
+      }
     },
     {
       "houIndex": 3,
@@ -48,7 +108,19 @@
       "phase": "末候",
       "name": "草木萌動",
       "shortName": "草木萌動",
-      "description": ""
+      "description": "",
+      "variants": {
+        "zh": {
+          "label": "中",
+          "name": "草木萌動",
+          "shortName": "草木萌動"
+        },
+        "jp": {
+          "label": "日",
+          "name": "草木萌動",
+          "shortName": "草木萌動"
+        }
+      }
     }
   ],
   "驚蟄": [
@@ -58,7 +130,19 @@
       "phase": "初候",
       "name": "桃始華",
       "shortName": "桃始華",
-      "description": ""
+      "description": "",
+      "variants": {
+        "zh": {
+          "label": "中",
+          "name": "桃始華",
+          "shortName": "桃始華"
+        },
+        "jp": {
+          "label": "日",
+          "name": "蟄虫啓戸",
+          "shortName": "蟄虫啓戸"
+        }
+      }
     },
     {
       "houIndex": 2,
@@ -66,7 +150,19 @@
       "phase": "次候",
       "name": "倉庚鳴",
       "shortName": "倉庚鳴",
-      "description": ""
+      "description": "",
+      "variants": {
+        "zh": {
+          "label": "中",
+          "name": "倉庚鳴",
+          "shortName": "倉庚鳴"
+        },
+        "jp": {
+          "label": "日",
+          "name": "桃始笑",
+          "shortName": "桃始笑"
+        }
+      }
     },
     {
       "houIndex": 3,
@@ -74,7 +170,19 @@
       "phase": "末候",
       "name": "鷹化為鳩",
       "shortName": "鷹化為鳩",
-      "description": ""
+      "description": "",
+      "variants": {
+        "zh": {
+          "label": "中",
+          "name": "鷹化為鳩",
+          "shortName": "鷹化為鳩"
+        },
+        "jp": {
+          "label": "日",
+          "name": "菜虫化蝶",
+          "shortName": "菜虫化蝶"
+        }
+      }
     }
   ],
   "春分": [
@@ -84,7 +192,19 @@
       "phase": "初候",
       "name": "玄鳥至",
       "shortName": "玄鳥至",
-      "description": ""
+      "description": "",
+      "variants": {
+        "zh": {
+          "label": "中",
+          "name": "玄鳥至",
+          "shortName": "玄鳥至"
+        },
+        "jp": {
+          "label": "日",
+          "name": "雀始巣",
+          "shortName": "雀始巣"
+        }
+      }
     },
     {
       "houIndex": 2,
@@ -92,7 +212,19 @@
       "phase": "次候",
       "name": "雷乃發聲",
       "shortName": "雷乃發聲",
-      "description": ""
+      "description": "",
+      "variants": {
+        "zh": {
+          "label": "中",
+          "name": "雷乃發聲",
+          "shortName": "雷乃發聲"
+        },
+        "jp": {
+          "label": "日",
+          "name": "桜始開",
+          "shortName": "桜始開"
+        }
+      }
     },
     {
       "houIndex": 3,
@@ -100,7 +232,19 @@
       "phase": "末候",
       "name": "始電",
       "shortName": "始電",
-      "description": ""
+      "description": "",
+      "variants": {
+        "zh": {
+          "label": "中",
+          "name": "始電",
+          "shortName": "始電"
+        },
+        "jp": {
+          "label": "日",
+          "name": "雷乃発声",
+          "shortName": "雷乃発声"
+        }
+      }
     }
   ],
   "清明": [
@@ -110,7 +254,19 @@
       "phase": "初候",
       "name": "桐始華",
       "shortName": "桐始華",
-      "description": ""
+      "description": "",
+      "variants": {
+        "zh": {
+          "label": "中",
+          "name": "桐始華",
+          "shortName": "桐始華"
+        },
+        "jp": {
+          "label": "日",
+          "name": "玄鳥至",
+          "shortName": "玄鳥至"
+        }
+      }
     },
     {
       "houIndex": 2,
@@ -118,7 +274,19 @@
       "phase": "次候",
       "name": "田鼠化為鴽",
       "shortName": "田鼠化為鴽",
-      "description": ""
+      "description": "",
+      "variants": {
+        "zh": {
+          "label": "中",
+          "name": "田鼠化為鴽",
+          "shortName": "田鼠化為鴽"
+        },
+        "jp": {
+          "label": "日",
+          "name": "鴻雁北",
+          "shortName": "鴻雁北"
+        }
+      }
     },
     {
       "houIndex": 3,
@@ -126,7 +294,19 @@
       "phase": "末候",
       "name": "虹始見",
       "shortName": "虹始見",
-      "description": ""
+      "description": "",
+      "variants": {
+        "zh": {
+          "label": "中",
+          "name": "虹始見",
+          "shortName": "虹始見"
+        },
+        "jp": {
+          "label": "日",
+          "name": "虹始見",
+          "shortName": "虹始見"
+        }
+      }
     }
   ],
   "穀雨": [
@@ -136,7 +316,19 @@
       "phase": "初候",
       "name": "萍始生",
       "shortName": "萍始生",
-      "description": ""
+      "description": "",
+      "variants": {
+        "zh": {
+          "label": "中",
+          "name": "萍始生",
+          "shortName": "萍始生"
+        },
+        "jp": {
+          "label": "日",
+          "name": "葭始生",
+          "shortName": "葭始生"
+        }
+      }
     },
     {
       "houIndex": 2,
@@ -144,7 +336,19 @@
       "phase": "次候",
       "name": "鳴鳩拂其羽",
       "shortName": "鳴鳩拂其羽",
-      "description": ""
+      "description": "",
+      "variants": {
+        "zh": {
+          "label": "中",
+          "name": "鳴鳩拂其羽",
+          "shortName": "鳴鳩拂其羽"
+        },
+        "jp": {
+          "label": "日",
+          "name": "霜止出苗",
+          "shortName": "霜止出苗"
+        }
+      }
     },
     {
       "houIndex": 3,
@@ -152,7 +356,19 @@
       "phase": "末候",
       "name": "戴勝降於桑",
       "shortName": "戴勝降於桑",
-      "description": ""
+      "description": "",
+      "variants": {
+        "zh": {
+          "label": "中",
+          "name": "戴勝降於桑",
+          "shortName": "戴勝降於桑"
+        },
+        "jp": {
+          "label": "日",
+          "name": "牡丹華",
+          "shortName": "牡丹華"
+        }
+      }
     }
   ],
   "立夏": [
@@ -162,7 +378,19 @@
       "phase": "初候",
       "name": "螻蟈鳴",
       "shortName": "螻蟈鳴",
-      "description": ""
+      "description": "",
+      "variants": {
+        "zh": {
+          "label": "中",
+          "name": "螻蟈鳴",
+          "shortName": "螻蟈鳴"
+        },
+        "jp": {
+          "label": "日",
+          "name": "蛙始鳴",
+          "shortName": "蛙始鳴"
+        }
+      }
     },
     {
       "houIndex": 2,
@@ -170,7 +398,19 @@
       "phase": "次候",
       "name": "蚯蚓出",
       "shortName": "蚯蚓出",
-      "description": ""
+      "description": "",
+      "variants": {
+        "zh": {
+          "label": "中",
+          "name": "蚯蚓出",
+          "shortName": "蚯蚓出"
+        },
+        "jp": {
+          "label": "日",
+          "name": "蚯蚓出",
+          "shortName": "蚯蚓出"
+        }
+      }
     },
     {
       "houIndex": 3,
@@ -178,7 +418,19 @@
       "phase": "末候",
       "name": "王瓜生",
       "shortName": "王瓜生",
-      "description": ""
+      "description": "",
+      "variants": {
+        "zh": {
+          "label": "中",
+          "name": "王瓜生",
+          "shortName": "王瓜生"
+        },
+        "jp": {
+          "label": "日",
+          "name": "竹笋生",
+          "shortName": "竹笋生"
+        }
+      }
     }
   ],
   "小滿": [
@@ -188,7 +440,19 @@
       "phase": "初候",
       "name": "苦菜秀",
       "shortName": "苦菜秀",
-      "description": ""
+      "description": "",
+      "variants": {
+        "zh": {
+          "label": "中",
+          "name": "苦菜秀",
+          "shortName": "苦菜秀"
+        },
+        "jp": {
+          "label": "日",
+          "name": "蚕起食桑",
+          "shortName": "蚕起食桑"
+        }
+      }
     },
     {
       "houIndex": 2,
@@ -196,7 +460,19 @@
       "phase": "次候",
       "name": "靡草死",
       "shortName": "靡草死",
-      "description": ""
+      "description": "",
+      "variants": {
+        "zh": {
+          "label": "中",
+          "name": "靡草死",
+          "shortName": "靡草死"
+        },
+        "jp": {
+          "label": "日",
+          "name": "紅花栄",
+          "shortName": "紅花栄"
+        }
+      }
     },
     {
       "houIndex": 3,
@@ -204,7 +480,19 @@
       "phase": "末候",
       "name": "麥秋至",
       "shortName": "麥秋至",
-      "description": ""
+      "description": "",
+      "variants": {
+        "zh": {
+          "label": "中",
+          "name": "麥秋至",
+          "shortName": "麥秋至"
+        },
+        "jp": {
+          "label": "日",
+          "name": "麦秋至",
+          "shortName": "麦秋至"
+        }
+      }
     }
   ],
   "芒種": [
@@ -214,7 +502,19 @@
       "phase": "初候",
       "name": "螳螂生",
       "shortName": "螳螂生",
-      "description": ""
+      "description": "",
+      "variants": {
+        "zh": {
+          "label": "中",
+          "name": "螳螂生",
+          "shortName": "螳螂生"
+        },
+        "jp": {
+          "label": "日",
+          "name": "蟷螂生",
+          "shortName": "蟷螂生"
+        }
+      }
     },
     {
       "houIndex": 2,
@@ -222,7 +522,19 @@
       "phase": "次候",
       "name": "鵙始鳴",
       "shortName": "鵙始鳴",
-      "description": ""
+      "description": "",
+      "variants": {
+        "zh": {
+          "label": "中",
+          "name": "鵙始鳴",
+          "shortName": "鵙始鳴"
+        },
+        "jp": {
+          "label": "日",
+          "name": "腐草為蛍",
+          "shortName": "腐草為蛍"
+        }
+      }
     },
     {
       "houIndex": 3,
@@ -230,7 +542,19 @@
       "phase": "末候",
       "name": "反舌無聲",
       "shortName": "反舌無聲",
-      "description": ""
+      "description": "",
+      "variants": {
+        "zh": {
+          "label": "中",
+          "name": "反舌無聲",
+          "shortName": "反舌無聲"
+        },
+        "jp": {
+          "label": "日",
+          "name": "梅子黄",
+          "shortName": "梅子黄"
+        }
+      }
     }
   ],
   "夏至": [
@@ -240,7 +564,19 @@
       "phase": "初候",
       "name": "鹿角解",
       "shortName": "鹿角解",
-      "description": ""
+      "description": "",
+      "variants": {
+        "zh": {
+          "label": "中",
+          "name": "鹿角解",
+          "shortName": "鹿角解"
+        },
+        "jp": {
+          "label": "日",
+          "name": "乃東枯",
+          "shortName": "乃東枯"
+        }
+      }
     },
     {
       "houIndex": 2,
@@ -248,7 +584,19 @@
       "phase": "次候",
       "name": "蜩始鳴",
       "shortName": "蜩始鳴",
-      "description": ""
+      "description": "",
+      "variants": {
+        "zh": {
+          "label": "中",
+          "name": "蜩始鳴",
+          "shortName": "蜩始鳴"
+        },
+        "jp": {
+          "label": "日",
+          "name": "菖蒲華",
+          "shortName": "菖蒲華"
+        }
+      }
     },
     {
       "houIndex": 3,
@@ -256,7 +604,19 @@
       "phase": "末候",
       "name": "半夏生",
       "shortName": "半夏生",
-      "description": ""
+      "description": "",
+      "variants": {
+        "zh": {
+          "label": "中",
+          "name": "半夏生",
+          "shortName": "半夏生"
+        },
+        "jp": {
+          "label": "日",
+          "name": "半夏生",
+          "shortName": "半夏生"
+        }
+      }
     }
   ],
   "小暑": [
@@ -266,7 +626,19 @@
       "phase": "初候",
       "name": "溫風至",
       "shortName": "溫風至",
-      "description": ""
+      "description": "",
+      "variants": {
+        "zh": {
+          "label": "中",
+          "name": "溫風至",
+          "shortName": "溫風至"
+        },
+        "jp": {
+          "label": "日",
+          "name": "温風至",
+          "shortName": "温風至"
+        }
+      }
     },
     {
       "houIndex": 2,
@@ -274,7 +646,19 @@
       "phase": "次候",
       "name": "蟋蟀居壁",
       "shortName": "蟋蟀居壁",
-      "description": ""
+      "description": "",
+      "variants": {
+        "zh": {
+          "label": "中",
+          "name": "蟋蟀居壁",
+          "shortName": "蟋蟀居壁"
+        },
+        "jp": {
+          "label": "日",
+          "name": "蓮始開",
+          "shortName": "蓮始開"
+        }
+      }
     },
     {
       "houIndex": 3,
@@ -282,7 +666,19 @@
       "phase": "末候",
       "name": "鷹始摯",
       "shortName": "鷹始摯",
-      "description": ""
+      "description": "",
+      "variants": {
+        "zh": {
+          "label": "中",
+          "name": "鷹始摯",
+          "shortName": "鷹始摯"
+        },
+        "jp": {
+          "label": "日",
+          "name": "鷹乃学習",
+          "shortName": "鷹乃学習"
+        }
+      }
     }
   ],
   "大暑": [
@@ -292,7 +688,19 @@
       "phase": "初候",
       "name": "腐草為螢",
       "shortName": "腐草為螢",
-      "description": ""
+      "description": "",
+      "variants": {
+        "zh": {
+          "label": "中",
+          "name": "腐草為螢",
+          "shortName": "腐草為螢"
+        },
+        "jp": {
+          "label": "日",
+          "name": "桐始結花",
+          "shortName": "桐始結花"
+        }
+      }
     },
     {
       "houIndex": 2,
@@ -300,7 +708,19 @@
       "phase": "次候",
       "name": "土潤溽暑",
       "shortName": "土潤溽暑",
-      "description": ""
+      "description": "",
+      "variants": {
+        "zh": {
+          "label": "中",
+          "name": "土潤溽暑",
+          "shortName": "土潤溽暑"
+        },
+        "jp": {
+          "label": "日",
+          "name": "土潤溽暑",
+          "shortName": "土潤溽暑"
+        }
+      }
     },
     {
       "houIndex": 3,
@@ -308,7 +728,19 @@
       "phase": "末候",
       "name": "大雨時行",
       "shortName": "大雨時行",
-      "description": ""
+      "description": "",
+      "variants": {
+        "zh": {
+          "label": "中",
+          "name": "大雨時行",
+          "shortName": "大雨時行"
+        },
+        "jp": {
+          "label": "日",
+          "name": "大雨時行",
+          "shortName": "大雨時行"
+        }
+      }
     }
   ],
   "立秋": [
@@ -318,7 +750,19 @@
       "phase": "初候",
       "name": "涼風至",
       "shortName": "涼風至",
-      "description": ""
+      "description": "",
+      "variants": {
+        "zh": {
+          "label": "中",
+          "name": "涼風至",
+          "shortName": "涼風至"
+        },
+        "jp": {
+          "label": "日",
+          "name": "涼風至",
+          "shortName": "涼風至"
+        }
+      }
     },
     {
       "houIndex": 2,
@@ -326,7 +770,19 @@
       "phase": "次候",
       "name": "白露降",
       "shortName": "白露降",
-      "description": ""
+      "description": "",
+      "variants": {
+        "zh": {
+          "label": "中",
+          "name": "白露降",
+          "shortName": "白露降"
+        },
+        "jp": {
+          "label": "日",
+          "name": "寒蝉鳴",
+          "shortName": "寒蝉鳴"
+        }
+      }
     },
     {
       "houIndex": 3,
@@ -334,7 +790,19 @@
       "phase": "末候",
       "name": "寒蟬鳴",
       "shortName": "寒蟬鳴",
-      "description": ""
+      "description": "",
+      "variants": {
+        "zh": {
+          "label": "中",
+          "name": "寒蟬鳴",
+          "shortName": "寒蟬鳴"
+        },
+        "jp": {
+          "label": "日",
+          "name": "蒙霧升降",
+          "shortName": "蒙霧升降"
+        }
+      }
     }
   ],
   "處暑": [
@@ -344,7 +812,19 @@
       "phase": "初候",
       "name": "鷹乃祭鳥",
       "shortName": "鷹乃祭鳥",
-      "description": ""
+      "description": "",
+      "variants": {
+        "zh": {
+          "label": "中",
+          "name": "鷹乃祭鳥",
+          "shortName": "鷹乃祭鳥"
+        },
+        "jp": {
+          "label": "日",
+          "name": "綿柎開",
+          "shortName": "綿柎開"
+        }
+      }
     },
     {
       "houIndex": 2,
@@ -352,7 +832,19 @@
       "phase": "次候",
       "name": "天地始肅",
       "shortName": "天地始肅",
-      "description": ""
+      "description": "",
+      "variants": {
+        "zh": {
+          "label": "中",
+          "name": "天地始肅",
+          "shortName": "天地始肅"
+        },
+        "jp": {
+          "label": "日",
+          "name": "天地始粛",
+          "shortName": "天地始粛"
+        }
+      }
     },
     {
       "houIndex": 3,
@@ -360,7 +852,19 @@
       "phase": "末候",
       "name": "禾乃登",
       "shortName": "禾乃登",
-      "description": ""
+      "description": "",
+      "variants": {
+        "zh": {
+          "label": "中",
+          "name": "禾乃登",
+          "shortName": "禾乃登"
+        },
+        "jp": {
+          "label": "日",
+          "name": "禾乃登",
+          "shortName": "禾乃登"
+        }
+      }
     }
   ],
   "白露": [
@@ -370,7 +874,19 @@
       "phase": "初候",
       "name": "鴻雁來",
       "shortName": "鴻雁來",
-      "description": ""
+      "description": "",
+      "variants": {
+        "zh": {
+          "label": "中",
+          "name": "鴻雁來",
+          "shortName": "鴻雁來"
+        },
+        "jp": {
+          "label": "日",
+          "name": "草露白",
+          "shortName": "草露白"
+        }
+      }
     },
     {
       "houIndex": 2,
@@ -378,7 +894,19 @@
       "phase": "次候",
       "name": "玄鳥歸",
       "shortName": "玄鳥歸",
-      "description": ""
+      "description": "",
+      "variants": {
+        "zh": {
+          "label": "中",
+          "name": "玄鳥歸",
+          "shortName": "玄鳥歸"
+        },
+        "jp": {
+          "label": "日",
+          "name": "鶺鴒鳴",
+          "shortName": "鶺鴒鳴"
+        }
+      }
     },
     {
       "houIndex": 3,
@@ -386,7 +914,19 @@
       "phase": "末候",
       "name": "群鳥養羞",
       "shortName": "群鳥養羞",
-      "description": ""
+      "description": "",
+      "variants": {
+        "zh": {
+          "label": "中",
+          "name": "群鳥養羞",
+          "shortName": "群鳥養羞"
+        },
+        "jp": {
+          "label": "日",
+          "name": "玄鳥去",
+          "shortName": "玄鳥去"
+        }
+      }
     }
   ],
   "秋分": [
@@ -396,7 +936,19 @@
       "phase": "初候",
       "name": "雷始收聲",
       "shortName": "雷始收聲",
-      "description": ""
+      "description": "",
+      "variants": {
+        "zh": {
+          "label": "中",
+          "name": "雷始收聲",
+          "shortName": "雷始收聲"
+        },
+        "jp": {
+          "label": "日",
+          "name": "雷乃収声",
+          "shortName": "雷乃収声"
+        }
+      }
     },
     {
       "houIndex": 2,
@@ -404,7 +956,19 @@
       "phase": "次候",
       "name": "蟄蟲坯戶",
       "shortName": "蟄蟲坯戶",
-      "description": ""
+      "description": "",
+      "variants": {
+        "zh": {
+          "label": "中",
+          "name": "蟄蟲坯戶",
+          "shortName": "蟄蟲坯戶"
+        },
+        "jp": {
+          "label": "日",
+          "name": "蟄虫坏戸",
+          "shortName": "蟄虫坏戸"
+        }
+      }
     },
     {
       "houIndex": 3,
@@ -412,7 +976,19 @@
       "phase": "末候",
       "name": "水始涸",
       "shortName": "水始涸",
-      "description": ""
+      "description": "",
+      "variants": {
+        "zh": {
+          "label": "中",
+          "name": "水始涸",
+          "shortName": "水始涸"
+        },
+        "jp": {
+          "label": "日",
+          "name": "水始涸",
+          "shortName": "水始涸"
+        }
+      }
     }
   ],
   "寒露": [
@@ -422,7 +998,19 @@
       "phase": "初候",
       "name": "鴻雁來賓",
       "shortName": "鴻雁來賓",
-      "description": ""
+      "description": "",
+      "variants": {
+        "zh": {
+          "label": "中",
+          "name": "鴻雁來賓",
+          "shortName": "鴻雁來賓"
+        },
+        "jp": {
+          "label": "日",
+          "name": "鴻雁来",
+          "shortName": "鴻雁来"
+        }
+      }
     },
     {
       "houIndex": 2,
@@ -430,7 +1018,19 @@
       "phase": "次候",
       "name": "雀入大水為蛤",
       "shortName": "雀入大水為蛤",
-      "description": ""
+      "description": "",
+      "variants": {
+        "zh": {
+          "label": "中",
+          "name": "雀入大水為蛤",
+          "shortName": "雀入大水為蛤"
+        },
+        "jp": {
+          "label": "日",
+          "name": "菊花開",
+          "shortName": "菊花開"
+        }
+      }
     },
     {
       "houIndex": 3,
@@ -438,7 +1038,19 @@
       "phase": "末候",
       "name": "菊有黃華",
       "shortName": "菊有黃華",
-      "description": ""
+      "description": "",
+      "variants": {
+        "zh": {
+          "label": "中",
+          "name": "菊有黃華",
+          "shortName": "菊有黃華"
+        },
+        "jp": {
+          "label": "日",
+          "name": "蟋蟀在戸",
+          "shortName": "蟋蟀在戸"
+        }
+      }
     }
   ],
   "霜降": [
@@ -448,7 +1060,19 @@
       "phase": "初候",
       "name": "豺乃祭獸",
       "shortName": "豺乃祭獸",
-      "description": ""
+      "description": "",
+      "variants": {
+        "zh": {
+          "label": "中",
+          "name": "豺乃祭獸",
+          "shortName": "豺乃祭獸"
+        },
+        "jp": {
+          "label": "日",
+          "name": "霜始降",
+          "shortName": "霜始降"
+        }
+      }
     },
     {
       "houIndex": 2,
@@ -456,7 +1080,19 @@
       "phase": "次候",
       "name": "草木黃落",
       "shortName": "草木黃落",
-      "description": ""
+      "description": "",
+      "variants": {
+        "zh": {
+          "label": "中",
+          "name": "草木黃落",
+          "shortName": "草木黃落"
+        },
+        "jp": {
+          "label": "日",
+          "name": "霎時施",
+          "shortName": "霎時施"
+        }
+      }
     },
     {
       "houIndex": 3,
@@ -464,7 +1100,19 @@
       "phase": "末候",
       "name": "蟄蟲咸俯",
       "shortName": "蟄蟲咸俯",
-      "description": ""
+      "description": "",
+      "variants": {
+        "zh": {
+          "label": "中",
+          "name": "蟄蟲咸俯",
+          "shortName": "蟄蟲咸俯"
+        },
+        "jp": {
+          "label": "日",
+          "name": "楓蔦黄",
+          "shortName": "楓蔦黄"
+        }
+      }
     }
   ],
   "立冬": [
@@ -474,7 +1122,19 @@
       "phase": "初候",
       "name": "水始冰",
       "shortName": "水始冰",
-      "description": ""
+      "description": "",
+      "variants": {
+        "zh": {
+          "label": "中",
+          "name": "水始冰",
+          "shortName": "水始冰"
+        },
+        "jp": {
+          "label": "日",
+          "name": "山茶始開",
+          "shortName": "山茶始開"
+        }
+      }
     },
     {
       "houIndex": 2,
@@ -482,7 +1142,19 @@
       "phase": "次候",
       "name": "地始凍",
       "shortName": "地始凍",
-      "description": ""
+      "description": "",
+      "variants": {
+        "zh": {
+          "label": "中",
+          "name": "地始凍",
+          "shortName": "地始凍"
+        },
+        "jp": {
+          "label": "日",
+          "name": "地始凍",
+          "shortName": "地始凍"
+        }
+      }
     },
     {
       "houIndex": 3,
@@ -490,7 +1162,19 @@
       "phase": "末候",
       "name": "雉入大水為蜃",
       "shortName": "雉入大水為蜃",
-      "description": ""
+      "description": "",
+      "variants": {
+        "zh": {
+          "label": "中",
+          "name": "雉入大水為蜃",
+          "shortName": "雉入大水為蜃"
+        },
+        "jp": {
+          "label": "日",
+          "name": "金盞香",
+          "shortName": "金盞香"
+        }
+      }
     }
   ],
   "小雪": [
@@ -500,7 +1184,19 @@
       "phase": "初候",
       "name": "虹藏不見",
       "shortName": "虹藏不見",
-      "description": ""
+      "description": "",
+      "variants": {
+        "zh": {
+          "label": "中",
+          "name": "虹藏不見",
+          "shortName": "虹藏不見"
+        },
+        "jp": {
+          "label": "日",
+          "name": "虹蔵不見",
+          "shortName": "虹蔵不見"
+        }
+      }
     },
     {
       "houIndex": 2,
@@ -508,7 +1204,19 @@
       "phase": "次候",
       "name": "天氣上升地氣下降",
       "shortName": "天氣上升地氣下降",
-      "description": ""
+      "description": "",
+      "variants": {
+        "zh": {
+          "label": "中",
+          "name": "天氣上升地氣下降",
+          "shortName": "天氣上升地氣下降"
+        },
+        "jp": {
+          "label": "日",
+          "name": "朔風払葉",
+          "shortName": "朔風払葉"
+        }
+      }
     },
     {
       "houIndex": 3,
@@ -516,7 +1224,19 @@
       "phase": "末候",
       "name": "閉塞而成冬",
       "shortName": "閉塞而成冬",
-      "description": ""
+      "description": "",
+      "variants": {
+        "zh": {
+          "label": "中",
+          "name": "閉塞而成冬",
+          "shortName": "閉塞而成冬"
+        },
+        "jp": {
+          "label": "日",
+          "name": "橘始黄",
+          "shortName": "橘始黄"
+        }
+      }
     }
   ],
   "大雪": [
@@ -526,7 +1246,19 @@
       "phase": "初候",
       "name": "鶡鴠不鳴",
       "shortName": "鶡鴠不鳴",
-      "description": ""
+      "description": "",
+      "variants": {
+        "zh": {
+          "label": "中",
+          "name": "鶡鴠不鳴",
+          "shortName": "鶡鴠不鳴"
+        },
+        "jp": {
+          "label": "日",
+          "name": "閉塞成冬",
+          "shortName": "閉塞成冬"
+        }
+      }
     },
     {
       "houIndex": 2,
@@ -534,7 +1266,19 @@
       "phase": "次候",
       "name": "虎始交",
       "shortName": "虎始交",
-      "description": ""
+      "description": "",
+      "variants": {
+        "zh": {
+          "label": "中",
+          "name": "虎始交",
+          "shortName": "虎始交"
+        },
+        "jp": {
+          "label": "日",
+          "name": "熊蟄穴",
+          "shortName": "熊蟄穴"
+        }
+      }
     },
     {
       "houIndex": 3,
@@ -542,7 +1286,19 @@
       "phase": "末候",
       "name": "荔挺出",
       "shortName": "荔挺出",
-      "description": ""
+      "description": "",
+      "variants": {
+        "zh": {
+          "label": "中",
+          "name": "荔挺出",
+          "shortName": "荔挺出"
+        },
+        "jp": {
+          "label": "日",
+          "name": "鱖魚群",
+          "shortName": "鱖魚群"
+        }
+      }
     }
   ],
   "冬至": [
@@ -552,7 +1308,19 @@
       "phase": "初候",
       "name": "蚯蚓結",
       "shortName": "蚯蚓結",
-      "description": ""
+      "description": "",
+      "variants": {
+        "zh": {
+          "label": "中",
+          "name": "蚯蚓結",
+          "shortName": "蚯蚓結"
+        },
+        "jp": {
+          "label": "日",
+          "name": "乃東生",
+          "shortName": "乃東生"
+        }
+      }
     },
     {
       "houIndex": 2,
@@ -560,7 +1328,19 @@
       "phase": "次候",
       "name": "麋角解",
       "shortName": "麋角解",
-      "description": ""
+      "description": "",
+      "variants": {
+        "zh": {
+          "label": "中",
+          "name": "麋角解",
+          "shortName": "麋角解"
+        },
+        "jp": {
+          "label": "日",
+          "name": "麋角解",
+          "shortName": "麋角解"
+        }
+      }
     },
     {
       "houIndex": 3,
@@ -568,7 +1348,19 @@
       "phase": "末候",
       "name": "水泉動",
       "shortName": "水泉動",
-      "description": ""
+      "description": "",
+      "variants": {
+        "zh": {
+          "label": "中",
+          "name": "水泉動",
+          "shortName": "水泉動"
+        },
+        "jp": {
+          "label": "日",
+          "name": "雪下出麦",
+          "shortName": "雪下出麦"
+        }
+      }
     }
   ],
   "小寒": [
@@ -578,7 +1370,19 @@
       "phase": "初候",
       "name": "雁北鄉",
       "shortName": "雁北鄉",
-      "description": ""
+      "description": "",
+      "variants": {
+        "zh": {
+          "label": "中",
+          "name": "雁北鄉",
+          "shortName": "雁北鄉"
+        },
+        "jp": {
+          "label": "日",
+          "name": "芹乃栄",
+          "shortName": "芹乃栄"
+        }
+      }
     },
     {
       "houIndex": 2,
@@ -586,7 +1390,19 @@
       "phase": "次候",
       "name": "鵲始巢",
       "shortName": "鵲始巢",
-      "description": ""
+      "description": "",
+      "variants": {
+        "zh": {
+          "label": "中",
+          "name": "鵲始巢",
+          "shortName": "鵲始巢"
+        },
+        "jp": {
+          "label": "日",
+          "name": "水泉動",
+          "shortName": "水泉動"
+        }
+      }
     },
     {
       "houIndex": 3,
@@ -594,7 +1410,19 @@
       "phase": "末候",
       "name": "雉始雊",
       "shortName": "雉始雊",
-      "description": ""
+      "description": "",
+      "variants": {
+        "zh": {
+          "label": "中",
+          "name": "雉始雊",
+          "shortName": "雉始雊"
+        },
+        "jp": {
+          "label": "日",
+          "name": "雉始雊",
+          "shortName": "雉始雊"
+        }
+      }
     }
   ],
   "大寒": [
@@ -604,7 +1432,19 @@
       "phase": "初候",
       "name": "雞始乳",
       "shortName": "雞始乳",
-      "description": ""
+      "description": "",
+      "variants": {
+        "zh": {
+          "label": "中",
+          "name": "雞始乳",
+          "shortName": "雞始乳"
+        },
+        "jp": {
+          "label": "日",
+          "name": "款冬華",
+          "shortName": "款冬華"
+        }
+      }
     },
     {
       "houIndex": 2,
@@ -612,7 +1452,19 @@
       "phase": "次候",
       "name": "征鳥厲疾",
       "shortName": "征鳥厲疾",
-      "description": ""
+      "description": "",
+      "variants": {
+        "zh": {
+          "label": "中",
+          "name": "征鳥厲疾",
+          "shortName": "征鳥厲疾"
+        },
+        "jp": {
+          "label": "日",
+          "name": "水沢腹堅",
+          "shortName": "水沢腹堅"
+        }
+      }
     },
     {
       "houIndex": 3,
@@ -620,7 +1472,19 @@
       "phase": "末候",
       "name": "水澤腹堅",
       "shortName": "水澤腹堅",
-      "description": ""
+      "description": "",
+      "variants": {
+        "zh": {
+          "label": "中",
+          "name": "水澤腹堅",
+          "shortName": "水澤腹堅"
+        },
+        "jp": {
+          "label": "日",
+          "name": "鶏始乳",
+          "shortName": "鶏始乳"
+        }
+      }
     }
   ]
 }
