@@ -3022,6 +3022,23 @@ function runBaziCurrentHouTests(solarTerms) {
 
     assertSeventyTwoHouResult(`${testCase.id}-next`, actual.nextHou, testCase.expectedNext);
   }
+
+  const baziHouWithVariants = calculateBaziFromSolarTerms(formatLocalDateTimeForTest(lichun.timeMs), solarTerms);
+  baziCurrentHouVerifiedCaseCount += 1;
+  assertSeventyTwoHouResult("bazi-current-hou-variants-current", baziHouWithVariants.currentHou, {
+    name: "東風解凍",
+  });
+  assertSeventyTwoHouVariants("bazi-current-hou-variants-current", baziHouWithVariants.currentHou, {
+    zhName: "東風解凍",
+    jpName: "東風解凍",
+  });
+  assertSeventyTwoHouResult("bazi-current-hou-variants-next", baziHouWithVariants.nextHou, {
+    name: "蟄蟲始振",
+  });
+  assertSeventyTwoHouVariants("bazi-current-hou-variants-next", baziHouWithVariants.nextHou, {
+    zhName: "蟄蟲始振",
+    jpName: "黄鶯睍睆",
+  });
 }
 
 function runBaziJianchuTests(solarTerms) {
@@ -3372,6 +3389,20 @@ function runSeventyTwoHouTests() {
     assertSeventyTwoHouResult(testCase.id, actual, testCase.expected);
   }
 
+  seventyTwoHouVerifiedCaseCount += 1;
+  const lichunFirstHou = getCurrentHouBySolarTermRange("立春", lichunStart, yushuiStart, lichunStart);
+  assertSeventyTwoHouVariants("seventy-two-hou-current-variants-lichun-first", lichunFirstHou, {
+    zhName: "東風解凍",
+    jpName: "東風解凍",
+  });
+
+  seventyTwoHouVerifiedCaseCount += 1;
+  const lichunSecondHou = getCurrentHouBySolarTermRange("立春", lichunStart, yushuiStart, lichunFirstBoundary);
+  assertSeventyTwoHouVariants("seventy-two-hou-current-variants-lichun-second", lichunSecondHou, {
+    zhName: "蟄蟲始振",
+    jpName: "黄鶯睍睆",
+  });
+
   const jingzheStart = "2026-03-06T00:00:00";
   const nextHouCases = [
     {
@@ -3403,6 +3434,60 @@ function runSeventyTwoHouTests() {
     seventyTwoHouVerifiedCaseCount += 1;
     assertSeventyTwoHouResult(testCase.id, actual, testCase.expected);
   }
+
+  seventyTwoHouVerifiedCaseCount += 1;
+  const lichunFirstNextHou = getNextHouBySolarTermRange(
+    "立春",
+    lichunStart,
+    "雨水",
+    yushuiStart,
+    jingzheStart,
+    lichunStart
+  );
+  assertSeventyTwoHouVariants("seventy-two-hou-next-variants-lichun-first", lichunFirstNextHou, {
+    zhName: "蟄蟲始振",
+    jpName: "黄鶯睍睆",
+  });
+
+  seventyTwoHouVerifiedCaseCount += 1;
+  const lichunThirdNextHou = getNextHouBySolarTermRange(
+    "立春",
+    lichunStart,
+    "雨水",
+    yushuiStart,
+    jingzheStart,
+    lichunSecondBoundary
+  );
+  assertSeventyTwoHouVariants("seventy-two-hou-next-variants-cross-term", lichunThirdNextHou, {
+    zhName: "獺祭魚",
+    jpName: "土脉潤起",
+  });
+
+  seventyTwoHouVerifiedCaseCount += 1;
+  const dahanThirdNextHou = getNextHouBySolarTermRange(
+    "大寒",
+    "2026-01-20T00:00:00",
+    "立春",
+    lichunStart,
+    yushuiStart,
+    "2026-01-30T00:00:00"
+  );
+  assertSeventyTwoHouResult("seventy-two-hou-next-variants-cross-year", dahanThirdNextHou, {
+    name: "東風解凍",
+    globalHouIndex: 1,
+  });
+  assertSeventyTwoHouVariants("seventy-two-hou-next-variants-cross-year", dahanThirdNextHou, {
+    zhName: "東風解凍",
+    jpName: "東風解凍",
+  });
+
+  seventyTwoHouVerifiedCaseCount += 1;
+  lichunFirstHou.variants.jp.name = "測試污染";
+  const lichunFirstHouAgain = getCurrentHouBySolarTermRange("立春", lichunStart, yushuiStart, lichunStart);
+  assertSeventyTwoHouVariants("seventy-two-hou-variants-copy", lichunFirstHouAgain, {
+    zhName: "東風解凍",
+    jpName: "東風解凍",
+  });
 
   seventyTwoHouVerifiedCaseCount += 1;
   const atNextTerm = getCurrentHouBySolarTermRange("立春", lichunStart, yushuiStart, yushuiStart);
@@ -3577,4 +3662,23 @@ function assertSeventyTwoHouResult(id, actual, expected) {
       });
     }
   }
+}
+
+function assertSeventyTwoHouVariants(id, actual, expected) {
+  if (!actual) {
+    failures.push({
+      id,
+      key: "result",
+      expected: "hou object",
+      actual: actual,
+    });
+    return;
+  }
+
+  assertEqual(id, "variants.zh.label", "中", actual.variants?.zh?.label);
+  assertEqual(id, "variants.jp.label", "日", actual.variants?.jp?.label);
+  assertEqual(id, "variants.zh.name", expected.zhName, actual.variants?.zh?.name);
+  assertEqual(id, "variants.zh.shortName", expected.zhShortName ?? expected.zhName, actual.variants?.zh?.shortName);
+  assertEqual(id, "variants.jp.name", expected.jpName, actual.variants?.jp?.name);
+  assertEqual(id, "variants.jp.shortName", expected.jpShortName ?? expected.jpName, actual.variants?.jp?.shortName);
 }

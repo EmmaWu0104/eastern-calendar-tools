@@ -112,13 +112,40 @@ function createHouResult(termName, hou, segmentIndex, startMs, nextStartMs) {
   const segmentDuration = (nextStartMs - startMs) / 3;
   const houStartMs = startMs + segmentDuration * segmentIndex;
   const houEndMs = segmentIndex === 2 ? nextStartMs : startMs + segmentDuration * (segmentIndex + 1);
+  const houData = clonePlainData(hou);
 
   return {
     term: normalizeTextKey(termName),
-    ...clonePlainData(hou),
+    ...houData,
+    variants: normalizeHouVariants(houData),
     start: new Date(houStartMs).toISOString(),
     end: new Date(houEndMs).toISOString(),
   };
+}
+
+function normalizeHouVariants(hou) {
+  const zhName = normalizeVariantText(hou.variants?.zh?.name, hou.name);
+  const zhShortName = normalizeVariantText(hou.variants?.zh?.shortName, hou.shortName);
+  const jpName = normalizeVariantText(hou.variants?.jp?.name, null);
+  const jpShortName = normalizeVariantText(hou.variants?.jp?.shortName, jpName);
+
+  // 相容保護：舊資料若缺 variants，仍回傳中國版 zh 與空的 jp，不讓查詢流程 throw。
+  return {
+    zh: {
+      label: normalizeVariantText(hou.variants?.zh?.label, "中"),
+      name: zhName,
+      shortName: zhShortName,
+    },
+    jp: {
+      label: normalizeVariantText(hou.variants?.jp?.label, "日"),
+      name: jpName,
+      shortName: jpShortName,
+    },
+  };
+}
+
+function normalizeVariantText(value, fallback) {
+  return typeof value === "string" && value.trim() !== "" ? value : fallback;
 }
 
 function clonePlainData(value) {
