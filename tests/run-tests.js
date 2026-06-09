@@ -1,6 +1,10 @@
 const TEST_TIME_ZONE = "Asia/Taipei";
 process.env.TZ = TEST_TIME_ZONE;
 
+const {
+  getAnnualAfflictionBadgesByPalace,
+  getAnnualAfflictionsByYearBranch,
+} = await import("../src/annualAfflictions.js");
 const { readFile } = await import("node:fs/promises");
 const { calculateBaziFromSolarTerms } = await import("../src/bazi.js");
 const { getDailyGodsByStem } = await import("../src/dailyGods.js");
@@ -122,6 +126,7 @@ let baziCurrentHouVerifiedCaseCount = 0;
 let baziJianchuVerifiedCaseCount = 0;
 let baziDailyInfoVerifiedCaseCount = 0;
 let guiDengVerifiedCaseCount = 0;
+let annualAfflictionsVerifiedCaseCount = 0;
 
 const parsedLocalDateTime = parseLocalDateTime("2026-06-05T09:08:07.123");
 const localDateTimeExpected = {
@@ -413,6 +418,7 @@ runBaziJianchuTests(solarTerms);
 runBaziDailyInfoTests(solarTerms);
 runSeventyTwoHouTests();
 runGuiDengTests();
+runAnnualAfflictionsTests();
 
 if (failures.length > 0) {
   console.error("測試失敗：");
@@ -451,6 +457,7 @@ if (failures.length > 0) {
   console.log(`干支曆每日資訊整合測試通過：${baziDailyInfoVerifiedCaseCount} cases`);
   console.log(`七十二候測試通過：${seventyTwoHouVerifiedCaseCount} cases`);
   console.log(`貴人登天門測試通過：${guiDengVerifiedCaseCount} cases`);
+  console.log(`流年方位煞測試通過：${annualAfflictionsVerifiedCaseCount} cases`);
   if (pendingCases.length > 0) {
     console.log(`待人工驗證案例略過：${pendingCases.length} cases`);
     for (const testCase of pendingCases) {
@@ -3658,6 +3665,82 @@ function runGuiDengTests() {
   });
   guiDengVerifiedCaseCount += 1;
   assertEqual("guideng-yin-fully-day-hidden", "yin.isAvailable", false, renHai?.yin?.isAvailable);
+}
+
+function runAnnualAfflictionsTests() {
+  const testCases = [
+    {
+      id: "annual-afflictions-wu",
+      branch: "午",
+      expected: {
+        taiSui: "南",
+        suiPo: "北",
+        sanSha: "北",
+        summary: "年煞：太歲南｜歲破北｜三煞北",
+        palaceLabels: { 離: "太", 坎: "歲三" },
+      },
+    },
+    {
+      id: "annual-afflictions-zi",
+      branch: "子",
+      expected: {
+        taiSui: "北",
+        suiPo: "南",
+        sanSha: "南",
+        summary: "年煞：太歲北｜歲破南｜三煞南",
+        palaceLabels: { 坎: "太", 離: "歲三" },
+      },
+    },
+    {
+      id: "annual-afflictions-mao",
+      branch: "卯",
+      expected: {
+        taiSui: "東",
+        suiPo: "西",
+        sanSha: "西",
+        summary: "年煞：太歲東｜歲破西｜三煞西",
+        palaceLabels: { 震: "太", 兌: "歲三" },
+      },
+    },
+  ];
+
+  for (const testCase of testCases) {
+    const afflictions = getAnnualAfflictionsByYearBranch(testCase.branch);
+    const badgesByPalace = getAnnualAfflictionBadgesByPalace(testCase.branch);
+    annualAfflictionsVerifiedCaseCount += 1;
+
+    assertEqual(testCase.id, "taiSui.direction", testCase.expected.taiSui, afflictions.taiSui?.direction);
+    assertEqual(testCase.id, "suiPo.direction", testCase.expected.suiPo, afflictions.suiPo?.direction);
+    assertEqual(testCase.id, "sanSha.direction", testCase.expected.sanSha, afflictions.sanSha?.direction);
+    assertEqual(testCase.id, "summary", testCase.expected.summary, afflictions.summary);
+
+    for (const [palace, expectedLabels] of Object.entries(testCase.expected.palaceLabels)) {
+      assertEqual(
+        testCase.id,
+        `badges.${palace}`,
+        expectedLabels,
+        formatAnnualAfflictionBadgeLabels(badgesByPalace[palace])
+      );
+    }
+  }
+
+  for (const invalidBranch of ["", "ABC", null]) {
+    const afflictions = getAnnualAfflictionsByYearBranch(invalidBranch);
+    const badgesByPalace = getAnnualAfflictionBadgesByPalace(invalidBranch);
+    annualAfflictionsVerifiedCaseCount += 1;
+
+    assertEqual("annual-afflictions-invalid", `${invalidBranch}.summary`, "", afflictions.summary);
+    assertEqual(
+      "annual-afflictions-invalid",
+      `${invalidBranch}.badges`,
+      0,
+      Object.keys(badgesByPalace).length
+    );
+  }
+}
+
+function formatAnnualAfflictionBadgeLabels(badges) {
+  return Array.isArray(badges) ? badges.map((badge) => badge.label).join("") : "";
 }
 
 function findSolarTermForTest(solarTerms, name, year) {

@@ -1,3 +1,7 @@
+import {
+  getAnnualAfflictionBadgesByPalace,
+  getAnnualAfflictionsByYearBranch,
+} from "./annualAfflictions.js";
 import { calculateBaziFromSolarTerms } from "./bazi.js";
 import { getDailyGodsByStem } from "./dailyGods.js";
 import { calculateAllFlyingStarCharts } from "./flyingStars.js";
@@ -434,9 +438,10 @@ function createDailyGodsCell(palace) {
 function renderFlyingStars(calendarResult, inputDateTime) {
   try {
     const charts = calculateAllFlyingStarCharts(calendarResult, inputDateTime);
+    const yearBranch = typeof calendarResult?.yearPillar === "string" ? calendarResult.yearPillar[1] : "";
     elements.flyingStarsMessage.textContent = "";
     elements.flyingStars.replaceChildren(
-      createFlyingStarComboChart(charts.period, charts.annual, charts.monthly),
+      createFlyingStarComboChart(charts.period, charts.annual, charts.monthly, yearBranch),
       createFlyingStarChart("日盤", charts.daily),
       createFlyingStarChart("時盤", charts.hourly)
     );
@@ -738,7 +743,7 @@ function createFlyingStarChart(title, chart) {
   return article;
 }
 
-function createFlyingStarComboChart(periodChart, annualChart, monthlyChart) {
+function createFlyingStarComboChart(periodChart, annualChart, monthlyChart, yearBranch) {
   const article = document.createElement("article");
   article.className = "flying-star-card flying-star-combo-card";
 
@@ -755,6 +760,8 @@ function createFlyingStarComboChart(periodChart, annualChart, monthlyChart) {
 
   const grid = document.createElement("div");
   grid.className = "nine-palace-grid flying-stars-combo-grid";
+  const annualAfflictions = getAnnualAfflictionsByYearBranch(yearBranch);
+  const annualAfflictionBadgesByPalace = getAnnualAfflictionBadgesByPalace(yearBranch);
 
   for (const row of periodChart.layout) {
     for (const periodPalace of row) {
@@ -763,13 +770,17 @@ function createFlyingStarComboChart(periodChart, annualChart, monthlyChart) {
         createFlyingStarComboCell(
           periodPalace,
           annualChart.palaces[palaceId],
-          monthlyChart.palaces[palaceId]
+          monthlyChart.palaces[palaceId],
+          annualAfflictionBadgesByPalace[periodPalace.name] ?? []
         )
       );
     }
   }
 
   article.append(heading, summary, grid);
+  if (annualAfflictions.summary) {
+    article.append(createAnnualAfflictionSummary(annualAfflictions.summary));
+  }
   return article;
 }
 
@@ -789,7 +800,7 @@ function createFlyingStarComboSummaryCell(title, detail, chart) {
   return cell;
 }
 
-function createFlyingStarComboCell(periodPalace, annualPalace, monthlyPalace) {
+function createFlyingStarComboCell(periodPalace, annualPalace, monthlyPalace, annualAfflictionBadges = []) {
   const cell = document.createElement("div");
   cell.className = periodPalace.id === "center"
     ? "palace-cell palace-center flying-stars-combo-cell"
@@ -799,9 +810,36 @@ function createFlyingStarComboCell(periodPalace, annualPalace, monthlyPalace) {
     createComboStarLine(periodPalace.starDisplayName, "運"),
     createComboStarLine(annualPalace.starDisplayName, "年"),
     createComboStarLine(monthlyPalace.starDisplayName, "月"),
+    createAnnualAfflictionBadges(annualAfflictionBadges),
     createPalaceFooter(periodPalace)
   );
   return cell;
+}
+
+function createAnnualAfflictionBadges(badges) {
+  if (!Array.isArray(badges) || badges.length === 0) {
+    return document.createDocumentFragment();
+  }
+
+  const container = document.createElement("div");
+  container.className = "annual-affliction-badges";
+
+  for (const badge of badges) {
+    const badgeElement = document.createElement("span");
+    badgeElement.className = "annual-affliction-badge";
+    badgeElement.title = `${badge.name}${badge.direction}`;
+    badgeElement.textContent = badge.label;
+    container.append(badgeElement);
+  }
+
+  return container;
+}
+
+function createAnnualAfflictionSummary(summaryText) {
+  const summary = document.createElement("div");
+  summary.className = "annual-affliction-summary";
+  summary.textContent = summaryText;
+  return summary;
 }
 
 function createComboStarLine(starName, label) {
