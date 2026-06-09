@@ -22,33 +22,21 @@
         <p id="weekday-label" class="weekday-label" aria-live="polite">--</p>
       </section>
 
-      <section class="panel" aria-labelledby="result-title">
-        <h2 id="result-title">四柱</h2>
-        <div class="pillar-gods-layout">
-          <dl class="pillars">
-            <div class="pillar-card"><dt>年柱</dt><dd id="year-pillar">--</dd></div>
-            <div class="pillar-card"><dt>月柱</dt><dd id="month-pillar">--</dd></div>
-            <div class="pillar-card"><dt>日柱</dt><dd id="day-pillar">--</dd></div>
-            <div class="pillar-card"><dt>時柱</dt><dd id="hour-pillar">--</dd></div>
-          </dl>
-          <aside class="daily-gods-panel" aria-label="日干吉神九宮格">
-            <div id="daily-gods-grid" class="daily-gods-grid" aria-label="日干吉神九宮格"></div>
-          </aside>
-        </div>
-      </section>
-
-      <section class="panel" aria-labelledby="terms-title">
-        <h2 id="terms-title">節氣與月令</h2>
-        <div class="terms-layout">
-          <div class="month-branch-row">
-            <span class="month-branch-label">月令：</span>
-            <span id="month-branch" class="month-branch-value">--</span>
+      <section class="panel pillar-season-panel" aria-labelledby="result-title">
+        <div class="pillar-season-layout">
+          <div class="pillar-column">
+            <h2 id="result-title">四柱</h2>
+            <dl class="pillars">
+              <div class="pillar-card"><dt>年柱</dt><dd id="year-pillar">--</dd></div>
+              <div class="pillar-card"><dt>月柱</dt><dd id="month-pillar">--</dd></div>
+              <div class="pillar-card"><dt>日柱</dt><dd id="day-pillar">--</dd></div>
+              <div class="pillar-card"><dt>時柱</dt><dd id="hour-pillar">--</dd></div>
+            </dl>
           </div>
-          <dl class="term-details">
-            <div><dt>目前節氣</dt><dd id="current-term">--</dd></div>
-            <div><dt>七十二候</dt><dd id="current-hou">--</dd></div>
-            <div><dt>下一節氣</dt><dd id="next-term">--</dd></div>
-          </dl>
+          <aside class="season-column" aria-labelledby="terms-title">
+            <h2 id="terms-title">節氣資訊</h2>
+            <div id="season-info" class="season-info">--</div>
+          </aside>
         </div>
       </section>
 
@@ -56,21 +44,11 @@
         <h2 id="flying-stars-title">九宮飛星</h2>
         <p id="flying-stars-message" class="section-message" role="status" aria-live="polite"></p>
         <div id="flying-stars" class="flying-stars-grid"></div>
-        <div class="flying-stars-notes" aria-label="九宮飛星驗證提示">
-          <h3>驗證提示</h3>
-          <ul>
-            <li>本工具只做時間飛星，不做陽宅飛星。</li>
-            <li>運盤、年盤、月盤一律順飛。</li>
-            <li>日盤、時盤依節氣系統決定順飛或逆飛。</li>
-            <li>使用手錶時間 / 瀏覽器本機時間，未套用真太陽時。</li>
-            <li>年盤立春換年；月盤依 12 節換月；日盤 23:00 換日。</li>
-          </ul>
-        </div>
       </section>
 
       <section class="panel jinhan-section" aria-labelledby="jinhan-title">
         <div class="section-heading-row">
-          <h2 id="jinhan-title">金函玉鏡日盤</h2>
+          <h2 id="jinhan-title">金函玉鏡</h2>
           <label class="jinhan-dun-selector" for="jinhan-dun-type">
             <span>陰陽遁</span>
             <select id="jinhan-dun-type">
@@ -105,7 +83,7 @@
       </section>
 
       <section class="panel" aria-labelledby="rules-title">
-        <h2 id="rules-title">目前採用規則</h2>
+        <h2 id="rules-title">規格說明</h2>
         <ul id="rule-notes">
           <li>立春換年</li>
           <li>12 節換月</li>

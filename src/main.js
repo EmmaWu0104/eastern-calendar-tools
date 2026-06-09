@@ -10,6 +10,8 @@ import { getJinhanDunType } from "./jinhanDunType.js";
 import { getNaYinByPillar } from "./nayin.js";
 import { loadSolarTerms } from "./solarTerms.js";
 
+const AUTO_NOW_REFRESH_MS = 30_000;
+
 const PALACE_DIRECTION_LABELS = {
   xun: "東南",
   li: "南",
@@ -63,6 +65,23 @@ const CHINESE_HOUR_LABELS = Object.freeze([
   Object.freeze({ index: 12, branch: "亥", timeRange: "21 ~ 23" }),
 ]);
 
+const BRANCH_MONTH_LABELS = Object.freeze({
+  寅: "正月",
+  卯: "二月",
+  辰: "三月",
+  巳: "四月",
+  午: "五月",
+  未: "六月",
+  申: "七月",
+  酉: "八月",
+  戌: "九月",
+  亥: "十月",
+  子: "十一月",
+  丑: "十二月",
+});
+
+const CHINESE_NUMBER_LABELS = Object.freeze(["", "一", "二", "三", "四", "五", "六", "七", "八", "九"]);
+
 const elements = {
   datetime: getElement("#datetime"),
   calculate: getElement("#calculate"),
@@ -72,11 +91,7 @@ const elements = {
   monthPillar: getElement("#month-pillar"),
   dayPillar: getElement("#day-pillar"),
   hourPillar: getElement("#hour-pillar"),
-  dailyGodsGrid: getElement("#daily-gods-grid"),
-  currentTerm: getElement("#current-term"),
-  nextTerm: getElement("#next-term"),
-  monthBranch: getElement("#month-branch"),
-  currentHou: getElement("#current-hou"),
+  seasonInfo: getElement("#season-info"),
   flyingStars: getElement("#flying-stars"),
   flyingStarsMessage: getElement("#flying-stars-message"),
   jinhanDunType: getElement("#jinhan-dun-type"),
@@ -92,27 +107,69 @@ const elements = {
 let currentCalendarResult = null;
 let currentSolarTerms = null;
 let isJinhanDunTypeManuallyOverridden = false;
+let isAutoNowMode = false;
+let autoNowTimerId = null;
+let isCalculating = false;
 
-elements.datetime.value = toLocalDatetimeValue(new Date());
-elements.calculate.addEventListener("click", handleCalculate);
-elements.useNow.addEventListener("click", () => {
-  elements.datetime.value = toLocalDatetimeValue(new Date());
+elements.calculate.addEventListener("click", () => {
   handleCalculate();
 });
+elements.useNow.addEventListener("click", () => {
+  startAutoNowMode();
+});
+elements.datetime.addEventListener("input", pauseAutoNowMode);
+elements.datetime.addEventListener("change", pauseAutoNowMode);
 elements.datetime.addEventListener("keydown", (event) => {
   if (event.key === "Enter") {
     event.preventDefault();
     handleCalculate();
   }
 });
+window.addEventListener("pagehide", stopAutoNowRefresh);
 elements.jinhanDunType.addEventListener("change", () => {
   isJinhanDunTypeManuallyOverridden = true;
   renderJinhanYujing(currentCalendarResult);
 });
 
-handleCalculate();
+startAutoNowMode();
+
+function startAutoNowMode() {
+  isAutoNowMode = true;
+  stopAutoNowRefresh();
+  refreshFromCurrentTime();
+  autoNowTimerId = window.setInterval(refreshFromCurrentTime, AUTO_NOW_REFRESH_MS);
+}
+
+function pauseAutoNowMode() {
+  if (!isAutoNowMode) {
+    return;
+  }
+
+  isAutoNowMode = false;
+  stopAutoNowRefresh();
+}
+
+function stopAutoNowRefresh() {
+  if (autoNowTimerId !== null) {
+    window.clearInterval(autoNowTimerId);
+    autoNowTimerId = null;
+  }
+}
+
+function refreshFromCurrentTime() {
+  if (!isAutoNowMode) {
+    return;
+  }
+
+  elements.datetime.value = toLocalDatetimeValue(new Date());
+  handleCalculate();
+}
 
 async function handleCalculate() {
+  if (isCalculating) {
+    return;
+  }
+
   const value = elements.datetime.value;
 
   if (!value) {
@@ -123,6 +180,7 @@ async function handleCalculate() {
 
   setMessage("計算中...", "loading");
   elements.calculate.disabled = true;
+  isCalculating = true;
 
   try {
     const solarTerms = await loadSolarTerms();
@@ -141,6 +199,7 @@ async function handleCalculate() {
     const message = error instanceof Error ? error.message : String(error);
     setMessage(`查詢失敗：${message}`, "error");
   } finally {
+    isCalculating = false;
     elements.calculate.disabled = false;
   }
 }
@@ -151,18 +210,8 @@ function renderResult(result) {
   renderPillar(elements.dayPillar, result.dayPillar, result.jianchu, result.dailyInfo);
   renderPillar(elements.hourPillar, result.hourPillar);
   updateWeekdayLabel(elements.datetime.value, result.dailyInfo);
-  renderDailyGods(result.dayPillar);
-  renderTerm(elements.currentTerm, "目前節氣", result.currentTerm);
-  renderTerm(elements.nextTerm, "下一節氣", result.nextTerm);
-  elements.monthBranch.textContent = `${result.monthBranch}月`;
-  renderCurrentHou(result.currentHou, result.nextHou);
-  elements.ruleNotes.replaceChildren(
-    ...result.ruleNotes.map((note) => {
-      const item = document.createElement("li");
-      item.textContent = note;
-      return item;
-    })
-  );
+  renderSeasonInfo(result);
+  renderSpecNotes();
 }
 
 function clearResult() {
@@ -174,14 +223,10 @@ function clearResult() {
     elements.monthPillar,
     elements.dayPillar,
     elements.hourPillar,
-    elements.currentTerm,
-    elements.nextTerm,
-    elements.monthBranch,
-    elements.currentHou,
+    elements.seasonInfo,
   ]) {
     element.textContent = "--";
   }
-  renderDailyGods("");
   clearFlyingStars();
   clearJinhanYujing();
 }
@@ -226,6 +271,69 @@ function renderCurrentHou(currentHou, nextHou) {
   }
 
   elements.currentHou.replaceChildren(...houLines);
+}
+
+function renderSeasonInfo(result) {
+  const currentTerm = result?.currentTerm ?? null;
+  const nextTerm = result?.nextTerm ?? null;
+  const currentHou = result?.currentHou ?? null;
+  const nextHou = result?.nextHou ?? null;
+  const lines = [
+    createSeasonInfoLine(`目前節氣：${currentTerm?.name ?? "—"}`, "season-line-title"),
+    createSeasonInfoLine(currentTerm ? formatTermDateTime(currentTerm) : "—", "season-line-time"),
+    createSeasonInfoLine("七十二候：", "season-line-title"),
+    createSeasonInfoLine(formatSeasonHouVariantLine(currentHou, "zh"), "season-line-hou-current"),
+    createSeasonInfoLine(formatSeasonHouVariantLine(currentHou, "jp"), "season-line-hou-current"),
+    createSeasonInfoLine(
+      currentHou ? `${formatHouRangeDateTime(currentHou.start)} ～ ${formatHouRangeDateTime(currentHou.end)}` : "—",
+      "season-line-time"
+    ),
+    createSeasonInfoLine("下一候：", "season-line-next-title"),
+    createSeasonInfoLine(formatSeasonHouVariantLine(nextHou, "zh"), "season-line-hou-next"),
+    createSeasonInfoLine(formatSeasonHouVariantLine(nextHou, "jp"), "season-line-hou-next"),
+    createSeasonInfoLine(`下一節氣：${nextTerm?.name ?? "—"}`, "season-line-title season-line-next-term"),
+    createSeasonInfoLine(nextTerm ? formatTermDateTime(nextTerm) : "—", "season-line-time"),
+  ];
+
+  elements.seasonInfo.replaceChildren(...lines);
+}
+
+function createSeasonInfoLine(text, className = "") {
+  const line = document.createElement("div");
+  line.className = `season-line ${className}`.trim();
+  line.textContent = text;
+  return line;
+}
+
+function formatHouTitle(hou) {
+  return hou ? `${hou.term}${hou.phase}` : "—";
+}
+
+function formatSeasonHouVariantLine(hou, variantKey) {
+  if (!hou) {
+    return `(${variantKey === "zh" ? "中" : "日"}) —`;
+  }
+
+  const variant = getHouVariant(hou, variantKey);
+  const label = variant.label || (variantKey === "zh" ? "中" : "日");
+  return `(${label}) ${formatHouVariantLine(hou, variant)}`;
+}
+
+function renderSpecNotes() {
+  const notes = [
+    "本工具使用 Asia/Taipei 標準時間；立春換年、節令換月、23:00 換日。",
+    "節氣資料來自 solar_terms_1899_2101.json；七十二候以節氣區間三等分。",
+    "九宮飛星提供運、年、月、日、時盤，畫面合併運年月；金函玉鏡使用日盤資料表。",
+    "查詢採手錶時間／瀏覽器本機時間，未套用真太陽時。",
+  ];
+
+  elements.ruleNotes.replaceChildren(
+    ...notes.map((note) => {
+      const item = document.createElement("li");
+      item.textContent = note;
+      return item;
+    })
+  );
 }
 
 function renderPillar(element, pillar, jianchu = undefined, dailyInfo = undefined) {
@@ -324,9 +432,7 @@ function renderFlyingStars(calendarResult, inputDateTime) {
     const charts = calculateAllFlyingStarCharts(calendarResult, inputDateTime);
     elements.flyingStarsMessage.textContent = "";
     elements.flyingStars.replaceChildren(
-      createFlyingStarChart("運盤", charts.period),
-      createFlyingStarChart("年盤", charts.annual),
-      createFlyingStarChart("月盤", charts.monthly),
+      createFlyingStarComboChart(charts.period, charts.annual, charts.monthly),
       createFlyingStarChart("日盤", charts.daily),
       createFlyingStarChart("時盤", charts.hourly)
     );
@@ -456,7 +562,7 @@ function createJinhanPalaceCell(palaceName, pan, deitiesByPalace) {
     centerContent.append(
       createBlockSpan(pan.meta.dunType),
       createBlockSpan(`${pan.meta.pillar}日`),
-      createBlockSpan(pan.meta.center, "jinhan-star-badge")
+      createBlockSpan(pan.meta.center, getJinhanStarClassName(pan.meta.center))
     );
     cell.append(centerContent, palaceLabel, directionLabel);
     return cell;
@@ -464,11 +570,11 @@ function createJinhanPalaceCell(palaceName, pan, deitiesByPalace) {
 
   const palace = pan.palaces[palaceName] ?? {};
   const star = document.createElement("div");
-  star.className = "jinhan-star jinhan-star-badge";
+  star.className = getJinhanStarClassName(palace.star);
   star.textContent = palace.star ?? "—";
 
   const door = document.createElement("div");
-  door.className = "jinhan-door";
+  door.className = getJinhanDoorClassName(palace.door);
   door.textContent = palace.door ?? "—";
 
   const main = document.createElement("div");
@@ -518,11 +624,7 @@ function createJinhanTimeRangeCell(timeRange, isCurrent) {
     marker.className = "jinhan-current-marker";
     marker.textContent = "▶";
 
-    const badge = document.createElement("span");
-    badge.className = "jinhan-current-badge";
-    badge.textContent = "現";
-
-    cell.append(marker, badge, document.createTextNode(timeRange));
+    cell.append(marker, document.createTextNode(timeRange));
     return cell;
   }
 
@@ -550,6 +652,26 @@ function createBlockSpan(text, className = "") {
   }
   span.textContent = text;
   return span;
+}
+
+function getJinhanStarClassName(starName) {
+  const classNames = ["jinhan-star", "jinhan-star-badge"];
+
+  if (["太乙", "天乙", "青龍"].includes(starName)) {
+    classNames.push("jhy-star-auspicious-strong");
+  } else if (starName === "太陰") {
+    classNames.push("jhy-star-auspicious-soft");
+  } else if (["軒轅", "招搖"].includes(starName)) {
+    classNames.push("jhy-star-auspicious-secondary");
+  }
+
+  return classNames.join(" ");
+}
+
+function getJinhanDoorClassName(doorName) {
+  return ["開", "休", "生"].includes(doorName)
+    ? "jinhan-door jhy-door-auspicious"
+    : "jinhan-door";
 }
 
 function createTableCell(text, className = "") {
@@ -587,6 +709,130 @@ function createFlyingStarChart(title, chart) {
 
   article.append(heading, summary, grid);
   return article;
+}
+
+function createFlyingStarComboChart(periodChart, annualChart, monthlyChart) {
+  const article = document.createElement("article");
+  article.className = "flying-star-card flying-star-combo-card";
+
+  const heading = document.createElement("h3");
+  heading.textContent = "綜合盤（運盤 / 年盤 / 月盤）";
+
+  const summary = document.createElement("div");
+  summary.className = "flying-stars-combo-summary";
+  summary.append(
+    createFlyingStarComboSummaryCell("運盤", formatPeriodSummary(periodChart), periodChart),
+    createFlyingStarComboSummaryCell("年盤", formatAnnualSummary(periodChart, annualChart), annualChart),
+    createFlyingStarComboSummaryCell("月盤", formatMonthlySummary(monthlyChart), monthlyChart)
+  );
+
+  const grid = document.createElement("div");
+  grid.className = "nine-palace-grid flying-stars-combo-grid";
+
+  for (const row of periodChart.layout) {
+    for (const periodPalace of row) {
+      const palaceId = periodPalace.id;
+      grid.append(
+        createFlyingStarComboCell(
+          periodPalace,
+          annualChart.palaces[palaceId],
+          monthlyChart.palaces[palaceId]
+        )
+      );
+    }
+  }
+
+  article.append(heading, summary, grid);
+  return article;
+}
+
+function createFlyingStarComboSummaryCell(title, detail, chart) {
+  const cell = document.createElement("div");
+  cell.className = "flying-stars-combo-summary-row";
+
+  const titleElement = document.createElement("div");
+  titleElement.className = "flying-stars-combo-summary-title";
+  titleElement.textContent = `${title}：${detail}`;
+
+  const centerElement = document.createElement("div");
+  centerElement.className = "flying-stars-combo-summary-center";
+  centerElement.textContent = `中宮 ${chart.palaces.center.starDisplayName}`;
+
+  cell.append(titleElement, centerElement);
+  return cell;
+}
+
+function createFlyingStarComboCell(periodPalace, annualPalace, monthlyPalace) {
+  const cell = document.createElement("div");
+  cell.className = periodPalace.id === "center"
+    ? "palace-cell palace-center flying-stars-combo-cell"
+    : "palace-cell flying-stars-combo-cell";
+
+  cell.append(
+    createComboStarLine(periodPalace.starDisplayName, "運"),
+    createComboStarLine(annualPalace.starDisplayName, "年"),
+    createComboStarLine(monthlyPalace.starDisplayName, "月"),
+    createPalaceFooter(periodPalace)
+  );
+  return cell;
+}
+
+function createComboStarLine(starName, label) {
+  const line = document.createElement("div");
+  line.className = "flying-stars-combo-star";
+  line.title = `${label}盤`;
+  line.textContent = starName;
+  return line;
+}
+
+function createPalaceFooter(palace) {
+  const fragment = document.createDocumentFragment();
+
+  const palaceLabel = document.createElement("div");
+  palaceLabel.className = "palace-corner palace-corner-left";
+  palaceLabel.textContent = `${palace.name}${palace.number}`;
+
+  const directionLabel = document.createElement("div");
+  directionLabel.className = "palace-corner palace-corner-right";
+  directionLabel.textContent = PALACE_DIRECTION_LABELS[palace.id] ?? "";
+
+  fragment.append(palaceLabel, directionLabel);
+  return fragment;
+}
+
+function formatPeriodSummary(periodChart) {
+  return `${getPeriodCycleName(periodChart.period)}${formatChineseNumber(periodChart.period)}運`;
+}
+
+function formatAnnualSummary(periodChart, annualChart) {
+  return `${getPeriodCycleName(periodChart.period)}${annualChart.basis?.yearPillar ?? "—"}年`;
+}
+
+function formatMonthlySummary(monthlyChart) {
+  const yearBranch = monthlyChart.basis?.yearBranch ?? "—";
+  const monthBranch = monthlyChart.basis?.monthBranch ?? "";
+  const monthLabel = BRANCH_MONTH_LABELS[monthBranch] ?? `${monthBranch || "—"}月`;
+  return `${yearBranch}年${monthLabel}`;
+}
+
+function getPeriodCycleName(period) {
+  if (period >= 1 && period <= 3) {
+    return "上元";
+  }
+
+  if (period >= 4 && period <= 6) {
+    return "中元";
+  }
+
+  if (period >= 7 && period <= 9) {
+    return "下元";
+  }
+
+  return "";
+}
+
+function formatChineseNumber(value) {
+  return CHINESE_NUMBER_LABELS[value] ?? String(value);
 }
 
 function createMetaLine(label, value) {
@@ -851,7 +1097,7 @@ function formatClothingLine(icon, item) {
   }
 
   const colors = Array.isArray(item.colors) ? item.colors.join("、") : "";
-  return `${icon} ${item.label} ${item.element}（${colors}）`;
+  return `${icon} ${item.label}：${item.element}（${colors}）`;
 }
 
 function getChineseHourIndex(dateTimeValue) {
