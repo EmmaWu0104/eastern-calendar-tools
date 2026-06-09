@@ -2,6 +2,10 @@ import { calculateBaziFromSolarTerms } from "./bazi.js";
 import { getDailyGodsByStem } from "./dailyGods.js";
 import { calculateAllFlyingStarCharts } from "./flyingStars.js";
 import {
+  calculateGuiDengForDate,
+  getMonthGeneralBySolarTermName,
+} from "./guideng.js";
+import {
   getJinhanBlackYellowHours,
   getJinhanDeitiesByPalace,
   getJinhanYujingDayPan,
@@ -128,7 +132,7 @@ elements.datetime.addEventListener("keydown", (event) => {
 window.addEventListener("pagehide", stopAutoNowRefresh);
 elements.jinhanDunType.addEventListener("change", () => {
   isJinhanDunTypeManuallyOverridden = true;
-  renderJinhanYujing(currentCalendarResult);
+  void renderJinhanYujing(currentCalendarResult);
 });
 
 startAutoNowMode();
@@ -190,7 +194,7 @@ async function handleCalculate() {
     isJinhanDunTypeManuallyOverridden = false;
     renderResult(result);
     renderFlyingStars(result, value);
-    renderJinhanYujing(result);
+    await renderJinhanYujing(result);
     setMessage("", "");
   } catch (error) {
     currentCalendarResult = null;
@@ -449,7 +453,7 @@ function clearFlyingStars() {
   elements.flyingStarsMessage.textContent = "";
 }
 
-function renderJinhanYujing(calendarResult) {
+async function renderJinhanYujing(calendarResult) {
   const dayPillar = calendarResult?.dayPillar;
   if (typeof dayPillar !== "string" || dayPillar.length < 2) {
     clearJinhanYujing("尚無日柱資料，無法顯示金函玉鏡日盤");
@@ -470,9 +474,10 @@ function renderJinhanYujing(calendarResult) {
     const blackYellowHours = getJinhanBlackYellowHours(dayPillar);
     const currentHourInfo = getCurrentChineseHourInfo(elements.datetime.value);
     const currentHourIndex = currentHourInfo?.index ?? null;
+    const guiDeng = await getGuiDengForCalendarResult(calendarResult, elements.datetime.value);
     elements.jinhanMessage.textContent = "";
     updateJinhanCurrentHourLabel(currentHourInfo);
-    elements.jinhanSummary.replaceChildren(...createJinhanSummaryItems(dayPillar, pan));
+    elements.jinhanSummary.replaceChildren(...createJinhanSummaryItems(dayPillar, pan, guiDeng));
     elements.jinhanGrid.replaceChildren(...createJinhanGridCells(pan, deitiesByPalace));
     elements.jinhanHoursBody.replaceChildren(
       ...blackYellowHours.map((hour, index) => createJinhanHourRow(hour, currentHourIndex, index + 1))
@@ -481,6 +486,21 @@ function renderJinhanYujing(calendarResult) {
     console.error("金函玉鏡日盤顯示失敗", error);
     clearJinhanYujing("金函玉鏡日盤顯示失敗");
   }
+}
+
+async function getGuiDengForCalendarResult(calendarResult, dateTimeValue) {
+  const dayStem = typeof calendarResult?.dayPillar === "string" ? calendarResult.dayPillar[0] : "";
+  const monthGeneral = getMonthGeneralBySolarTermName(calendarResult?.currentTerm?.name);
+
+  if (!dayStem || !monthGeneral) {
+    return null;
+  }
+
+  return calculateGuiDengForDate({
+    date: parseDateTimeLocalValue(dateTimeValue),
+    dayStem,
+    monthGeneral,
+  });
 }
 
 function resolveJinhanSelectedDunType(dunTypeStatus) {
@@ -512,12 +532,19 @@ function clearJinhanYujing(message = "") {
   elements.jinhanHoursBody.replaceChildren();
 }
 
-function createJinhanSummaryItems(dayPillar, pan) {
+function createJinhanSummaryItems(dayPillar, pan, guiDeng = null) {
   const items = [
     { label: "日柱", value: `${dayPillar}日` },
     { label: "金函玉鏡盤", value: pan.meta.label },
     { label: "中宮", value: pan.meta.center },
   ];
+
+  if (guiDeng) {
+    items.push(
+      { label: "貴登", value: guiDeng.guiDengText },
+      { label: "日出", value: `${guiDeng.sunriseText}　日落：${guiDeng.sunsetText}` }
+    );
+  }
 
   return items.map((item) => {
     const line = document.createElement("div");

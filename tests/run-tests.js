@@ -21,6 +21,10 @@ const {
   getJianchuSequence,
 } = await import("../src/jianchu.js");
 const {
+  calculateGuiDengHourBranches,
+  calculateGuiDengWithSunTimes,
+} = await import("../src/guideng.js");
+const {
   getJinhanDunType,
   JINHAN_DUN_TYPE_MODE,
   JINHAN_DUN_TYPE_STATUS,
@@ -117,6 +121,7 @@ let seventyTwoHouVerifiedCaseCount = 0;
 let baziCurrentHouVerifiedCaseCount = 0;
 let baziJianchuVerifiedCaseCount = 0;
 let baziDailyInfoVerifiedCaseCount = 0;
+let guiDengVerifiedCaseCount = 0;
 
 const parsedLocalDateTime = parseLocalDateTime("2026-06-05T09:08:07.123");
 const localDateTimeExpected = {
@@ -407,6 +412,7 @@ runBaziCurrentHouTests(solarTerms);
 runBaziJianchuTests(solarTerms);
 runBaziDailyInfoTests(solarTerms);
 runSeventyTwoHouTests();
+runGuiDengTests();
 
 if (failures.length > 0) {
   console.error("測試失敗：");
@@ -444,6 +450,7 @@ if (failures.length > 0) {
   console.log(`干支曆建除十二神整合測試通過：${baziJianchuVerifiedCaseCount} cases`);
   console.log(`干支曆每日資訊整合測試通過：${baziDailyInfoVerifiedCaseCount} cases`);
   console.log(`七十二候測試通過：${seventyTwoHouVerifiedCaseCount} cases`);
+  console.log(`貴人登天門測試通過：${guiDengVerifiedCaseCount} cases`);
   if (pendingCases.length > 0) {
     console.log(`待人工驗證案例略過：${pendingCases.length} cases`);
     for (const testCase of pendingCases) {
@@ -3611,6 +3618,46 @@ function runSeventyTwoHouTests() {
       actual: invalidTermDefinitions.length,
     });
   }
+}
+
+function runGuiDengTests() {
+  const hourBranches = calculateGuiDengHourBranches("甲", "亥");
+  guiDengVerifiedCaseCount += 1;
+  assertEqual("guideng-jia-hai-yang-hour", "yang.hourBranch", "卯", hourBranches?.yang?.hourBranch);
+  assertEqual("guideng-jia-hai-yin-hour", "yin.hourBranch", "酉", hourBranches?.yin?.hourBranch);
+
+  const baseSunTimes = {
+    date: new Date("2026-06-01T12:00:00+08:00"),
+    sunrise: new Date("2026-06-01T05:03:00+08:00"),
+    sunset: new Date("2026-06-01T18:43:00+08:00"),
+    nextDaySunrise: new Date("2026-06-02T05:03:00+08:00"),
+  };
+  const jiaHai = calculateGuiDengWithSunTimes({
+    ...baseSunTimes,
+    dayStem: "甲",
+    monthGeneral: "亥",
+  });
+  guiDengVerifiedCaseCount += 1;
+  assertEqual("guideng-yang-mao-sunrise-intersection", "yang.rangeText", "05:03–06:59", jiaHai?.yang?.rangeText);
+
+  guiDengVerifiedCaseCount += 1;
+  assertEqual("guideng-yin-you-sunset-intersection", "yin.rangeText", "18:43–18:59", jiaHai?.yin?.rangeText);
+
+  const bingHai = calculateGuiDengWithSunTimes({
+    ...baseSunTimes,
+    dayStem: "丙",
+    monthGeneral: "亥",
+  });
+  guiDengVerifiedCaseCount += 1;
+  assertEqual("guideng-yang-fully-night-hidden", "yang.isAvailable", false, bingHai?.yang?.isAvailable);
+
+  const renHai = calculateGuiDengWithSunTimes({
+    ...baseSunTimes,
+    dayStem: "壬",
+    monthGeneral: "亥",
+  });
+  guiDengVerifiedCaseCount += 1;
+  assertEqual("guideng-yin-fully-day-hidden", "yin.isAvailable", false, renHai?.yin?.isAvailable);
 }
 
 function findSolarTermForTest(solarTerms, name, year) {
