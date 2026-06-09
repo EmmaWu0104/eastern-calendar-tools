@@ -1,10 +1,24 @@
 # eastern-calendar-tools
 
-東方曆法與排盤工具。
+東方玄學排盤工具，提供以 Asia/Taipei 標準時間為基準的干支曆、節氣、七十二候、九宮飛星與金函玉鏡查詢。專案以靜態前端實作，資料檔由 `data/*.json` 載入，適合部署到 GitHub Pages。
 
-目前資料：
-- `data/solar_terms_1899_2101.json`：1899～2101 年 24 節氣資料
-- 目標查詢範圍：1900～2100
+## 線上網站
+
+GitHub Pages URL：
+
+```text
+https://<your-account>.github.io/eastern-calendar-tools/
+```
+
+## 功能清單
+
+- 干支曆四柱查詢。
+- 24 節氣與節令換月資訊。
+- 七十二候查詢，支援中國版 / 日本版候名同時顯示。
+- 建除十二神與每日資訊。
+- 九宮飛星運盤、年盤、月盤、日盤、時盤顯示。
+- 金函玉鏡與青龍黑黃道資訊。
+- 奇門遁甲資料與置閏法相關測試資料整理。
 
 ## 本機啟動
 
@@ -21,23 +35,28 @@ npm run dev
 http://localhost:8080/
 ```
 
-文件：
-- `docs/data-source.md`：節氣資料來源說明
-- `docs/validation-report.md`：節氣資料驗證報告
-- `docs/ganzhi-rules.md`：第一版干支曆規則
-- `docs/06_九宮飛星交接摘要.md`：九宮飛星時間五盤狀態、規則與測試摘要
-
-## 九宮飛星
-
-目前支援時間飛星五盤：運盤、年盤、月盤、日盤、時盤，並在查詢畫面顯示五盤九宮格。交接與規則摘要請見 `docs/06_九宮飛星交接摘要.md`。
-
-測試指令：
+## 測試方式
 
 ```bash
 npm test
 ```
 
-後續預計功能：
-- 干支曆查詢
-- 八字四柱
-- 奇門遁甲置閏起局
+## GitHub Pages 發布方式
+
+1. 將程式推送到 GitHub repository。
+2. 進入 repository 的 Settings。
+3. 開啟 Pages 設定。
+4. Source 選擇 `Deploy from a branch`。
+5. Branch 選擇 `main`。
+6. Folder 選擇 `/ (root)`。
+7. 儲存後等待 GitHub Pages 部署完成。
+
+根目錄保留 `.nojekyll`，避免 GitHub Pages 使用 Jekyll 處理靜態檔案。
+
+## 文件
+
+- `docs/data-source.md`：節氣資料來源說明。
+- `docs/validation-report.md`：節氣資料驗證報告。
+- `docs/ganzhi-rules.md`：第一版干支曆規則。
+- `docs/06_九宮飛星交接摘要.md`：九宮飛星時間五盤狀態、規則與測試摘要。
+- `docs/31_七十二候中日雙版本階段交接摘要.md`：七十二候中日雙版本資料、查詢與 UI 交接摘要。
