@@ -41,6 +41,10 @@ http://localhost:8080/
 npm test
 ```
 
+## 授權
+
+本專案採用 MIT License，詳見 [LICENSE](LICENSE)。
+
 ## GitHub Pages 發布方式
 
 1. 將程式推送到 GitHub repository。
