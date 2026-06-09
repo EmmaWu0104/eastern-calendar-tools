@@ -7,7 +7,7 @@
 GitHub Pages URL：
 
 ```text
-https://<your-account>.github.io/eastern-calendar-tools/
+https://emmawu0104.github.io/eastern-calendar-tools/
 ```
 
 ## 功能清單
