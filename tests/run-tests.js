@@ -3800,6 +3800,48 @@ function runAnnualAfflictionsTests() {
 }
 
 function runDongGongDaySelectionTests() {
+  const dongGongData = JSON.parse(dongGongDataRaw);
+  const firstMonthEntries = dongGongData.filter((entry) => entry.monthBranch === "寅");
+  const firstMonthKeys = firstMonthEntries.map((entry) => `${entry.monthBranch}:${entry.dayBranch}`);
+  const expectedFirstMonthJianChuByBranch = {
+    寅: "建",
+    卯: "除",
+    辰: "滿",
+    巳: "平",
+    午: "定",
+    未: "執",
+    申: "破",
+    酉: "危",
+    戌: "成",
+    亥: "收",
+    子: "開",
+    丑: "閉",
+  };
+
+  dongGongVerifiedCaseCount += 1;
+  assertEqual("dong-gong-yin-month-count", "length", 12, firstMonthEntries.length);
+
+  dongGongVerifiedCaseCount += 1;
+  assertEqual("dong-gong-yin-month-unique-keys", "size", 12, new Set(firstMonthKeys).size);
+
+  for (const [dayBranch, expectedJianChu] of Object.entries(expectedFirstMonthJianChuByBranch)) {
+    const entry = firstMonthEntries.find((item) => item.dayBranch === dayBranch);
+    dongGongVerifiedCaseCount += 1;
+    assertEqual("dong-gong-yin-month-jianchu", dayBranch, expectedJianChu, entry?.jianChu);
+  }
+
+  const jianYin = getDongGongDaySelection({
+    monthBranch: "寅",
+    dayPillar: "甲寅",
+    jianChu: "建",
+  });
+  dongGongVerifiedCaseCount += 1;
+  assertEqual("dong-gong-yin-jian-jiayin", "found", true, jianYin.found);
+  assertEqual("dong-gong-yin-jian-jiayin", "title", "正月建寅日", jianYin.title);
+  assertIncludes("dong-gong-yin-jian-jiayin", "effectiveAvoid", "起造", jianYin.effectiveAvoid);
+  assertIncludes("dong-gong-yin-jian-jiayin", "effectiveAvoid", "婚姻", jianYin.effectiveAvoid);
+  assertIncludes("dong-gong-yin-jian-jiayin", "effectiveAvoid", "納采", jianYin.effectiveAvoid);
+
   const dingYou = getDongGongDaySelection({
     monthBranch: "寅",
     dayPillar: "丁酉",
@@ -3830,6 +3872,16 @@ function runDongGongDaySelectionTests() {
   assertEqual("dong-gong-yin-kai-wuzi", "found", true, wuZi.found);
   assertEqual("dong-gong-yin-kai-wuzi", "effectiveLevel", "大吉", wuZi.effectiveLevel);
   assertIncludes("dong-gong-yin-kai-wuzi", "effectiveSuitable", "安葬", wuZi.effectiveSuitable);
+  assertIncludes("dong-gong-yin-kai-wuzi", "effectiveNotes", "水土生人用之尤吉。", wuZi.effectiveNotes);
+
+  const biChou = getDongGongDaySelection({
+    monthBranch: "寅",
+    dayPillar: "丁丑",
+    jianChu: "閉",
+  });
+  dongGongVerifiedCaseCount += 1;
+  assertEqual("dong-gong-yin-bi-dingchou", "found", true, biChou.found);
+  assertEqual("dong-gong-yin-bi-dingchou", "title", "正月閉丑日", biChou.title);
 
   const missing = getDongGongDaySelection({
     monthBranch: "午",
@@ -3840,7 +3892,7 @@ function runDongGongDaySelectionTests() {
   assertEqual("dong-gong-missing", "found", false, missing.found);
   assertEqual("dong-gong-missing", "effectiveSummary", "資料待補", missing.effectiveSummary);
 
-  const forbiddenTerms = ["金神七煞", "二十八宿"];
+  const forbiddenTerms = ["金神七煞", "二十八宿", "玉匣記九星值日", "煞貢", "直星", "人專"];
   const dongGongSources = `${dongGongDataRaw}\n${dongGongModuleRaw}`;
   for (const term of forbiddenTerms) {
     dongGongVerifiedCaseCount += 1;
