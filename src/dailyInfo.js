@@ -105,7 +105,7 @@ export function getClothingAdviceByDayBranch(dayBranch) {
 export function getDailyClashByDayBranch(dayBranch) {
   const normalizedDayBranch = normalizeText(dayBranch);
   const clashBranch = CLASH_BRANCHES[normalizedDayBranch];
-  const zodiac = BRANCH_ZODIACS[clashBranch];
+  const zodiac = getClashingZodiacByBranch(normalizedDayBranch);
   if (!clashBranch || !zodiac) {
     return null;
   }
@@ -116,6 +116,12 @@ export function getDailyClashByDayBranch(dayBranch) {
     zodiac,
     label: `衝煞：${zodiac}`,
   };
+}
+
+export function getClashingZodiacByBranch(branch) {
+  const normalizedBranch = normalizeText(branch);
+  const clashBranch = CLASH_BRANCHES[normalizedBranch];
+  return BRANCH_ZODIACS[clashBranch] ?? "";
 }
 
 export function getSuiPoByBranches(yearBranch, dayBranch) {

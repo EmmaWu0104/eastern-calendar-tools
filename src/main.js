@@ -4,6 +4,7 @@ import {
 } from "./annualAfflictions.js";
 import { calculateBaziFromSolarTerms } from "./bazi.js";
 import { getDailyGodsByStem } from "./dailyGods.js";
+import { getClashingZodiacByBranch } from "./dailyInfo.js";
 import { calculateAllFlyingStarCharts } from "./flyingStars.js";
 import {
   calculateGuiDengForDate,
@@ -213,10 +214,10 @@ async function handleCalculate() {
 }
 
 function renderResult(result) {
-  renderPillar(elements.yearPillar, result.yearPillar);
-  renderPillar(elements.monthPillar, result.monthPillar);
+  renderPillar(elements.yearPillar, result.yearPillar, undefined, undefined, true);
+  renderPillar(elements.monthPillar, result.monthPillar, undefined, undefined, true);
   renderPillar(elements.dayPillar, result.dayPillar, result.jianchu, result.dailyInfo);
-  renderPillar(elements.hourPillar, result.hourPillar);
+  renderPillar(elements.hourPillar, result.hourPillar, undefined, undefined, true);
   updateWeekdayLabel(elements.datetime.value, result.dailyInfo);
   renderSeasonInfo(result);
   renderSpecNotes();
@@ -344,7 +345,7 @@ function renderSpecNotes() {
   );
 }
 
-function renderPillar(element, pillar, jianchu = undefined, dailyInfo = undefined) {
+function renderPillar(element, pillar, jianchu = undefined, dailyInfo = undefined, showBranchClash = false) {
   if (typeof pillar !== "string" || pillar.length < 2) {
     element.textContent = "--";
     return;
@@ -358,6 +359,13 @@ function renderPillar(element, pillar, jianchu = undefined, dailyInfo = undefine
 
   if (jianchu !== undefined) {
     parts.push(createPillarPart(`建除：${jianchu?.fullName ?? "—"}`, "pillar-extra jianchu-label"));
+  }
+
+  if (showBranchClash) {
+    const clashingZodiac = getClashingZodiacByBranch(pillar[1]);
+    if (clashingZodiac) {
+      parts.push(createPillarPart(`❌ 衝煞：${clashingZodiac}`, "pillar-extra pillar-clash-line"));
+    }
   }
 
   if (dailyInfo !== undefined) {
@@ -480,12 +488,15 @@ async function renderJinhanYujing(calendarResult) {
     const currentHourInfo = getCurrentChineseHourInfo(elements.datetime.value);
     const currentHourIndex = currentHourInfo?.index ?? null;
     const guiDeng = await getGuiDengForCalendarResult(calendarResult, elements.datetime.value);
+    const dengGuiBranches = getDengGuiBranchSet(guiDeng);
     elements.jinhanMessage.textContent = "";
     updateJinhanCurrentHourLabel(currentHourInfo);
     elements.jinhanSummary.replaceChildren(...createJinhanSummaryItems(dayPillar, pan, guiDeng));
     elements.jinhanGrid.replaceChildren(...createJinhanGridCells(pan, deitiesByPalace));
     elements.jinhanHoursBody.replaceChildren(
-      ...blackYellowHours.map((hour, index) => createJinhanHourRow(hour, currentHourIndex, index + 1))
+      ...blackYellowHours.map((hour, index) =>
+        createJinhanHourRow(hour, currentHourIndex, index + 1, dengGuiBranches)
+      )
     );
   } catch (error) {
     console.error("金函玉鏡日盤顯示失敗", error);
@@ -546,26 +557,47 @@ function createJinhanSummaryItems(dayPillar, pan, guiDeng = null) {
 
   if (guiDeng) {
     items.push(
-      { label: "貴登", value: guiDeng.guiDengText },
+      { label: "登貴", valueNode: createJinhanDengGuiList(guiDeng.entries) },
       { label: "日出", value: `${guiDeng.sunriseText}　日落：${guiDeng.sunsetText}` }
     );
   }
 
   return items.map((item) => {
     const line = document.createElement("div");
-    line.className = "jinhan-summary-item";
+    line.className = item.valueNode ? "jinhan-summary-item jhy-denggui" : "jinhan-summary-item";
 
     const label = document.createElement("span");
-    label.className = "jinhan-summary-label";
+    label.className = item.valueNode ? "jinhan-summary-label jhy-denggui-label" : "jinhan-summary-label";
     label.textContent = `${item.label}：`;
 
     const value = document.createElement("span");
-    value.className = "jinhan-summary-value";
-    value.textContent = item.value;
+    value.className = item.valueNode ? "jinhan-summary-value jhy-denggui-list" : "jinhan-summary-value";
+    if (item.valueNode) {
+      value.append(item.valueNode);
+    } else {
+      value.textContent = item.value;
+    }
 
     line.append(label, value);
     return line;
   });
+}
+
+function createJinhanDengGuiList(entries) {
+  const fragment = document.createDocumentFragment();
+  const availableEntries = Array.isArray(entries) ? entries : [];
+
+  if (availableEntries.length === 0) {
+    fragment.append(createBlockSpan("無"));
+    return fragment;
+  }
+
+  fragment.append(
+    ...availableEntries.map((entry) =>
+      createBlockSpan(`${entry.hourBranch}時（${entry.label}，${entry.rangeText}）`)
+    )
+  );
+  return fragment;
 }
 
 function createJinhanGridCells(pan, deitiesByPalace) {
@@ -629,45 +661,76 @@ function createJinhanDeityChip(deity) {
   return chip;
 }
 
-function createJinhanHourRow(hour, currentHourIndex, displayIndex) {
+function createJinhanHourRow(hour, currentHourIndex, displayIndex, dengGuiBranches = new Set()) {
   const row = document.createElement("tr");
   const hourIndex = Number(hour.index);
   const isCurrent = hourIndex === currentHourIndex || displayIndex === currentHourIndex;
+  const hourBranch = typeof hour.pillar === "string" ? hour.pillar[1] : "";
+  const blackYellowText = [
+    hour.deity,
+    hour.type === "yellow" ? "吉" : "凶",
+    dengGuiBranches.has(hourBranch) ? "登貴" : "",
+  ].filter(Boolean).join(" ");
 
   if (isCurrent) {
     row.classList.add("jinhan-hour-current");
   }
 
   row.append(
-    createJinhanTimeRangeCell(hour.timeRange, isCurrent),
-    createTableCell(hour.pillar),
-    createTableCell(hour.deity),
-    createTableCell(hour.type === "yellow" ? "黃道" : "黑道", `jinhan-hour-type-${hour.type}`),
+    createJinhanPillarTimeCell(hour, isCurrent),
+    createTableCell(blackYellowText, `jinhan-hour-type-${hour.type}`),
     createTableCell(hour.notes.length > 0 ? hour.notes.join("、") : "—")
   );
   return row;
 }
 
-function createJinhanTimeRangeCell(timeRange, isCurrent) {
+function createJinhanPillarTimeCell(hour, isCurrent) {
   const cell = document.createElement("td");
+  const pillar = createBlockSpan(hour.pillar, "jinhan-hour-pillar");
+  const timeRange = createBlockSpan(formatJinhanHourTimeRange(hour.timeRange), "jinhan-hour-time-range");
 
   if (isCurrent) {
     const marker = document.createElement("span");
     marker.className = "jinhan-current-marker";
     marker.textContent = "▶";
 
-    cell.append(marker, document.createTextNode(timeRange));
+    pillar.prepend(marker);
+    cell.append(pillar, timeRange);
     return cell;
   }
 
-  cell.textContent = timeRange;
+  cell.append(pillar, timeRange);
   return cell;
 }
 
 function updateJinhanCurrentHourLabel(currentHourInfo) {
-  elements.jinhanCurrentHourLabel.textContent = currentHourInfo
-    ? `目前時辰：${currentHourInfo.branch}時（${currentHourInfo.timeRange}）`
-    : "目前時辰：--";
+  if (!currentHourInfo) {
+    elements.jinhanCurrentHourLabel.textContent = "目前時辰：--";
+    return;
+  }
+
+  const clashingZodiac = getClashingZodiacByBranch(currentHourInfo.branch);
+  elements.jinhanCurrentHourLabel.textContent = `目前時辰：${currentHourInfo.branch}時（${currentHourInfo.timeRange}）　❌ 衝煞：${clashingZodiac}`;
+}
+
+function getDengGuiBranchSet(guiDeng) {
+  const entries = Array.isArray(guiDeng?.entries) ? guiDeng.entries : [];
+  return new Set(entries.map((entry) => entry.hourBranch).filter(Boolean));
+}
+
+function formatJinhanHourTimeRange(timeRange) {
+  const match = /^(\d{2})\s*~\s*(\d{2})$/.exec(String(timeRange ?? "").trim());
+  if (!match) {
+    return timeRange;
+  }
+
+  const startHour = Number(match[1]);
+  const endHour = positiveMod(Number(match[2]) - 1, 24);
+  return `${String(startHour).padStart(2, "0")}:00–${String(endHour).padStart(2, "0")}:59`;
+}
+
+function positiveMod(value, divisor) {
+  return ((value % divisor) + divisor) % divisor;
 }
 
 function createInlineSpan(text, className) {
