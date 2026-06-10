@@ -4,7 +4,10 @@ import {
 } from "./annualAfflictions.js";
 import { calculateBaziFromSolarTerms } from "./bazi.js";
 import { getDailyGodsByStem } from "./dailyGods.js";
-import { getClashingZodiacByBranch } from "./dailyInfo.js";
+import {
+  getClashingZodiacByBranch,
+  getDailyDaHuangDao,
+} from "./dailyInfo.js";
 import { calculateAllFlyingStarCharts } from "./flyingStars.js";
 import {
   calculateGuiDengForDate,
@@ -214,9 +217,10 @@ async function handleCalculate() {
 }
 
 function renderResult(result) {
+  const dailyDaHuangDao = getDailyDaHuangDao(result.monthBranch, result.dayPillar?.[1]);
   renderPillar(elements.yearPillar, result.yearPillar, undefined, undefined, true);
   renderPillar(elements.monthPillar, result.monthPillar, undefined, undefined, true);
-  renderPillar(elements.dayPillar, result.dayPillar, result.jianchu, result.dailyInfo);
+  renderPillar(elements.dayPillar, result.dayPillar, result.jianchu, result.dailyInfo, false, dailyDaHuangDao);
   renderPillar(elements.hourPillar, result.hourPillar, undefined, undefined, true);
   updateWeekdayLabel(elements.datetime.value, result.dailyInfo);
   renderSeasonInfo(result);
@@ -345,7 +349,14 @@ function renderSpecNotes() {
   );
 }
 
-function renderPillar(element, pillar, jianchu = undefined, dailyInfo = undefined, showBranchClash = false) {
+function renderPillar(
+  element,
+  pillar,
+  jianchu = undefined,
+  dailyInfo = undefined,
+  showBranchClash = false,
+  dailyDaHuangDao = null
+) {
   if (typeof pillar !== "string" || pillar.length < 2) {
     element.textContent = "--";
     return;
@@ -361,6 +372,10 @@ function renderPillar(element, pillar, jianchu = undefined, dailyInfo = undefine
     parts.push(createPillarPart(`建除：${jianchu?.fullName ?? "—"}`, "pillar-extra jianchu-label"));
   }
 
+  if (dailyDaHuangDao) {
+    parts.push(createDailyDaHuangDaoPart(dailyDaHuangDao));
+  }
+
   if (showBranchClash) {
     const clashingZodiac = getClashingZodiacByBranch(pillar[1]);
     if (clashingZodiac) {
@@ -373,6 +388,16 @@ function renderPillar(element, pillar, jianchu = undefined, dailyInfo = undefine
   }
 
   element.replaceChildren(...parts);
+}
+
+function createDailyDaHuangDaoPart(dailyDaHuangDao) {
+  const className = dailyDaHuangDao.type === "黃道"
+    ? "pillar-extra pillar-extra-line daily-da-huang-dao daily-da-huang-dao-good"
+    : "pillar-extra pillar-extra-line daily-da-huang-dao daily-da-huang-dao-bad";
+  return createPillarPart(
+    `${dailyDaHuangDao.deity}${dailyDaHuangDao.type}・${dailyDaHuangDao.fortune}`,
+    className
+  );
 }
 
 function createPillarPart(text, className) {

@@ -59,6 +59,180 @@ export const BRANCH_ZODIACS = Object.freeze({
   "亥": "豬",
 });
 
+export const DAILY_DA_HUANG_DAO_TABLE = Object.freeze({
+  寅: Object.freeze({
+    子: "青龍",
+    丑: "明堂",
+    寅: "天刑",
+    卯: "朱雀",
+    辰: "金匱",
+    巳: "天德",
+    午: "白虎",
+    未: "玉堂",
+    申: "天牢",
+    酉: "玄武",
+    戌: "司命",
+    亥: "勾陳",
+  }),
+  卯: Object.freeze({
+    寅: "青龍",
+    卯: "明堂",
+    辰: "天刑",
+    巳: "朱雀",
+    午: "金匱",
+    未: "天德",
+    申: "白虎",
+    酉: "玉堂",
+    戌: "天牢",
+    亥: "玄武",
+    子: "司命",
+    丑: "勾陳",
+  }),
+  辰: Object.freeze({
+    辰: "青龍",
+    巳: "明堂",
+    午: "天刑",
+    未: "朱雀",
+    申: "金匱",
+    酉: "天德",
+    戌: "白虎",
+    亥: "玉堂",
+    子: "天牢",
+    丑: "玄武",
+    寅: "司命",
+    卯: "勾陳",
+  }),
+  巳: Object.freeze({
+    午: "青龍",
+    未: "明堂",
+    申: "天刑",
+    酉: "朱雀",
+    戌: "金匱",
+    亥: "天德",
+    子: "白虎",
+    丑: "玉堂",
+    寅: "天牢",
+    卯: "玄武",
+    辰: "司命",
+    巳: "勾陳",
+  }),
+  午: Object.freeze({
+    申: "青龍",
+    酉: "明堂",
+    戌: "天刑",
+    亥: "朱雀",
+    子: "金匱",
+    丑: "天德",
+    寅: "白虎",
+    卯: "玉堂",
+    辰: "天牢",
+    巳: "玄武",
+    午: "司命",
+    未: "勾陳",
+  }),
+  未: Object.freeze({
+    戌: "青龍",
+    亥: "明堂",
+    子: "天刑",
+    丑: "朱雀",
+    寅: "金匱",
+    卯: "天德",
+    辰: "白虎",
+    巳: "玉堂",
+    午: "天牢",
+    未: "玄武",
+    申: "司命",
+    酉: "勾陳",
+  }),
+  申: Object.freeze({
+    子: "青龍",
+    丑: "明堂",
+    寅: "天刑",
+    卯: "朱雀",
+    辰: "金匱",
+    巳: "天德",
+    午: "白虎",
+    未: "玉堂",
+    申: "天牢",
+    酉: "玄武",
+    戌: "司命",
+    亥: "勾陳",
+  }),
+  酉: Object.freeze({
+    寅: "青龍",
+    卯: "明堂",
+    辰: "天刑",
+    巳: "朱雀",
+    午: "金匱",
+    未: "天德",
+    申: "白虎",
+    酉: "玉堂",
+    戌: "天牢",
+    亥: "玄武",
+    子: "司命",
+    丑: "勾陳",
+  }),
+  戌: Object.freeze({
+    辰: "青龍",
+    巳: "明堂",
+    午: "天刑",
+    未: "朱雀",
+    申: "金匱",
+    酉: "天德",
+    戌: "白虎",
+    亥: "玉堂",
+    子: "天牢",
+    丑: "玄武",
+    寅: "司命",
+    卯: "勾陳",
+  }),
+  亥: Object.freeze({
+    午: "青龍",
+    未: "明堂",
+    申: "天刑",
+    酉: "朱雀",
+    戌: "金匱",
+    亥: "天德",
+    子: "白虎",
+    丑: "玉堂",
+    寅: "天牢",
+    卯: "玄武",
+    辰: "司命",
+    巳: "勾陳",
+  }),
+  子: Object.freeze({
+    申: "青龍",
+    酉: "明堂",
+    戌: "天刑",
+    亥: "朱雀",
+    子: "金匱",
+    丑: "天德",
+    寅: "白虎",
+    卯: "玉堂",
+    辰: "天牢",
+    巳: "玄武",
+    午: "司命",
+    未: "勾陳",
+  }),
+  丑: Object.freeze({
+    戌: "青龍",
+    亥: "明堂",
+    子: "天刑",
+    丑: "朱雀",
+    寅: "金匱",
+    卯: "天德",
+    辰: "白虎",
+    巳: "玉堂",
+    午: "天牢",
+    未: "玄武",
+    申: "司命",
+    酉: "勾陳",
+  }),
+});
+
+const DA_HUANG_DAO_YELLOW_DEITIES = Object.freeze(["青龍", "明堂", "金匱", "天德", "玉堂", "司命"]);
+const DA_HUANG_DAO_BLACK_DEITIES = Object.freeze(["天刑", "朱雀", "白虎", "天牢", "玄武", "勾陳"]);
+
 const SEASONAL_MARKERS = Object.freeze({
   "春分": Object.freeze({ type: "離日", name: "木離日" }),
   "夏至": Object.freeze({ type: "離日", name: "火離日" }),
@@ -122,6 +296,43 @@ export function getClashingZodiacByBranch(branch) {
   const normalizedBranch = normalizeText(branch);
   const clashBranch = CLASH_BRANCHES[normalizedBranch];
   return BRANCH_ZODIACS[clashBranch] ?? "";
+}
+
+export function getDaHuangDaoFortune(deity) {
+  const normalizedDeity = normalizeText(deity);
+
+  if (DA_HUANG_DAO_YELLOW_DEITIES.includes(normalizedDeity)) {
+    return {
+      type: "黃道",
+      fortune: "吉",
+    };
+  }
+
+  if (DA_HUANG_DAO_BLACK_DEITIES.includes(normalizedDeity)) {
+    return {
+      type: "黑道",
+      fortune: "凶",
+    };
+  }
+
+  return null;
+}
+
+export function getDailyDaHuangDao(monthBranch, dayBranch) {
+  const normalizedMonthBranch = normalizeText(monthBranch);
+  const normalizedDayBranch = normalizeText(dayBranch);
+  const deity = DAILY_DA_HUANG_DAO_TABLE[normalizedMonthBranch]?.[normalizedDayBranch];
+  const fortune = getDaHuangDaoFortune(deity);
+
+  if (!deity || !fortune) {
+    return null;
+  }
+
+  return {
+    deity,
+    type: fortune.type,
+    fortune: fortune.fortune,
+  };
 }
 
 export function getSuiPoByBranches(yearBranch, dayBranch) {

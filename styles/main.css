@@ -282,9 +282,26 @@ dd {
   line-height: 1.2;
 }
 
+.pillar-extra-line {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
 .jianchu-label {
   color: #1f2933;
   font-weight: 800;
+}
+
+.daily-da-huang-dao {
+  font-weight: 800;
+}
+
+.daily-da-huang-dao-good {
+  color: #9f1239;
+}
+
+.daily-da-huang-dao-bad {
+  color: #475569;
 }
 
 .daily-info-line {

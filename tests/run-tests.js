@@ -10,6 +10,8 @@ const { calculateBaziFromSolarTerms } = await import("../src/bazi.js");
 const { getDailyGodsByStem } = await import("../src/dailyGods.js");
 const {
   getClothingAdviceByDayBranch,
+  getDaHuangDaoFortune,
+  getDailyDaHuangDao,
   getDailyClashByDayBranch,
   getDailyInfoByBranches,
   getSanfuByDateKey,
@@ -2838,6 +2840,50 @@ function runDailyInfoTests() {
 
   dailyInfoVerifiedCaseCount += 1;
   assertEqual("daily-info-clash-invalid", "result", null, getDailyClashByDayBranch("無"));
+
+  const daHuangDaoCases = [
+    {
+      id: "daily-info-da-huang-dao-yin-zi",
+      monthBranch: "寅",
+      dayBranch: "子",
+      expected: { deity: "青龍", type: "黃道", fortune: "吉" },
+    },
+    {
+      id: "daily-info-da-huang-dao-you-si",
+      monthBranch: "酉",
+      dayBranch: "巳",
+      expected: { deity: "朱雀", type: "黑道", fortune: "凶" },
+    },
+    {
+      id: "daily-info-da-huang-dao-wu-zi",
+      monthBranch: "午",
+      dayBranch: "子",
+      expected: { deity: "金匱", type: "黃道", fortune: "吉" },
+    },
+    {
+      id: "daily-info-da-huang-dao-chou-you",
+      monthBranch: "丑",
+      dayBranch: "酉",
+      expected: { deity: "勾陳", type: "黑道", fortune: "凶" },
+    },
+  ];
+
+  for (const testCase of daHuangDaoCases) {
+    const actual = getDailyDaHuangDao(testCase.monthBranch, testCase.dayBranch);
+    dailyInfoVerifiedCaseCount += 1;
+    assertEqual(testCase.id, "deity", testCase.expected.deity, actual?.deity);
+    assertEqual(testCase.id, "type", testCase.expected.type, actual?.type);
+    assertEqual(testCase.id, "fortune", testCase.expected.fortune, actual?.fortune);
+  }
+
+  dailyInfoVerifiedCaseCount += 1;
+  assertEqual("daily-info-da-huang-dao-invalid-month", "result", null, getDailyDaHuangDao("無", "子"));
+
+  dailyInfoVerifiedCaseCount += 1;
+  assertEqual("daily-info-da-huang-dao-invalid-day", "result", null, getDailyDaHuangDao("寅", "無"));
+
+  dailyInfoVerifiedCaseCount += 1;
+  assertEqual("daily-info-da-huang-dao-fortune-invalid", "result", null, getDaHuangDaoFortune("無"));
 
   const suiPoCases = [
     {
