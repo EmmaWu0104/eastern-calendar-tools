@@ -87,6 +87,152 @@ label {
   font-weight: 700;
 }
 
+.dong-gong-section h2 {
+  margin-bottom: 10px;
+}
+
+.dong-gong-card {
+  min-width: 0;
+  color: #1f2933;
+}
+
+.dong-gong-content {
+  display: grid;
+  gap: 9px;
+  min-width: 0;
+}
+
+.dong-gong-heading {
+  display: flex;
+  gap: 10px;
+  align-items: start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.dong-gong-title-group {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.dong-gong-title {
+  font-size: 16px;
+  font-weight: 850;
+  line-height: 1.35;
+}
+
+.dong-gong-subtitle {
+  color: #52616f;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.dong-gong-level-badge {
+  flex: 0 0 auto;
+  padding: 3px 8px;
+  border: 1px solid #b8c2cc;
+  border-radius: 999px;
+  background: #ffffff;
+  font-size: 12px;
+  font-weight: 850;
+  line-height: 1.3;
+  white-space: nowrap;
+}
+
+.dong-gong-level-good {
+  border-color: #ef9a9a;
+  color: #9f1239;
+}
+
+.dong-gong-level-bad {
+  border-color: #cbd5e1;
+  color: #475569;
+}
+
+.dong-gong-level-neutral {
+  border-color: #93c5fd;
+  color: #1d4ed8;
+}
+
+.dong-gong-level-missing {
+  border-color: #d8dee6;
+  color: #7b8794;
+}
+
+.dong-gong-summary {
+  margin: 0;
+  color: #334e68;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+
+.dong-gong-row {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 4px;
+  align-items: start;
+  min-width: 0;
+  color: #334e68;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.dong-gong-row-label {
+  color: #52616f;
+  font-weight: 850;
+  white-space: nowrap;
+}
+
+.dong-gong-chips {
+  display: flex;
+  gap: 5px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.dong-gong-chip {
+  max-width: 100%;
+  padding: 2px 7px;
+  border: 1px solid #d8dee6;
+  border-radius: 999px;
+  background: #fbfcfe;
+  overflow-wrap: anywhere;
+  line-height: 1.35;
+}
+
+.dong-gong-chip-suitable {
+  border-color: #ef9a9a;
+  color: #9f1239;
+}
+
+.dong-gong-chip-avoid {
+  border-color: #cbd5e1;
+  color: #475569;
+}
+
+.dong-gong-chip-star {
+  border-color: #d8a36f;
+  color: #8a5a00;
+}
+
+.dong-gong-chip-note {
+  border-color: #b8c2cc;
+  color: #52616f;
+}
+
+.dong-gong-reminder {
+  margin: 2px 0 0;
+  color: #7b8794;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
 input,
 button {
   min-height: 40px;

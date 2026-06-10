@@ -8,6 +8,7 @@ import {
   getClashingZodiacByBranch,
   getDailyDaHuangDao,
 } from "./dailyInfo.js";
+import { getDongGongDaySelection } from "./dongGongDaySelection.js";
 import { calculateAllFlyingStarCharts } from "./flyingStars.js";
 import {
   calculateGuiDengForDate,
@@ -104,6 +105,7 @@ const elements = {
   dayPillar: getElement("#day-pillar"),
   hourPillar: getElement("#hour-pillar"),
   seasonInfo: getElement("#season-info"),
+  dongGongCard: getElement("#dong-gong-card"),
   flyingStars: getElement("#flying-stars"),
   flyingStarsMessage: getElement("#flying-stars-message"),
   jinhanDunType: getElement("#jinhan-dun-type"),
@@ -224,6 +226,7 @@ function renderResult(result) {
   renderPillar(elements.hourPillar, result.hourPillar, undefined, undefined, true);
   updateWeekdayLabel(elements.datetime.value, result.dailyInfo);
   renderSeasonInfo(result);
+  renderDongGongDaySelection(result);
   renderSpecNotes();
 }
 
@@ -240,8 +243,113 @@ function clearResult() {
   ]) {
     element.textContent = "--";
   }
+  clearDongGongDaySelection();
   clearFlyingStars();
   clearJinhanYujing();
+}
+
+function renderDongGongDaySelection(result) {
+  const dongGong = getDongGongDaySelection({
+    monthBranch: result?.monthBranch,
+    dayPillar: result?.dayPillar,
+    jianChu: result?.jianchu?.fullName,
+  });
+
+  elements.dongGongCard.replaceChildren(createDongGongContent(dongGong));
+}
+
+function clearDongGongDaySelection() {
+  elements.dongGongCard.textContent = "董公擇日：資料待補";
+}
+
+function createDongGongContent(dongGong) {
+  const container = document.createElement("article");
+  container.className = "dong-gong-content";
+
+  const heading = document.createElement("div");
+  heading.className = "dong-gong-heading";
+
+  const titleGroup = document.createElement("div");
+  titleGroup.className = "dong-gong-title-group";
+  titleGroup.append(
+    createBlockSpan(formatDongGongSubtitle(dongGong), "dong-gong-title")
+  );
+
+  const level = dongGong.found ? dongGong.effectiveLevel : "資料待補";
+  const badge = createInlineSpan(level || "資料待補", getDongGongLevelClassName(level));
+  heading.append(titleGroup, badge);
+
+  const summary = document.createElement("p");
+  summary.className = "dong-gong-summary";
+  summary.textContent = dongGong.effectiveSummary || "資料待補";
+
+  container.append(heading, summary);
+  appendDongGongListRow(container, "宜", dongGong.effectiveSuitable, "dong-gong-chip-suitable");
+  appendDongGongListRow(container, "忌", dongGong.effectiveAvoid, "dong-gong-chip-avoid");
+  appendDongGongListRow(container, "星曜 / 神煞", dongGong.effectiveStars, "dong-gong-chip-star");
+  appendDongGongListRow(container, "備註", dongGong.effectiveNotes, "dong-gong-chip-note");
+
+  const reminder = document.createElement("p");
+  reminder.className = "dong-gong-reminder";
+  reminder.textContent = "董公擇日僅列日期層級，未合本命、山向、時辰。";
+  container.append(reminder);
+
+  return container;
+}
+
+function formatDongGongSubtitle(dongGong) {
+  if (dongGong.found) {
+    return `${dongGong.title}｜${dongGong.dayPillar || "—"}`;
+  }
+
+  const monthText = dongGong.monthBranch ? `${dongGong.monthBranch}月令` : "月令—";
+  const pillarText = dongGong.dayPillar || "日柱—";
+  return `${monthText}｜${pillarText}`;
+}
+
+function appendDongGongListRow(container, labelText, items, chipClassName) {
+  if (!Array.isArray(items) || items.length === 0) {
+    return;
+  }
+
+  const row = document.createElement("div");
+  row.className = "dong-gong-row";
+
+  const label = document.createElement("span");
+  label.className = "dong-gong-row-label";
+  label.textContent = `${labelText}：`;
+
+  const chips = document.createElement("span");
+  chips.className = "dong-gong-chips";
+  chips.append(...items.map((item) => createDongGongChip(item, chipClassName)));
+
+  row.append(label, chips);
+  container.append(row);
+}
+
+function createDongGongChip(text, className) {
+  const chip = document.createElement("span");
+  chip.className = `dong-gong-chip ${className}`.trim();
+  chip.textContent = text;
+  return chip;
+}
+
+function getDongGongLevelClassName(level) {
+  const baseClass = "dong-gong-level-badge";
+
+  if (["大吉", "吉", "次吉"].includes(level)) {
+    return `${baseClass} dong-gong-level-good`;
+  }
+
+  if (["凶", "慎用"].includes(level)) {
+    return `${baseClass} dong-gong-level-bad`;
+  }
+
+  if (level === "資料待補") {
+    return `${baseClass} dong-gong-level-missing`;
+  }
+
+  return `${baseClass} dong-gong-level-neutral`;
 }
 
 function setMessage(text, state) {

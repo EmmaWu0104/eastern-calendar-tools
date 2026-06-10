@@ -1,0 +1,102 @@
+[
+  {
+    "monthBranch": "寅",
+    "monthName": "正月",
+    "jianChu": "建",
+    "dayBranch": "寅",
+    "generalLevel": "凶",
+    "title": "正月建寅日",
+    "summary": "往亡日，不利起造、婚姻、納采，百事不宜。",
+    "suitable": [],
+    "avoid": ["起造", "婚姻", "納采"],
+    "stars": ["往亡"],
+    "notes": [],
+    "stemBranchOverrides": {}
+  },
+  {
+    "monthBranch": "寅",
+    "monthName": "正月",
+    "jianChu": "危",
+    "dayBranch": "酉",
+    "generalLevel": "分干支",
+    "title": "正月危酉日",
+    "summary": "辛酉正四廢不宜用；丁酉有天德福星，宜安葬、還福願、出行、開張、參官見貴，但不宜起造、婚姻、嫁娶；其餘酉日不可用。",
+    "suitable": [],
+    "avoid": [],
+    "stars": ["正四廢", "天德福星"],
+    "notes": ["其餘酉日不可用"],
+    "stemBranchOverrides": {
+      "丁酉": {
+        "level": "吉",
+        "summary": "丁酉有天德福星，宜安葬、還福願、出行、開張、參官見貴，但不宜起造、婚姻、嫁娶。",
+        "suitable": ["安葬", "還福願", "出行", "開張", "參官見貴"],
+        "avoid": ["起造", "婚姻", "嫁娶"],
+        "stars": ["天德福星"],
+        "notes": []
+      },
+      "辛酉": {
+        "level": "凶",
+        "summary": "辛酉為正四廢，不宜用。",
+        "suitable": [],
+        "avoid": ["用事"],
+        "stars": ["正四廢"],
+        "notes": []
+      }
+    }
+  },
+  {
+    "monthBranch": "寅",
+    "monthName": "正月",
+    "jianChu": "開",
+    "dayBranch": "子",
+    "generalLevel": "分干支",
+    "title": "正月開子日",
+    "summary": "甲子、壬子不宜起造、婚姻、入宅、開張；戊子、丙子、庚子三日，水土生人用之大吉，並宜安葬。",
+    "suitable": [],
+    "avoid": [],
+    "stars": [],
+    "notes": ["戊子、丙子、庚子水土生人用之尤吉"],
+    "stemBranchOverrides": {
+      "甲子": {
+        "level": "凶",
+        "summary": "甲子不宜起造、婚姻、入宅、開張。",
+        "suitable": [],
+        "avoid": ["起造", "婚姻", "入宅", "開張"],
+        "stars": [],
+        "notes": []
+      },
+      "壬子": {
+        "level": "凶",
+        "summary": "壬子不宜起造、婚姻、入宅、開張。",
+        "suitable": [],
+        "avoid": ["起造", "婚姻", "入宅", "開張"],
+        "stars": [],
+        "notes": []
+      },
+      "戊子": {
+        "level": "大吉",
+        "summary": "戊子水土生人用之尤吉，宜安葬。",
+        "suitable": ["安葬"],
+        "avoid": [],
+        "stars": [],
+        "notes": ["水土生人用之尤吉"]
+      },
+      "丙子": {
+        "level": "大吉",
+        "summary": "丙子水土生人用之尤吉，宜安葬。",
+        "suitable": ["安葬"],
+        "avoid": [],
+        "stars": [],
+        "notes": ["水土生人用之尤吉"]
+      },
+      "庚子": {
+        "level": "大吉",
+        "summary": "庚子水土生人用之尤吉，宜安葬。",
+        "suitable": ["安葬"],
+        "avoid": [],
+        "stars": [],
+        "notes": ["水土生人用之尤吉"]
+      }
+    }
+  }
+]

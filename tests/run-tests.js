@@ -20,6 +20,7 @@ const {
   getTianSheBySeasonAndDayPillar,
   isGengDay,
 } = await import("../src/dailyInfo.js");
+const { getDongGongDaySelection } = await import("../src/dongGongDaySelection.js");
 const { SEXAGENARY_CYCLE } = await import("../src/ganzhi.js");
 const {
   getEarthlyBranchIndex,
@@ -85,12 +86,22 @@ if (resolvedTimeZone !== TEST_TIME_ZONE) {
   );
 }
 
-const [termsRaw, casesRaw, flyingStarsCasesRaw, jinhanYujingRaw, qimenYuanJuTableRaw] = await Promise.all([
+const [
+  termsRaw,
+  casesRaw,
+  flyingStarsCasesRaw,
+  jinhanYujingRaw,
+  qimenYuanJuTableRaw,
+  dongGongDataRaw,
+  dongGongModuleRaw,
+] = await Promise.all([
   readFile(new URL("../data/solar_terms_1899_2101.json", import.meta.url), "utf8"),
   readFile(new URL("./testcases.json", import.meta.url), "utf8"),
   readFile(new URL("./flying-stars-testcases.json", import.meta.url), "utf8"),
   readFile(new URL("../data/jinhan_yujing_day_pan.json", import.meta.url), "utf8"),
   readFile(new URL("../data/qimen/qimen_yuan_ju_table.json", import.meta.url), "utf8"),
+  readFile(new URL("../data/dong_gong_day_selection.json", import.meta.url), "utf8"),
+  readFile(new URL("../src/dongGongDaySelection.js", import.meta.url), "utf8"),
 ]);
 
 const solarTerms = normalizeSolarTerms(JSON.parse(termsRaw));
@@ -129,6 +140,7 @@ let baziJianchuVerifiedCaseCount = 0;
 let baziDailyInfoVerifiedCaseCount = 0;
 let guiDengVerifiedCaseCount = 0;
 let annualAfflictionsVerifiedCaseCount = 0;
+let dongGongVerifiedCaseCount = 0;
 
 const parsedLocalDateTime = parseLocalDateTime("2026-06-05T09:08:07.123");
 const localDateTimeExpected = {
@@ -421,6 +433,7 @@ runBaziDailyInfoTests(solarTerms);
 runSeventyTwoHouTests();
 runGuiDengTests();
 runAnnualAfflictionsTests();
+runDongGongDaySelectionTests();
 
 if (failures.length > 0) {
   console.error("測試失敗：");
@@ -460,6 +473,7 @@ if (failures.length > 0) {
   console.log(`七十二候測試通過：${seventyTwoHouVerifiedCaseCount} cases`);
   console.log(`貴人登天門測試通過：${guiDengVerifiedCaseCount} cases`);
   console.log(`流年方位煞測試通過：${annualAfflictionsVerifiedCaseCount} cases`);
+  console.log(`董公擇日測試通過：${dongGongVerifiedCaseCount} cases`);
   if (pendingCases.length > 0) {
     console.log(`待人工驗證案例略過：${pendingCases.length} cases`);
     for (const testCase of pendingCases) {
@@ -3785,6 +3799,55 @@ function runAnnualAfflictionsTests() {
   }
 }
 
+function runDongGongDaySelectionTests() {
+  const dingYou = getDongGongDaySelection({
+    monthBranch: "寅",
+    dayPillar: "丁酉",
+    jianChu: "危",
+  });
+  dongGongVerifiedCaseCount += 1;
+  assertEqual("dong-gong-yin-wei-dingyou", "found", true, dingYou.found);
+  assertEqual("dong-gong-yin-wei-dingyou", "effectiveLevel", "吉", dingYou.effectiveLevel);
+  assertIncludes("dong-gong-yin-wei-dingyou", "effectiveSuitable", "安葬", dingYou.effectiveSuitable);
+  assertIncludes("dong-gong-yin-wei-dingyou", "effectiveAvoid", "起造", dingYou.effectiveAvoid);
+
+  const xinYou = getDongGongDaySelection({
+    monthBranch: "寅",
+    dayPillar: "辛酉",
+    jianChu: "危",
+  });
+  dongGongVerifiedCaseCount += 1;
+  assertEqual("dong-gong-yin-wei-xinyou", "found", true, xinYou.found);
+  assertEqual("dong-gong-yin-wei-xinyou", "effectiveLevel", "凶", xinYou.effectiveLevel);
+  assertIncludes("dong-gong-yin-wei-xinyou", "effectiveStars", "正四廢", xinYou.effectiveStars);
+
+  const wuZi = getDongGongDaySelection({
+    monthBranch: "寅",
+    dayPillar: "戊子",
+    jianChu: "開",
+  });
+  dongGongVerifiedCaseCount += 1;
+  assertEqual("dong-gong-yin-kai-wuzi", "found", true, wuZi.found);
+  assertEqual("dong-gong-yin-kai-wuzi", "effectiveLevel", "大吉", wuZi.effectiveLevel);
+  assertIncludes("dong-gong-yin-kai-wuzi", "effectiveSuitable", "安葬", wuZi.effectiveSuitable);
+
+  const missing = getDongGongDaySelection({
+    monthBranch: "午",
+    dayPillar: "甲午",
+    jianChu: "建",
+  });
+  dongGongVerifiedCaseCount += 1;
+  assertEqual("dong-gong-missing", "found", false, missing.found);
+  assertEqual("dong-gong-missing", "effectiveSummary", "資料待補", missing.effectiveSummary);
+
+  const forbiddenTerms = ["金神七煞", "二十八宿"];
+  const dongGongSources = `${dongGongDataRaw}\n${dongGongModuleRaw}`;
+  for (const term of forbiddenTerms) {
+    dongGongVerifiedCaseCount += 1;
+    assertEqual("dong-gong-no-external-rules", term, false, dongGongSources.includes(term));
+  }
+}
+
 function formatAnnualAfflictionBadgeLabels(badges) {
   return Array.isArray(badges) ? badges.map((badge) => badge.label).join("") : "";
 }
@@ -3813,6 +3876,17 @@ function assertEqual(id, key, expected, actual) {
       key,
       expected,
       actual,
+    });
+  }
+}
+
+function assertIncludes(id, key, expectedItem, actual) {
+  if (!Array.isArray(actual) || !actual.includes(expectedItem)) {
+    failures.push({
+      id,
+      key,
+      expected: `include ${expectedItem}`,
+      actual: Array.isArray(actual) ? actual.join(",") : actual,
     });
   }
 }
