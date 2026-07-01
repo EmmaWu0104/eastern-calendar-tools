@@ -538,6 +538,143 @@ export function buildQimenTimelineFromYearSeedRecommendations(year) {
     .sort((a, b) => toTimeMs(a.start) - toTimeMs(b.start));
 }
 
+export function buildQimenSequentialTermSeeds({
+  startSeed,
+  count,
+  intercalations = [],
+}) {
+  validateSequentialStartSeed(startSeed);
+
+  if (!Number.isInteger(count)) {
+    throw new TypeError("count 需為正整數");
+  }
+
+  if (count < 1) {
+    throw new RangeError("count 需為正整數");
+  }
+
+  const intercalationByTerm = validateSequentialIntercalations(intercalations);
+  const seeds = [];
+  let currentStart = startSeed.effectiveDayStart;
+  let currentTerm = startSeed.qimenSolarTerm;
+  let normalSeedCount = startSeed.isIntercalary === true ? 0 : 1;
+
+  seeds.push(createSequentialSeed({
+    effectiveDayStart: currentStart,
+    qimenSolarTerm: currentTerm,
+    isIntercalary: startSeed.isIntercalary === true,
+    source: "sequential-term",
+    reason: `從${currentTerm}起依節氣序推進。`,
+  }));
+
+  while (normalSeedCount < count) {
+    const intercalation = intercalationByTerm.get(currentTerm);
+    if (intercalation && !intercalation.used) {
+      const expectedIntercalaryStart = addQimenEffectiveDays(currentStart, 15);
+      if (intercalation.atEffectiveDayStart !== expectedIntercalaryStart) {
+        throw new RangeError(`${currentTerm}置閏時間應為 ${expectedIntercalaryStart}`);
+      }
+
+      seeds.push(createSequentialSeed({
+        effectiveDayStart: intercalation.atEffectiveDayStart,
+        qimenSolarTerm: currentTerm,
+        isIntercalary: true,
+        source: "sequential-intercalation",
+        reason: `${currentTerm}三元後置閏${currentTerm}。`,
+      }));
+      currentStart = intercalation.atEffectiveDayStart;
+      intercalation.used = true;
+    }
+
+    const previousTerm = currentTerm;
+    currentTerm = getNextQimenTerm(currentTerm);
+    currentStart = addQimenEffectiveDays(currentStart, 15);
+    seeds.push(createSequentialSeed({
+      effectiveDayStart: currentStart,
+      qimenSolarTerm: currentTerm,
+      isIntercalary: false,
+      source: "sequential-term",
+      reason: `${previousTerm}三元後接${currentTerm}。`,
+    }));
+    normalSeedCount += 1;
+  }
+
+  return seeds;
+}
+
+function validateSequentialStartSeed(startSeed) {
+  if (!startSeed || typeof startSeed !== "object" || Array.isArray(startSeed)) {
+    throw new TypeError("startSeed 需為物件");
+  }
+
+  toTimeMs(startSeed.effectiveDayStart);
+
+  if (!QIMEN_TERM_SEQUENCE.includes(startSeed.qimenSolarTerm)) {
+    throw new RangeError(`未知奇門節氣：${startSeed.qimenSolarTerm}`);
+  }
+
+  if ("isIntercalary" in startSeed && typeof startSeed.isIntercalary !== "boolean") {
+    throw new TypeError("startSeed.isIntercalary 需為 boolean");
+  }
+}
+
+function validateSequentialIntercalations(intercalations) {
+  if (!Array.isArray(intercalations)) {
+    throw new TypeError("intercalations 需為陣列");
+  }
+
+  const intercalationByTerm = new Map();
+
+  for (const intercalation of intercalations) {
+    if (!intercalation || typeof intercalation !== "object" || Array.isArray(intercalation)) {
+      throw new TypeError("intercalation 需為物件");
+    }
+
+    if (!QIMEN_TERM_SEQUENCE.includes(intercalation.afterTerm)) {
+      throw new RangeError(`未知置閏節氣：${intercalation.afterTerm}`);
+    }
+
+    toTimeMs(intercalation.atEffectiveDayStart);
+
+    if (intercalationByTerm.has(intercalation.afterTerm)) {
+      throw new RangeError(`重複置閏節氣：${intercalation.afterTerm}`);
+    }
+
+    intercalationByTerm.set(intercalation.afterTerm, {
+      afterTerm: intercalation.afterTerm,
+      atEffectiveDayStart: intercalation.atEffectiveDayStart,
+      used: false,
+    });
+  }
+
+  return intercalationByTerm;
+}
+
+function getNextQimenTerm(termName) {
+  const index = QIMEN_TERM_SEQUENCE.indexOf(termName);
+  if (index < 0) {
+    throw new RangeError(`未知奇門節氣：${termName}`);
+  }
+
+  return QIMEN_TERM_SEQUENCE[(index + 1) % QIMEN_TERM_SEQUENCE.length];
+}
+
+function createSequentialSeed({
+  effectiveDayStart,
+  qimenSolarTerm,
+  isIntercalary,
+  source,
+  reason,
+}) {
+  return {
+    effectiveDayStart,
+    qimenSolarTerm,
+    isIntercalary,
+    source,
+    reason,
+  };
+}
+
 function findSeedByTermAndIntercalary(seeds, termName, isIntercalary) {
   return seeds.find((seed) => {
     return seed.qimenSolarTerm === termName && seed.isIntercalary === isIntercalary;
