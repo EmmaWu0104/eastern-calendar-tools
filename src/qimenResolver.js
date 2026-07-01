@@ -703,6 +703,17 @@ export function buildQimenSequentialTermSeeds({
   return seeds;
 }
 
+export function buildQimenFullTermSeedCycle({
+  startSeed,
+  intercalations = [],
+}) {
+  return buildQimenSequentialTermSeeds({
+    startSeed,
+    count: QIMEN_TERM_SEQUENCE.length,
+    intercalations,
+  });
+}
+
 function validateSequentialStartSeed(startSeed) {
   if (!startSeed || typeof startSeed !== "object" || Array.isArray(startSeed)) {
     throw new TypeError("startSeed 需為物件");

@@ -48,6 +48,7 @@ const {
   analyzeQimenIntercalationWindowsForYear,
   analyzeQimenIntercalationWindowsForYearAuto,
   buildQimenIntercalationWindowCandidatesForYear,
+  buildQimenFullTermSeedCycle,
   buildQimenSequentialTermSeeds,
   buildQimenTimelineFromYearSeedRecommendations,
   buildQimenYearSeedRecommendations,
@@ -140,6 +141,7 @@ let qimenIntercalationCandidateVerifiedCaseCount = 0;
 let qimenIntercalationWindowYearVerifiedCaseCount = 0;
 let qimenIntercalationWindowCandidateAutoVerifiedCaseCount = 0;
 let qimenSequentialTermSeedVerifiedCaseCount = 0;
+let qimenFullTermSeedCycleVerifiedCaseCount = 0;
 let qimenYearSeedRecommendationVerifiedCaseCount = 0;
 let qimenTimelineFromYearSeedRecommendationVerifiedCaseCount = 0;
 let qimenResolverVerifiedCaseCount = 0;
@@ -436,6 +438,7 @@ runQimenIntercalationCandidateTests();
 runQimenIntercalationWindowYearTests();
 runQimenIntercalationWindowCandidateAutoTests();
 runQimenSequentialTermSeedTests();
+runQimenFullTermSeedCycleTests();
 runQimenYearSeedRecommendationTests();
 runQimenTimelineFromYearSeedRecommendationTests();
 runQimenResolverTests();
@@ -481,6 +484,7 @@ if (failures.length > 0) {
   console.log(`奇門年度置閏窗口分析測試通過：${qimenIntercalationWindowYearVerifiedCaseCount} cases`);
   console.log(`奇門年度置閏窗口候選自動產生測試通過：${qimenIntercalationWindowCandidateAutoVerifiedCaseCount} cases`);
   console.log(`奇門節氣Seed序列推進測試通過：${qimenSequentialTermSeedVerifiedCaseCount} cases`);
+  console.log(`奇門完整節氣Seed循環測試通過：${qimenFullTermSeedCycleVerifiedCaseCount} cases`);
   console.log(`奇門年度Seed建議測試通過：${qimenYearSeedRecommendationVerifiedCaseCount} cases`);
   console.log(`奇門年度Seed建議Timeline測試通過：${qimenTimelineFromYearSeedRecommendationVerifiedCaseCount} cases`);
   console.log(`奇門置閏法 resolver 初版測試通過：${qimenResolverVerifiedCaseCount} cases`);
@@ -2873,6 +2877,173 @@ function runQimenSequentialTermSeedTests() {
       count: "2",
     });
   });
+}
+
+function runQimenFullTermSeedCycleTests() {
+  const dongzhiCycle = buildQimenFullTermSeedCycle({
+    startSeed: {
+      effectiveDayStart: "2027-12-25T23:00:00+08:00",
+      qimenSolarTerm: "冬至",
+      isIntercalary: false,
+    },
+  });
+  qimenFullTermSeedCycleVerifiedCaseCount += 1;
+  assertEqual("qimen-full-term-cycle-dongzhi", "length", 24, dongzhiCycle.length);
+  assertQimenYearSeedRecommendation("qimen-full-term-cycle-dongzhi-1", dongzhiCycle[0], {
+    effectiveDayStart: "2027-12-25T23:00:00+08:00",
+    qimenSolarTerm: "冬至",
+    isIntercalary: false,
+  });
+  assertQimenYearSeedRecommendation("qimen-full-term-cycle-dongzhi-2", dongzhiCycle[1], {
+    effectiveDayStart: "2028-01-09T23:00:00+08:00",
+    qimenSolarTerm: "小寒",
+    isIntercalary: false,
+  });
+  assertQimenYearSeedRecommendation("qimen-full-term-cycle-dongzhi-3", dongzhiCycle[2], {
+    effectiveDayStart: "2028-01-24T23:00:00+08:00",
+    qimenSolarTerm: "大寒",
+    isIntercalary: false,
+  });
+  assertQimenYearSeedRecommendation("qimen-full-term-cycle-dongzhi-24", dongzhiCycle[23], {
+    qimenSolarTerm: "大雪",
+    isIntercalary: false,
+  });
+
+  const daxueCycle = buildQimenFullTermSeedCycle({
+    startSeed: {
+      effectiveDayStart: "2027-11-25T23:00:00+08:00",
+      qimenSolarTerm: "大雪",
+      isIntercalary: false,
+    },
+    intercalations: [
+      {
+        afterTerm: "大雪",
+        atEffectiveDayStart: "2027-12-10T23:00:00+08:00",
+      },
+    ],
+  });
+  qimenFullTermSeedCycleVerifiedCaseCount += 1;
+  assertEqual("qimen-full-term-cycle-daxue-intercalary", "length", 25, daxueCycle.length);
+  assertQimenYearSeedRecommendation("qimen-full-term-cycle-daxue-intercalary-1", daxueCycle[0], {
+    effectiveDayStart: "2027-11-25T23:00:00+08:00",
+    qimenSolarTerm: "大雪",
+    isIntercalary: false,
+  });
+  assertQimenYearSeedRecommendation("qimen-full-term-cycle-daxue-intercalary-2", daxueCycle[1], {
+    effectiveDayStart: "2027-12-10T23:00:00+08:00",
+    qimenSolarTerm: "大雪",
+    isIntercalary: true,
+  });
+  assertQimenYearSeedRecommendation("qimen-full-term-cycle-daxue-intercalary-3", daxueCycle[2], {
+    effectiveDayStart: "2027-12-25T23:00:00+08:00",
+    qimenSolarTerm: "冬至",
+    isIntercalary: false,
+  });
+  assertEqual(
+    "qimen-full-term-cycle-daxue-intercalary",
+    "normalSeedCount",
+    24,
+    daxueCycle.filter((seed) => seed.isIntercalary === false).length
+  );
+  assertEqual(
+    "qimen-full-term-cycle-daxue-intercalary",
+    "intercalarySeedCount",
+    1,
+    daxueCycle.filter((seed) => seed.isIntercalary === true).length
+  );
+
+  const mangzhongCycle = buildQimenFullTermSeedCycle({
+    startSeed: {
+      effectiveDayStart: "2027-05-29T23:00:00+08:00",
+      qimenSolarTerm: "芒種",
+      isIntercalary: false,
+    },
+  });
+  qimenFullTermSeedCycleVerifiedCaseCount += 1;
+  assertEqual("qimen-full-term-cycle-mangzhong", "length", 24, mangzhongCycle.length);
+  assertQimenYearSeedRecommendation("qimen-full-term-cycle-mangzhong-1", mangzhongCycle[0], {
+    effectiveDayStart: "2027-05-29T23:00:00+08:00",
+    qimenSolarTerm: "芒種",
+    isIntercalary: false,
+  });
+  assertQimenYearSeedRecommendation("qimen-full-term-cycle-mangzhong-2", mangzhongCycle[1], {
+    effectiveDayStart: "2027-06-13T23:00:00+08:00",
+    qimenSolarTerm: "夏至",
+    isIntercalary: false,
+  });
+  assertQimenYearSeedRecommendation("qimen-full-term-cycle-mangzhong-3", mangzhongCycle[2], {
+    effectiveDayStart: "2027-06-28T23:00:00+08:00",
+    qimenSolarTerm: "小暑",
+    isIntercalary: false,
+  });
+  assertQimenYearSeedRecommendation("qimen-full-term-cycle-mangzhong-4", mangzhongCycle[3], {
+    effectiveDayStart: "2027-07-13T23:00:00+08:00",
+    qimenSolarTerm: "大暑",
+    isIntercalary: false,
+  });
+
+  qimenFullTermSeedCycleVerifiedCaseCount += 1;
+  for (const [index, seed] of [...dongzhiCycle, ...daxueCycle, ...mangzhongCycle].entries()) {
+    const id = `qimen-full-term-cycle-structure-${index + 1}`;
+    assertEqual(id, "source.present", true, typeof seed.source === "string" && seed.source.length > 0);
+    assertEqual(id, "reason.present", true, typeof seed.reason === "string" && seed.reason.length > 0);
+  }
+
+  qimenFullTermSeedCycleVerifiedCaseCount += 1;
+  assertThrowsRangeError("qimen-full-term-cycle-intercalation-time-mismatch", () => {
+    buildQimenFullTermSeedCycle({
+      startSeed: {
+        effectiveDayStart: "2027-11-25T23:00:00+08:00",
+        qimenSolarTerm: "大雪",
+        isIntercalary: false,
+      },
+      intercalations: [
+        {
+          afterTerm: "大雪",
+          atEffectiveDayStart: "2027-12-11T23:00:00+08:00",
+        },
+      ],
+    });
+  });
+
+  qimenFullTermSeedCycleVerifiedCaseCount += 1;
+  assertThrowsRangeError("qimen-full-term-cycle-invalid-start-term", () => {
+    buildQimenFullTermSeedCycle({
+      startSeed: {
+        effectiveDayStart: "2027-12-25T23:00:00+08:00",
+        qimenSolarTerm: "不存在",
+        isIntercalary: false,
+      },
+    });
+  });
+
+  const sequentialDaxueCycle = buildQimenSequentialTermSeeds({
+    startSeed: {
+      effectiveDayStart: "2027-11-25T23:00:00+08:00",
+      qimenSolarTerm: "大雪",
+      isIntercalary: false,
+    },
+    count: 24,
+    intercalations: [
+      {
+        afterTerm: "大雪",
+        atEffectiveDayStart: "2027-12-10T23:00:00+08:00",
+      },
+    ],
+  });
+  qimenFullTermSeedCycleVerifiedCaseCount += 1;
+  assertEqual("qimen-full-term-cycle-sequential-alignment", "length", sequentialDaxueCycle.length, daxueCycle.length);
+  for (const [index, expectedSeed] of sequentialDaxueCycle.entries()) {
+    assertQimenYearSeedRecommendation(
+      `qimen-full-term-cycle-sequential-alignment-${index + 1}`,
+      daxueCycle[index],
+      {
+        effectiveDayStart: expectedSeed.effectiveDayStart,
+        qimenSolarTerm: expectedSeed.qimenSolarTerm,
+        isIntercalary: expectedSeed.isIntercalary,
+      }
+    );
+  }
 }
 
 function runQimenYearSeedRecommendationTests() {
