@@ -548,6 +548,72 @@ export function buildQimenYearSeedRecommendations(year) {
   };
 }
 
+export function buildQimenTimelineFromYearSeedRecommendations(year) {
+  if (!Number.isInteger(year)) {
+    throw new TypeError("year 需為整數");
+  }
+
+  const recommendations = buildQimenYearSeedRecommendations(year);
+  const timelineSeeds = recommendations.seeds.map(({ effectiveDayStart, qimenSolarTerm, isIntercalary }) => {
+    return { effectiveDayStart, qimenSolarTerm, isIntercalary };
+  });
+  const mangzhongSeed = findSeedByTermAndIntercalary(timelineSeeds, "芒種", false);
+  const xiazhiSeed = findSeedByTermAndIntercalary(timelineSeeds, "夏至", false);
+  const daxueSeed = findSeedByTermAndIntercalary(timelineSeeds, "大雪", false);
+  const intercalaryDaxueSeed = findSeedByTermAndIntercalary(timelineSeeds, "大雪", true);
+  const dongzhiSeed = findSeedByTermAndIntercalary(timelineSeeds, "冬至", false);
+
+  if (!mangzhongSeed || !xiazhiSeed || !daxueSeed || !dongzhiSeed) {
+    throw new RangeError("年度 seed 建議缺少芒種、夏至、大雪或冬至必要 seed");
+  }
+
+  const timeline = [
+    ...buildTimelineSegmentFromSeeds({
+      startEffectiveDay: addQimenEffectiveDays(mangzhongSeed.effectiveDayStart, -9),
+      endEffectiveDay: addQimenEffectiveDays(xiazhiSeed.effectiveDayStart, 16),
+      seeds: [mangzhongSeed, xiazhiSeed],
+    }),
+    ...buildTimelineSegmentFromSeeds({
+      startEffectiveDay: addQimenEffectiveDays(daxueSeed.effectiveDayStart, -9),
+      endEffectiveDay: addQimenEffectiveDays(dongzhiSeed.effectiveDayStart, 16),
+      seeds: [
+        daxueSeed,
+        ...(intercalaryDaxueSeed ? [intercalaryDaxueSeed] : []),
+        dongzhiSeed,
+      ],
+    }),
+  ];
+
+  return dedupeTimelineByStart(timeline)
+    .sort((a, b) => toTimeMs(a.start) - toTimeMs(b.start));
+}
+
+function findSeedByTermAndIntercalary(seeds, termName, isIntercalary) {
+  return seeds.find((seed) => {
+    return seed.qimenSolarTerm === termName && seed.isIntercalary === isIntercalary;
+  }) ?? null;
+}
+
+function buildTimelineSegmentFromSeeds({ startEffectiveDay, endEffectiveDay, seeds }) {
+  return buildQimenTimelineFromFuTouSeeds({
+    startEffectiveDay,
+    endEffectiveDay,
+    seeds,
+  });
+}
+
+function dedupeTimelineByStart(timeline) {
+  const entryByStart = new Map();
+
+  for (const entry of timeline) {
+    if (!entryByStart.has(entry.start)) {
+      entryByStart.set(entry.start, entry);
+    }
+  }
+
+  return [...entryByStart.values()];
+}
+
 function findWindowAnalysisByTerm(windows, termName) {
   const window = Array.isArray(windows)
     ? windows.find((candidate) => candidate.qimenSolarTerm === termName)
