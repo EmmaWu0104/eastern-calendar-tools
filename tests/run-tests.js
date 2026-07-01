@@ -2247,6 +2247,7 @@ function runQimenTimelineFromSeedFlowTests() {
 
 function runQimenSeedDrivenFixtureTests() {
   const fixture = buildSeedDrivenQimenTimelineFixture2027();
+  const yearSeedTimeline = buildQimenTimelineFromYearSeedRecommendations(2027);
   qimenSeedDrivenFixtureVerifiedCaseCount += 1;
 
   if (!Array.isArray(fixture) || fixture.length === 0) {
@@ -2287,6 +2288,17 @@ function runQimenSeedDrivenFixtureTests() {
         actual: entry.sourceDayPillar,
       });
     }
+  }
+
+  qimenSeedDrivenFixtureVerifiedCaseCount += 1;
+  assertEqual("qimen-seed-fixture-year-seed-timeline-alignment", "length", yearSeedTimeline.length, fixture.length);
+  for (const [index, fixtureEntry] of fixture.entries()) {
+    assertQimenTimelineFields(
+      `qimen-seed-fixture-year-seed-timeline-alignment-${index + 1}`,
+      yearSeedTimeline[index],
+      fixtureEntry,
+      ["qimenSolarTerm", "yuan", "start", "end", "isIntercalary", "sourceDayPillar"]
+    );
   }
 
   assertSeedFixtureMatchesInitialTimeline(

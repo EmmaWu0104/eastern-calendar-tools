@@ -45,13 +45,13 @@ const INTERCALATION_WINDOW_TERMS = new Set(INTERCALATION_WINDOW_TERM_NAMES);
 const TAIPEI_OFFSET_MS = 8 * 60 * 60 * 1000;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
+const solarTerms = normalizeSolarTerms(rawSolarTerms);
+
 // 初版驗證資料：先覆蓋 2027 芒種、大雪核心案例。
-// 後續應改為由符頭三元推進與置閏規則產生 timeline。
+// 目前由年度自動分析、seed 建議與符頭三元推進產生 timeline。
 const INITIAL_QIMEN_TIMELINE = Object.freeze(
   buildSeedDrivenQimenTimelineFixture2027().map(cloneTimelineEntry)
 );
-
-const solarTerms = normalizeSolarTerms(rawSolarTerms);
 
 export function resolveQimenJu(dateTimeText) {
   const timelineEntry = findQimenTimelineEntry(dateTimeText);
@@ -321,57 +321,7 @@ export function buildQimenTimelineFromFuTouSeeds({
 }
 
 export function buildSeedDrivenQimenTimelineFixture2027() {
-  return [
-    ...buildQimenTimelineFromFuTouSeeds({
-      startEffectiveDay: "2027-05-20T23:00:00+08:00",
-      endEffectiveDay: "2027-06-25T23:00:00+08:00",
-      seeds: [
-        {
-          effectiveDayStart: "2027-05-29T23:00:00+08:00",
-          qimenSolarTerm: "芒種",
-          isIntercalary: false,
-        },
-        {
-          effectiveDayStart: "2027-06-13T23:00:00+08:00",
-          qimenSolarTerm: "夏至",
-          isIntercalary: false,
-        },
-      ],
-    }),
-    ...buildQimenTimelineFromFuTouSeeds({
-      startEffectiveDay: "2027-11-20T23:00:00+08:00",
-      endEffectiveDay: "2027-12-12T23:00:00+08:00",
-      seeds: [
-        {
-          effectiveDayStart: "2027-11-25T23:00:00+08:00",
-          qimenSolarTerm: "大雪",
-          isIntercalary: false,
-        },
-      ],
-    }),
-    ...buildQimenTimelineFromFuTouSeeds({
-      startEffectiveDay: "2027-12-10T23:00:00+08:00",
-      endEffectiveDay: "2027-12-26T23:00:00+08:00",
-      seeds: [
-        {
-          effectiveDayStart: "2027-12-10T23:00:00+08:00",
-          qimenSolarTerm: "大雪",
-          isIntercalary: true,
-        },
-      ],
-    }),
-    ...buildQimenTimelineFromFuTouSeeds({
-      startEffectiveDay: "2027-12-25T23:00:00+08:00",
-      endEffectiveDay: "2028-01-10T23:00:00+08:00",
-      seeds: [
-        {
-          effectiveDayStart: "2027-12-25T23:00:00+08:00",
-          qimenSolarTerm: "冬至",
-          isIntercalary: false,
-        },
-      ],
-    }),
-  ].sort((a, b) => toTimeMs(a.start) - toTimeMs(b.start));
+  return buildQimenTimelineFromYearSeedRecommendations(2027);
 }
 
 export function analyzeQimenIntercalationCandidate({
