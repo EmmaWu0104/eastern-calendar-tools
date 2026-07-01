@@ -451,35 +451,88 @@ export function buildQimenYearSeedRecommendations(year) {
 }
 
 function buildMangzhongYearSeeds(mangzhongWindow) {
-  return buildQimenSequentialTermSeeds({
-    startSeed: {
-      effectiveDayStart: mangzhongWindow.qimenUpperStart,
-      qimenSolarTerm: "芒種",
-      isIntercalary: false,
-    },
+  return buildQimenYearSeedSegment({
+    window: mangzhongWindow,
+    startTerm: "芒種",
     count: 2,
+    intercalationTerm: "芒種",
   });
 }
 
 function buildDaxueYearSeeds(daxueWindow) {
-  const intercalations = daxueWindow.shouldIntercalate
+  return buildQimenYearSeedSegment({
+    window: daxueWindow,
+    startTerm: "大雪",
+    count: 2,
+    intercalationTerm: "大雪",
+  });
+}
+
+function buildQimenYearSeedSegment({
+  window,
+  startTerm,
+  count,
+  intercalationTerm = null,
+}) {
+  validateQimenYearSeedSegmentInput({ window, startTerm, count, intercalationTerm });
+
+  const intercalations = intercalationTerm && window.shouldIntercalate
     ? [
         {
-          afterTerm: "大雪",
-          atEffectiveDayStart: addQimenEffectiveDays(daxueWindow.qimenUpperStart, 15),
+          afterTerm: intercalationTerm,
+          atEffectiveDayStart: addQimenEffectiveDays(window.qimenUpperStart, 15),
         },
       ]
     : [];
 
   return buildQimenSequentialTermSeeds({
     startSeed: {
-      effectiveDayStart: daxueWindow.qimenUpperStart,
-      qimenSolarTerm: "大雪",
+      effectiveDayStart: window.qimenUpperStart,
+      qimenSolarTerm: startTerm,
       isIntercalary: false,
     },
-    count: 2,
+    count,
     intercalations,
   });
+}
+
+function validateQimenYearSeedSegmentInput({
+  window,
+  startTerm,
+  count,
+  intercalationTerm,
+}) {
+  if (!window || typeof window !== "object" || Array.isArray(window)) {
+    throw new TypeError("window 需為物件");
+  }
+
+  toTimeMs(window.qimenUpperStart);
+
+  if (!QIMEN_TERM_SEQUENCE.includes(startTerm)) {
+    throw new RangeError(`未知奇門節氣：${startTerm}`);
+  }
+
+  if (window.qimenSolarTerm !== startTerm) {
+    throw new RangeError(`年度 seed 段落起始節氣不符：${window.qimenSolarTerm} / ${startTerm}`);
+  }
+
+  if (!Number.isInteger(count)) {
+    throw new TypeError("count 需為正整數");
+  }
+
+  if (count < 1) {
+    throw new RangeError("count 需為正整數");
+  }
+
+  if (intercalationTerm !== null) {
+    if (!QIMEN_TERM_SEQUENCE.includes(intercalationTerm)) {
+      throw new RangeError(`未知置閏節氣：${intercalationTerm}`);
+    }
+
+    if (intercalationTerm !== startTerm) {
+      throw new RangeError("年度 seed 段落第一版只支援本節氣後置閏本節氣");
+    }
+  }
 }
 
 function normalizeYearSeedRecommendationSources(seeds, { mangzhongWindow, daxueWindow }) {

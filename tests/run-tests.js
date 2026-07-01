@@ -2937,6 +2937,23 @@ function runQimenYearSeedRecommendationTests() {
     }
   }
 
+  const expectedSources2027 = [
+    "auto-window",
+    "derived-next-term",
+    "auto-window",
+    "auto-intercalation",
+    "derived-next-term",
+  ];
+  qimenYearSeedRecommendationVerifiedCaseCount += 1;
+  for (const [index, expectedSource] of expectedSources2027.entries()) {
+    assertEqual(
+      `qimen-year-seed-recommendations-source-2027-${index + 1}`,
+      "source",
+      expectedSource,
+      recommendations2027.seeds[index]?.source
+    );
+  }
+
   const sequentialMangzhongSeeds = buildQimenSequentialTermSeeds({
     startSeed: {
       effectiveDayStart: "2027-05-29T23:00:00+08:00",
