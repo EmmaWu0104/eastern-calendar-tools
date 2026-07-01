@@ -435,67 +435,115 @@ export function buildQimenYearSeedRecommendations(year) {
   const windows = analyzeQimenIntercalationWindowsForYearAuto(year);
   const mangzhongWindow = findWindowAnalysisByTerm(windows, "芒種");
   const daxueWindow = findWindowAnalysisByTerm(windows, "大雪");
-  const seeds = [
-    createSeedRecommendation({
-      effectiveDayStart: mangzhongWindow.qimenUpperStart,
-      qimenSolarTerm: "芒種",
-      isIntercalary: false,
-      source: "auto-window",
-      reason: mangzhongWindow.shouldIntercalate
-        ? "芒種窗口達九日，先立芒種本氣。"
-        : "芒種窗口未達九日，不置閏。",
-    }),
-    createSeedRecommendation({
-      effectiveDayStart: addQimenEffectiveDays(mangzhongWindow.qimenUpperStart, 15),
-      qimenSolarTerm: "夏至",
-      isIntercalary: false,
-      source: "derived-next-term",
-      reason: "芒種三元後接夏至。",
-    }),
-    createSeedRecommendation({
-      effectiveDayStart: daxueWindow.qimenUpperStart,
-      qimenSolarTerm: "大雪",
-      isIntercalary: false,
-      source: "auto-window",
-      reason: daxueWindow.shouldIntercalate
-        ? "大雪窗口達九日，先立大雪本氣。"
-        : "大雪窗口未達九日，不置閏。",
-    }),
-  ];
-
-  if (daxueWindow.shouldIntercalate) {
-    const intercalaryDaxueStart = addQimenEffectiveDays(daxueWindow.qimenUpperStart, 15);
-    seeds.push(
-      createSeedRecommendation({
-        effectiveDayStart: intercalaryDaxueStart,
-        qimenSolarTerm: "大雪",
-        isIntercalary: true,
-        source: "auto-intercalation",
-        reason: "大雪窗口超神達九日，置閏大雪。",
-      }),
-      createSeedRecommendation({
-        effectiveDayStart: addQimenEffectiveDays(intercalaryDaxueStart, 15),
-        qimenSolarTerm: "冬至",
-        isIntercalary: false,
-        source: "derived-next-term",
-        reason: "閏大雪三元後接冬至。",
-      })
-    );
-  } else {
-    seeds.push(createSeedRecommendation({
-      effectiveDayStart: addQimenEffectiveDays(daxueWindow.qimenUpperStart, 15),
-      qimenSolarTerm: "冬至",
-      isIntercalary: false,
-      source: "derived-next-term",
-      reason: "大雪三元後接冬至。",
-    }));
-  }
+  const seeds = normalizeYearSeedRecommendationSources(
+    dedupeSeedsByEffectiveDayStart([
+      ...buildMangzhongYearSeeds(mangzhongWindow),
+      ...buildDaxueYearSeeds(daxueWindow),
+    ]),
+    { mangzhongWindow, daxueWindow }
+  );
 
   return {
     year,
     seeds: seeds.sort((a, b) => toTimeMs(a.effectiveDayStart) - toTimeMs(b.effectiveDayStart)),
     windows,
   };
+}
+
+function buildMangzhongYearSeeds(mangzhongWindow) {
+  return buildQimenSequentialTermSeeds({
+    startSeed: {
+      effectiveDayStart: mangzhongWindow.qimenUpperStart,
+      qimenSolarTerm: "芒種",
+      isIntercalary: false,
+    },
+    count: 2,
+  });
+}
+
+function buildDaxueYearSeeds(daxueWindow) {
+  const intercalations = daxueWindow.shouldIntercalate
+    ? [
+        {
+          afterTerm: "大雪",
+          atEffectiveDayStart: addQimenEffectiveDays(daxueWindow.qimenUpperStart, 15),
+        },
+      ]
+    : [];
+
+  return buildQimenSequentialTermSeeds({
+    startSeed: {
+      effectiveDayStart: daxueWindow.qimenUpperStart,
+      qimenSolarTerm: "大雪",
+      isIntercalary: false,
+    },
+    count: 2,
+    intercalations,
+  });
+}
+
+function normalizeYearSeedRecommendationSources(seeds, { mangzhongWindow, daxueWindow }) {
+  const hasIntercalaryDaxue = seeds.some((seed) => seed.qimenSolarTerm === "大雪" && seed.isIntercalary === true);
+
+  return seeds.map((seed) => {
+    if (seed.qimenSolarTerm === "芒種" && seed.isIntercalary === false) {
+      return createSeedRecommendation({
+        ...seed,
+        source: "auto-window",
+        reason: mangzhongWindow.shouldIntercalate
+          ? "芒種窗口達九日，先立芒種本氣。"
+          : "芒種窗口未達九日，不置閏。",
+      });
+    }
+
+    if (seed.qimenSolarTerm === "夏至" && seed.isIntercalary === false) {
+      return createSeedRecommendation({
+        ...seed,
+        source: "derived-next-term",
+        reason: "芒種三元後接夏至。",
+      });
+    }
+
+    if (seed.qimenSolarTerm === "大雪" && seed.isIntercalary === false) {
+      return createSeedRecommendation({
+        ...seed,
+        source: "auto-window",
+        reason: daxueWindow.shouldIntercalate
+          ? "大雪窗口達九日，先立大雪本氣。"
+          : "大雪窗口未達九日，不置閏。",
+      });
+    }
+
+    if (seed.qimenSolarTerm === "大雪" && seed.isIntercalary === true) {
+      return createSeedRecommendation({
+        ...seed,
+        source: "auto-intercalation",
+        reason: "大雪窗口超神達九日，置閏大雪。",
+      });
+    }
+
+    if (seed.qimenSolarTerm === "冬至" && seed.isIntercalary === false) {
+      return createSeedRecommendation({
+        ...seed,
+        source: "derived-next-term",
+        reason: hasIntercalaryDaxue ? "閏大雪三元後接冬至。" : "大雪三元後接冬至。",
+      });
+    }
+
+    return seed;
+  });
+}
+
+function dedupeSeedsByEffectiveDayStart(seeds) {
+  const seedByStart = new Map();
+
+  for (const seed of seeds) {
+    if (!seedByStart.has(seed.effectiveDayStart)) {
+      seedByStart.set(seed.effectiveDayStart, seed);
+    }
+  }
+
+  return [...seedByStart.values()];
 }
 
 export function buildQimenTimelineFromYearSeedRecommendations(year) {

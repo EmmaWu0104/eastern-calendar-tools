@@ -2937,6 +2937,43 @@ function runQimenYearSeedRecommendationTests() {
     }
   }
 
+  const sequentialMangzhongSeeds = buildQimenSequentialTermSeeds({
+    startSeed: {
+      effectiveDayStart: "2027-05-29T23:00:00+08:00",
+      qimenSolarTerm: "芒種",
+      isIntercalary: false,
+    },
+    count: 2,
+  });
+  const sequentialDaxueSeeds = buildQimenSequentialTermSeeds({
+    startSeed: {
+      effectiveDayStart: "2027-11-25T23:00:00+08:00",
+      qimenSolarTerm: "大雪",
+      isIntercalary: false,
+    },
+    count: 2,
+    intercalations: [
+      {
+        afterTerm: "大雪",
+        atEffectiveDayStart: "2027-12-10T23:00:00+08:00",
+      },
+    ],
+  });
+  const sequentialExpectedSeeds = [...sequentialMangzhongSeeds, ...sequentialDaxueSeeds];
+  qimenYearSeedRecommendationVerifiedCaseCount += 1;
+  assertEqual("qimen-year-seed-recommendations-sequential-alignment", "length", sequentialExpectedSeeds.length, recommendations2027.seeds.length);
+  for (const [index, expectedSeed] of sequentialExpectedSeeds.entries()) {
+    assertQimenYearSeedRecommendation(
+      `qimen-year-seed-recommendations-sequential-alignment-${index + 1}`,
+      recommendations2027.seeds[index],
+      {
+        effectiveDayStart: expectedSeed.effectiveDayStart,
+        qimenSolarTerm: expectedSeed.qimenSolarTerm,
+        isIntercalary: expectedSeed.isIntercalary,
+      }
+    );
+  }
+
   const fixture2027 = buildSeedDrivenQimenTimelineFixture2027();
   qimenYearSeedRecommendationVerifiedCaseCount += 1;
   for (const seed of recommendations2027.seeds) {
