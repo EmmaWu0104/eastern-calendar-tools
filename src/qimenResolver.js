@@ -40,7 +40,8 @@ const YUAN_BRANCHES = Object.freeze({
   中元: new Set(["寅", "申", "巳", "亥"]),
   下元: new Set(["辰", "戌", "丑", "未"]),
 });
-const INTERCALATION_WINDOW_TERMS = new Set(["芒種", "大雪"]);
+const INTERCALATION_WINDOW_TERM_NAMES = Object.freeze(["芒種", "大雪"]);
+const INTERCALATION_WINDOW_TERMS = new Set(INTERCALATION_WINDOW_TERM_NAMES);
 const TAIPEI_OFFSET_MS = 8 * 60 * 60 * 1000;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -433,6 +434,46 @@ export function analyzeQimenIntercalationWindowsForYear({ year, candidates }) {
       qimenUpperStart: candidate.qimenUpperStart,
       actualSolarTermTime,
     });
+  });
+}
+
+export function buildQimenIntercalationWindowCandidatesForYear(year) {
+  if (!Number.isInteger(year)) {
+    throw new TypeError("year 需為整數");
+  }
+
+  return INTERCALATION_WINDOW_TERM_NAMES.map((qimenSolarTerm) => {
+    const actualSolarTermTime = findActualSolarTermTimeByYear(qimenSolarTerm, year);
+    const actualEffectiveDayStart = getQimenEffectiveDayStart(actualSolarTermTime);
+    const scanStart = addQimenEffectiveDays(actualEffectiveDayStart, -20);
+    const scanEnd = addQimenEffectiveDays(actualEffectiveDayStart, 1);
+    const upperStart = scanQimenFuTouDays(scanStart, scanEnd)
+      .filter((fuTouDay) => {
+        return fuTouDay.yuan === "上元" && toTimeMs(fuTouDay.effectiveDayStart) <= toTimeMs(actualEffectiveDayStart);
+      })
+      .sort((a, b) => toTimeMs(b.effectiveDayStart) - toTimeMs(a.effectiveDayStart))[0];
+
+    if (!upperStart) {
+      throw new RangeError(`找不到 ${year} 年 ${qimenSolarTerm} 前的奇門上元符頭`);
+    }
+
+    return {
+      qimenSolarTerm,
+      qimenUpperStart: upperStart.effectiveDayStart,
+      actualSolarTermTime,
+      sourceDayPillar: upperStart.dayPillar,
+    };
+  });
+}
+
+export function analyzeQimenIntercalationWindowsForYearAuto(year) {
+  if (!Number.isInteger(year)) {
+    throw new TypeError("year 需為整數");
+  }
+
+  return analyzeQimenIntercalationWindowsForYear({
+    year,
+    candidates: buildQimenIntercalationWindowCandidatesForYear(year),
   });
 }
 
