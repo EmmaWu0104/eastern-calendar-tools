@@ -48,6 +48,7 @@ const {
   analyzeQimenIntercalationWindowsForYear,
   analyzeQimenIntercalationWindowsForYearAuto,
   buildQimenIntercalationWindowCandidatesForYear,
+  buildQimenYearSeedRecommendations,
   buildSeedDrivenQimenTimelineFixture2027,
   buildQimenTermRanges,
   buildQimenTermAssignmentsFromSeeds,
@@ -136,6 +137,7 @@ let qimenSeedDrivenFixtureVerifiedCaseCount = 0;
 let qimenIntercalationCandidateVerifiedCaseCount = 0;
 let qimenIntercalationWindowYearVerifiedCaseCount = 0;
 let qimenIntercalationWindowCandidateAutoVerifiedCaseCount = 0;
+let qimenYearSeedRecommendationVerifiedCaseCount = 0;
 let qimenResolverVerifiedCaseCount = 0;
 let seventyTwoHouVerifiedCaseCount = 0;
 let baziCurrentHouVerifiedCaseCount = 0;
@@ -429,6 +431,7 @@ runQimenSeedDrivenFixtureTests();
 runQimenIntercalationCandidateTests();
 runQimenIntercalationWindowYearTests();
 runQimenIntercalationWindowCandidateAutoTests();
+runQimenYearSeedRecommendationTests();
 runQimenResolverTests();
 runDailyInfoTests();
 runBaziCurrentHouTests(solarTerms);
@@ -471,6 +474,7 @@ if (failures.length > 0) {
   console.log(`奇門置閏候選判斷測試通過：${qimenIntercalationCandidateVerifiedCaseCount} cases`);
   console.log(`奇門年度置閏窗口分析測試通過：${qimenIntercalationWindowYearVerifiedCaseCount} cases`);
   console.log(`奇門年度置閏窗口候選自動產生測試通過：${qimenIntercalationWindowCandidateAutoVerifiedCaseCount} cases`);
+  console.log(`奇門年度Seed建議測試通過：${qimenYearSeedRecommendationVerifiedCaseCount} cases`);
   console.log(`奇門置閏法 resolver 初版測試通過：${qimenResolverVerifiedCaseCount} cases`);
   console.log(`干支曆七十二候整合測試通過：${baziCurrentHouVerifiedCaseCount} cases`);
   console.log(`干支曆建除十二神整合測試通過：${baziJianchuVerifiedCaseCount} cases`);
@@ -2712,7 +2716,95 @@ function runQimenIntercalationWindowCandidateAutoTests() {
   });
 }
 
+function runQimenYearSeedRecommendationTests() {
+  const recommendations2027 = buildQimenYearSeedRecommendations(2027);
+  const expectedSeeds2027 = [
+    {
+      effectiveDayStart: "2027-05-29T23:00:00+08:00",
+      qimenSolarTerm: "芒種",
+      isIntercalary: false,
+    },
+    {
+      effectiveDayStart: "2027-06-13T23:00:00+08:00",
+      qimenSolarTerm: "夏至",
+      isIntercalary: false,
+    },
+    {
+      effectiveDayStart: "2027-11-25T23:00:00+08:00",
+      qimenSolarTerm: "大雪",
+      isIntercalary: false,
+    },
+    {
+      effectiveDayStart: "2027-12-10T23:00:00+08:00",
+      qimenSolarTerm: "大雪",
+      isIntercalary: true,
+    },
+    {
+      effectiveDayStart: "2027-12-25T23:00:00+08:00",
+      qimenSolarTerm: "冬至",
+      isIntercalary: false,
+    },
+  ];
+
+  qimenYearSeedRecommendationVerifiedCaseCount += 1;
+  assertEqual("qimen-year-seed-recommendations-2027", "year", 2027, recommendations2027.year);
+  assertEqual("qimen-year-seed-recommendations-2027", "seeds.length", 5, recommendations2027.seeds?.length);
+  assertEqual("qimen-year-seed-recommendations-2027", "windows.length", 2, recommendations2027.windows?.length);
+  for (const [index, expectedSeed] of expectedSeeds2027.entries()) {
+    assertQimenYearSeedRecommendation(`qimen-year-seed-recommendations-2027-${index + 1}`, recommendations2027.seeds?.[index], expectedSeed);
+  }
+
+  qimenYearSeedRecommendationVerifiedCaseCount += 1;
+  for (const [index, seed] of recommendations2027.seeds.entries()) {
+    const id = `qimen-year-seed-recommendation-structure-${index + 1}`;
+    for (const key of ["effectiveDayStart", "qimenSolarTerm", "isIntercalary", "source", "reason"]) {
+      if (!(key in seed)) {
+        failures.push({
+          id,
+          key,
+          expected: "present",
+          actual: "missing",
+        });
+      }
+    }
+
+    if (typeof seed.reason !== "string" || seed.reason.length === 0) {
+      failures.push({
+        id,
+        key: "reason",
+        expected: "non-empty string",
+        actual: seed.reason,
+      });
+    }
+  }
+
+  const fixture2027 = buildSeedDrivenQimenTimelineFixture2027();
+  qimenYearSeedRecommendationVerifiedCaseCount += 1;
+  for (const seed of recommendations2027.seeds) {
+    const fixtureEntry = fixture2027.find((entry) => entry.start === seed.effectiveDayStart);
+    assertEqual(`qimen-year-seed-fixture-alignment-${seed.effectiveDayStart}`, "present", true, Boolean(fixtureEntry));
+    assertEqual(`qimen-year-seed-fixture-alignment-${seed.effectiveDayStart}`, "qimenSolarTerm", seed.qimenSolarTerm, fixtureEntry?.qimenSolarTerm);
+    assertEqual(`qimen-year-seed-fixture-alignment-${seed.effectiveDayStart}`, "isIntercalary", seed.isIntercalary, fixtureEntry?.isIntercalary);
+  }
+
+  qimenYearSeedRecommendationVerifiedCaseCount += 1;
+  assertThrowsTypeError("qimen-year-seed-recommendations-invalid-year", () => {
+    buildQimenYearSeedRecommendations("2027");
+  });
+
+  qimenYearSeedRecommendationVerifiedCaseCount += 1;
+  assertThrowsRangeError("qimen-year-seed-recommendations-missing-year", () => {
+    buildQimenYearSeedRecommendations(1800);
+  });
+}
+
 function assertQimenIntercalationWindow(id, actual, expected) {
+  for (const [key, expectedValue] of Object.entries(expected)) {
+    assertEqual(id, key, expectedValue, actual?.[key]);
+  }
+}
+
+function assertQimenYearSeedRecommendation(id, actual, expected) {
   for (const [key, expectedValue] of Object.entries(expected)) {
     assertEqual(id, key, expectedValue, actual?.[key]);
   }
