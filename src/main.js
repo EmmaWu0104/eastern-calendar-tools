@@ -819,7 +819,9 @@ function createJinhanHourRow(hour, currentHourIndex, displayIndex, dengGuiBranch
 
 function createJinhanPillarTimeCell(hour, isCurrent) {
   const cell = document.createElement("td");
-  const pillar = createBlockSpan(hour.pillar, "jinhan-hour-pillar");
+  const hourBranch = typeof hour.pillar === "string" ? hour.pillar[1] : "";
+  const clashingZodiac = getClashingZodiacByBranch(hourBranch);
+  const pillar = createJinhanHourPillarLine(hour.pillar, clashingZodiac);
   const timeRange = createBlockSpan(formatJinhanHourTimeRange(hour.timeRange), "jinhan-hour-time-range");
 
   if (isCurrent) {
@@ -834,6 +836,27 @@ function createJinhanPillarTimeCell(hour, isCurrent) {
 
   cell.append(pillar, timeRange);
   return cell;
+}
+
+function createJinhanHourPillarLine(pillarText, clashingZodiac) {
+  const line = document.createElement("span");
+  line.className = "hour-pillar-line jinhan-hour-pillar";
+
+  if (!pillarText) {
+    line.textContent = "—";
+    return line;
+  }
+
+  line.append(document.createTextNode(pillarText));
+
+  if (clashingZodiac) {
+    const clash = document.createElement("span");
+    clash.className = "hour-clash-zodiac";
+    clash.textContent = `（衝煞 ${clashingZodiac}）`;
+    line.append(clash);
+  }
+
+  return line;
 }
 
 function updateJinhanCurrentHourLabel(currentHourInfo) {

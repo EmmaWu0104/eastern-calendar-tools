@@ -1169,6 +1169,19 @@ dd {
   font-weight: 800;
 }
 
+.hour-pillar-line {
+  display: block;
+  line-height: 1.35;
+  white-space: nowrap;
+}
+
+.hour-clash-zodiac {
+  margin-left: 2px;
+  font-size: 0.78rem;
+  opacity: 0.75;
+  white-space: nowrap;
+}
+
 .jinhan-hour-time-range {
   display: block;
   color: #52616f;
