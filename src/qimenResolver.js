@@ -714,6 +714,27 @@ export function buildQimenFullTermSeedCycle({
   });
 }
 
+export function buildQimenTimelineFromFullTermSeedCycle({
+  startSeed,
+  intercalations = [],
+  beforeStartEffectiveDays = 0,
+  afterEndEffectiveDays = 15,
+}) {
+  const seeds = buildQimenFullTermSeedCycle({ startSeed, intercalations });
+  const firstSeed = seeds[0];
+  const lastSeed = seeds.at(-1);
+
+  if (!firstSeed || !lastSeed) {
+    throw new RangeError("完整節氣 seed cycle 不可為空");
+  }
+
+  return buildQimenTimelineFromFuTouSeeds({
+    startEffectiveDay: addQimenEffectiveDays(firstSeed.effectiveDayStart, -beforeStartEffectiveDays),
+    endEffectiveDay: addQimenEffectiveDays(lastSeed.effectiveDayStart, afterEndEffectiveDays + 1),
+    seeds,
+  });
+}
+
 function validateSequentialStartSeed(startSeed) {
   if (!startSeed || typeof startSeed !== "object" || Array.isArray(startSeed)) {
     throw new TypeError("startSeed 需為物件");
