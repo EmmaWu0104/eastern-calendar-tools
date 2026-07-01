@@ -461,6 +461,29 @@ dd {
   font-weight: 800;
 }
 
+.pillar-extra-panel {
+  box-sizing: border-box;
+  grid-column: 3;
+  width: 100%;
+  margin: 0;
+  padding: 8px 10px;
+  border: 1px solid #d8dee6;
+  border-radius: 8px;
+  background: rgba(251, 252, 254, 0.72);
+  color: #52616f;
+  text-align: center;
+  font-size: 0.85rem;
+  line-height: 1.35;
+}
+
+.pillar-extra-panel .pillar-extra-line {
+  margin: 0;
+}
+
+.pillar-extra-panel .pillar-extra-line + .pillar-extra-line {
+  margin-top: 2px;
+}
+
 .details dd {
   font-size: 18px;
 }
@@ -1245,6 +1268,10 @@ dd {
 @media (max-width: 460px) {
   .pillars {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .pillar-extra-panel {
+    grid-column: 1 / -1;
   }
 
   .jinhan-palace {

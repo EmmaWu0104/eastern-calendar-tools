@@ -100,6 +100,7 @@ const elements = {
   calculate: getElement("#calculate"),
   useNow: getElement("#use-now"),
   weekdayLabel: getElement("#weekday-label"),
+  pillars: getElement(".pillars"),
   yearPillar: getElement("#year-pillar"),
   monthPillar: getElement("#month-pillar"),
   dayPillar: getElement("#day-pillar"),
@@ -124,6 +125,9 @@ let isJinhanDunTypeManuallyOverridden = false;
 let isAutoNowMode = false;
 let autoNowTimerId = null;
 let isCalculating = false;
+const pillarExtraPanel = createPillarExtraPanel();
+
+elements.pillars.append(pillarExtraPanel);
 
 elements.calculate.addEventListener("click", () => {
   handleCalculate();
@@ -222,8 +226,9 @@ function renderResult(result) {
   const dailyDaHuangDao = getDailyDaHuangDao(result.monthBranch, result.dayPillar?.[1]);
   renderPillar(elements.yearPillar, result.yearPillar, undefined, undefined, true);
   renderPillar(elements.monthPillar, result.monthPillar, undefined, undefined, true);
-  renderPillar(elements.dayPillar, result.dayPillar, result.jianchu, result.dailyInfo, false, dailyDaHuangDao);
+  renderPillar(elements.dayPillar, result.dayPillar, undefined, undefined, true);
   renderPillar(elements.hourPillar, result.hourPillar, undefined, undefined, true);
+  renderPillarExtraPanel(result.jianchu, dailyDaHuangDao, result.dailyInfo);
   updateWeekdayLabel(elements.datetime.value, result.dailyInfo);
   renderSeasonInfo(result);
   renderDongGongDaySelection(result);
@@ -243,6 +248,7 @@ function clearResult() {
   ]) {
     element.textContent = "--";
   }
+  clearPillarExtraPanel();
   clearDongGongDaySelection();
   clearFlyingStars();
   clearJinhanYujing();
@@ -498,6 +504,42 @@ function renderPillar(
   element.replaceChildren(...parts);
 }
 
+function createPillarExtraPanel() {
+  const panel = document.createElement("aside");
+  panel.className = "pillar-extra-panel";
+  panel.hidden = true;
+
+  const lines = document.createElement("div");
+  lines.className = "pillar-extra-panel-lines";
+
+  panel.append(lines);
+  return panel;
+}
+
+function renderPillarExtraPanel(jianchu, dailyDaHuangDao, dailyInfo) {
+  const lines = [];
+
+  if (jianchu !== undefined) {
+    lines.push(createPillarExtraPanelLine(`建除：${jianchu?.fullName ?? "—"}`, "jianchu-label"));
+  }
+
+  if (dailyDaHuangDao) {
+    lines.push(createDailyDaHuangDaoPanelLine(dailyDaHuangDao));
+  }
+
+  lines.push(...createDailyInfoPanelLines(dailyInfo));
+
+  const lineContainer = pillarExtraPanel.querySelector(".pillar-extra-panel-lines");
+  lineContainer.replaceChildren(...lines);
+  pillarExtraPanel.hidden = lines.length === 0;
+}
+
+function clearPillarExtraPanel() {
+  const lineContainer = pillarExtraPanel.querySelector(".pillar-extra-panel-lines");
+  lineContainer.replaceChildren();
+  pillarExtraPanel.hidden = true;
+}
+
 function createDailyDaHuangDaoPart(dailyDaHuangDao) {
   const className = dailyDaHuangDao.type === "黃道"
     ? "pillar-extra pillar-extra-line daily-da-huang-dao daily-da-huang-dao-good"
@@ -506,6 +548,23 @@ function createDailyDaHuangDaoPart(dailyDaHuangDao) {
     `${dailyDaHuangDao.deity}${dailyDaHuangDao.type}・${dailyDaHuangDao.fortune}`,
     className
   );
+}
+
+function createDailyDaHuangDaoPanelLine(dailyDaHuangDao) {
+  const className = dailyDaHuangDao.type === "黃道"
+    ? "daily-da-huang-dao daily-da-huang-dao-good"
+    : "daily-da-huang-dao daily-da-huang-dao-bad";
+  return createPillarExtraPanelLine(
+    `${dailyDaHuangDao.deity}${dailyDaHuangDao.type}・${dailyDaHuangDao.fortune}`,
+    className
+  );
+}
+
+function createPillarExtraPanelLine(text, className = "") {
+  const line = document.createElement("div");
+  line.className = `pillar-extra-line ${className}`.trim();
+  line.textContent = text;
+  return line;
 }
 
 function createPillarPart(text, className) {
@@ -536,6 +595,28 @@ function createDailyInfoPillarParts(dailyInfo) {
 
   if (dailyInfo?.seasonalMarker) {
     lines.push(createPillarPart(`💀 ${dailyInfo.seasonalMarker.label}`, "pillar-extra daily-info-line"));
+  }
+
+  return lines;
+}
+
+function createDailyInfoPanelLines(dailyInfo) {
+  const lines = [];
+
+  if (dailyInfo?.suiPo?.isSuiPo) {
+    lines.push(createPillarExtraPanelLine(`☠️ ${dailyInfo.suiPo.label}`, "daily-info-line"));
+  }
+
+  if (dailyInfo?.tianShe?.isTianShe) {
+    lines.push(createPillarExtraPanelLine(`😇 ${dailyInfo.tianShe.label}`, "daily-info-line"));
+  }
+
+  if (dailyInfo?.sanfu) {
+    lines.push(createPillarExtraPanelLine(`♨ ${dailyInfo.sanfu.label}`, "daily-info-line"));
+  }
+
+  if (dailyInfo?.seasonalMarker) {
+    lines.push(createPillarExtraPanelLine(`☠️ ${dailyInfo.seasonalMarker.label}`, "daily-info-line"));
   }
 
   return lines;
