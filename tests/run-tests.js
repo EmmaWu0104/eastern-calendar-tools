@@ -149,6 +149,7 @@ let qimenFullTermSeedCycleTimelineVerifiedCaseCount = 0;
 let qimenFullTermCycleDraftInputVerifiedCaseCount = 0;
 let qimenFullTermCycleTimelineDraftForYearVerifiedCaseCount = 0;
 let qimenFullTermCycleTimelineDraftCrossYearVerifiedCaseCount = 0;
+let qimenFullTermCycleTimelineDraftMultiYearObservationVerifiedCaseCount = 0;
 let qimenYearSeedRecommendationVerifiedCaseCount = 0;
 let qimenTimelineFromYearSeedRecommendationVerifiedCaseCount = 0;
 let qimenResolverVerifiedCaseCount = 0;
@@ -450,6 +451,7 @@ runQimenFullTermSeedCycleTimelineTests();
 runQimenFullTermCycleDraftInputTests();
 runQimenFullTermCycleTimelineDraftForYearTests();
 runQimenFullTermCycleTimelineDraftCrossYearTests();
+runQimenFullTermCycleTimelineDraftMultiYearObservationTests();
 runQimenYearSeedRecommendationTests();
 runQimenTimelineFromYearSeedRecommendationTests();
 runQimenResolverTests();
@@ -500,6 +502,7 @@ if (failures.length > 0) {
   console.log(`奇門完整循環草案輸入測試通過：${qimenFullTermCycleDraftInputVerifiedCaseCount} cases`);
   console.log(`奇門年度完整循環Timeline草案測試通過：${qimenFullTermCycleTimelineDraftForYearVerifiedCaseCount} cases`);
   console.log(`奇門年度完整循環Timeline跨年草案測試通過：${qimenFullTermCycleTimelineDraftCrossYearVerifiedCaseCount} cases`);
+  console.log(`奇門年度完整循環Timeline多年觀察測試通過：${qimenFullTermCycleTimelineDraftMultiYearObservationVerifiedCaseCount} cases`);
   console.log(`奇門年度Seed建議測試通過：${qimenYearSeedRecommendationVerifiedCaseCount} cases`);
   console.log(`奇門年度Seed建議Timeline測試通過：${qimenTimelineFromYearSeedRecommendationVerifiedCaseCount} cases`);
   console.log(`奇門置閏法 resolver 初版測試通過：${qimenResolverVerifiedCaseCount} cases`);
@@ -3505,6 +3508,97 @@ function runQimenFullTermCycleTimelineDraftCrossYearTests() {
       `qimen-full-term-cycle-timeline-draft-cross-year-${year}`,
       draft
     );
+  }
+}
+
+function runQimenFullTermCycleTimelineDraftMultiYearObservationTests() {
+  const multiYearObservationCases = [
+    {
+      year: 2024,
+      expectedStartSeed: "2024-11-25T23:00:00+08:00",
+      expectedIntercalations: [
+        {
+          afterTerm: "大雪",
+          atEffectiveDayStart: "2024-12-10T23:00:00+08:00",
+        },
+      ],
+      expectedTimelineLength: 75,
+    },
+    {
+      year: 2025,
+      expectedStartSeed: "2025-12-05T23:00:00+08:00",
+      expectedIntercalations: [],
+      expectedTimelineLength: 72,
+    },
+    {
+      year: 2026,
+      expectedStartSeed: "2026-11-30T23:00:00+08:00",
+      expectedIntercalations: [],
+      expectedTimelineLength: 72,
+    },
+    {
+      year: 2027,
+      expectedStartSeed: "2027-11-25T23:00:00+08:00",
+      expectedIntercalations: [
+        {
+          afterTerm: "大雪",
+          atEffectiveDayStart: "2027-12-10T23:00:00+08:00",
+        },
+      ],
+      expectedTimelineLength: 75,
+    },
+    {
+      year: 2028,
+      expectedStartSeed: "2028-12-04T23:00:00+08:00",
+      expectedIntercalations: [],
+      expectedTimelineLength: 72,
+    },
+    {
+      year: 2029,
+      expectedStartSeed: "2029-11-29T23:00:00+08:00",
+      expectedIntercalations: [],
+      expectedTimelineLength: 72,
+    },
+    {
+      year: 2030,
+      expectedStartSeed: "2030-11-24T23:00:00+08:00",
+      expectedIntercalations: [
+        {
+          afterTerm: "大雪",
+          atEffectiveDayStart: "2030-12-09T23:00:00+08:00",
+        },
+      ],
+      expectedTimelineLength: 75,
+    },
+  ];
+
+  for (const testCase of multiYearObservationCases) {
+    const id = `qimen-full-term-cycle-timeline-draft-multi-year-${testCase.year}`;
+    const draft = buildQimenFullTermCycleTimelineDraftForYear(testCase.year);
+    qimenFullTermCycleTimelineDraftMultiYearObservationVerifiedCaseCount += 1;
+
+    assertQimenTimelineDraftShape(id, draft, testCase.year);
+    assertEqual(id, "startSeed.effectiveDayStart", testCase.expectedStartSeed, draft.startSeed?.effectiveDayStart);
+    assertEqual(id, "intercalations.length", testCase.expectedIntercalations.length, draft.intercalations?.length);
+    assertEqual(id, "timeline.length.observed", testCase.expectedTimelineLength, draft.timeline?.length);
+    assertQimenDraftTimelineLengthByIntercalations(id, draft);
+    assertQimenDraftStartSeedEntry(id, draft);
+    assertQimenDraftIntercalationEntries(id, draft);
+
+    for (const [index, expectedIntercalation] of testCase.expectedIntercalations.entries()) {
+      assertEqual(
+        `${id}-observed-intercalation-${index + 1}`,
+        "afterTerm",
+        expectedIntercalation.afterTerm,
+        draft.intercalations?.[index]?.afterTerm
+      );
+      assertEqual(
+        `${id}-observed-intercalation-${index + 1}`,
+        "atEffectiveDayStart",
+        expectedIntercalation.atEffectiveDayStart,
+        draft.intercalations?.[index]?.atEffectiveDayStart
+      );
+    }
   }
 }
 
