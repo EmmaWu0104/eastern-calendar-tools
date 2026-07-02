@@ -427,6 +427,58 @@ export function analyzeQimenIntercalationWindowsForYearAuto(year) {
   });
 }
 
+export function buildQimenFullTermCycleDraftInputForYear(year, options = {}) {
+  if (!Number.isInteger(year)) {
+    throw new TypeError("year 需為整數");
+  }
+
+  const startTerm = options.startTerm ?? "大雪";
+  if (startTerm !== "大雪") {
+    throw new RangeError(`完整 cycle 草案輸入第一版只支援大雪起點：${startTerm}`);
+  }
+
+  const windows = analyzeQimenIntercalationWindowsForYearAuto(year);
+  const daxueWindow = findWindowAnalysisByTerm(windows, "大雪");
+  const startSeed = {
+    effectiveDayStart: daxueWindow.qimenUpperStart,
+    qimenSolarTerm: "大雪",
+    isIntercalary: false,
+  };
+  const intercalations = daxueWindow.shouldIntercalate
+    ? [
+        {
+          afterTerm: "大雪",
+          atEffectiveDayStart: addQimenEffectiveDays(daxueWindow.qimenUpperStart, 15),
+        },
+      ]
+    : [];
+
+  return {
+    year,
+    startSeed,
+    intercalations,
+    windows,
+  };
+}
+
+export function buildQimenFullTermCycleTimelineDraftForYear(year, options = {}) {
+  const draftInput = buildQimenFullTermCycleDraftInputForYear(year, options);
+  const timeline = buildQimenTimelineFromFullTermSeedCycle({
+    startSeed: draftInput.startSeed,
+    intercalations: draftInput.intercalations,
+    beforeStartEffectiveDays: options.beforeStartEffectiveDays ?? 0,
+    afterEndEffectiveDays: options.afterEndEffectiveDays ?? 15,
+  });
+
+  return {
+    year,
+    startSeed: draftInput.startSeed,
+    intercalations: draftInput.intercalations,
+    windows: draftInput.windows,
+    timeline,
+  };
+}
+
 export function buildQimenYearSeedRecommendations(year) {
   if (!Number.isInteger(year)) {
     throw new TypeError("year 需為整數");
