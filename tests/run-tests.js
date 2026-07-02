@@ -148,6 +148,7 @@ let qimenFullTermSeedCycleVerifiedCaseCount = 0;
 let qimenFullTermSeedCycleTimelineVerifiedCaseCount = 0;
 let qimenFullTermCycleDraftInputVerifiedCaseCount = 0;
 let qimenFullTermCycleTimelineDraftForYearVerifiedCaseCount = 0;
+let qimenFullTermCycleTimelineDraftCrossYearVerifiedCaseCount = 0;
 let qimenYearSeedRecommendationVerifiedCaseCount = 0;
 let qimenTimelineFromYearSeedRecommendationVerifiedCaseCount = 0;
 let qimenResolverVerifiedCaseCount = 0;
@@ -448,6 +449,7 @@ runQimenFullTermSeedCycleTests();
 runQimenFullTermSeedCycleTimelineTests();
 runQimenFullTermCycleDraftInputTests();
 runQimenFullTermCycleTimelineDraftForYearTests();
+runQimenFullTermCycleTimelineDraftCrossYearTests();
 runQimenYearSeedRecommendationTests();
 runQimenTimelineFromYearSeedRecommendationTests();
 runQimenResolverTests();
@@ -497,6 +499,7 @@ if (failures.length > 0) {
   console.log(`奇門完整節氣Seed循環Timeline測試通過：${qimenFullTermSeedCycleTimelineVerifiedCaseCount} cases`);
   console.log(`奇門完整循環草案輸入測試通過：${qimenFullTermCycleDraftInputVerifiedCaseCount} cases`);
   console.log(`奇門年度完整循環Timeline草案測試通過：${qimenFullTermCycleTimelineDraftForYearVerifiedCaseCount} cases`);
+  console.log(`奇門年度完整循環Timeline跨年草案測試通過：${qimenFullTermCycleTimelineDraftCrossYearVerifiedCaseCount} cases`);
   console.log(`奇門年度Seed建議測試通過：${qimenYearSeedRecommendationVerifiedCaseCount} cases`);
   console.log(`奇門年度Seed建議Timeline測試通過：${qimenTimelineFromYearSeedRecommendationVerifiedCaseCount} cases`);
   console.log(`奇門置閏法 resolver 初版測試通過：${qimenResolverVerifiedCaseCount} cases`);
@@ -3480,6 +3483,31 @@ function runQimenFullTermCycleTimelineDraftForYearTests() {
   });
 }
 
+function runQimenFullTermCycleTimelineDraftCrossYearTests() {
+  for (const year of [2026, 2028]) {
+    const draft = buildQimenFullTermCycleTimelineDraftForYear(year);
+    qimenFullTermCycleTimelineDraftCrossYearVerifiedCaseCount += 1;
+
+    assertQimenTimelineDraftShape(
+      `qimen-full-term-cycle-timeline-draft-cross-year-${year}`,
+      draft,
+      year
+    );
+    assertQimenDraftTimelineLengthByIntercalations(
+      `qimen-full-term-cycle-timeline-draft-cross-year-${year}`,
+      draft
+    );
+    assertQimenDraftStartSeedEntry(
+      `qimen-full-term-cycle-timeline-draft-cross-year-${year}`,
+      draft
+    );
+    assertQimenDraftIntercalationEntries(
+      `qimen-full-term-cycle-timeline-draft-cross-year-${year}`,
+      draft
+    );
+  }
+}
+
 function runQimenYearSeedRecommendationTests() {
   const recommendations2027 = buildQimenYearSeedRecommendations(2027);
   const expectedSeeds2027 = [
@@ -3744,6 +3772,96 @@ function assertTimelineStartsStrictlyIncreasing(id, timeline) {
     const previousMs = Date.parse(timeline[index - 1].start);
     const currentMs = Date.parse(timeline[index].start);
     assertEqual(`${id}-${index}`, "ascending", true, previousMs < currentMs);
+  }
+}
+
+function assertQimenTimelineDraftShape(id, draft, expectedYear) {
+  assertEqual(id, "year", expectedYear, draft?.year);
+  assertEqual(id, "startSeed.qimenSolarTerm", "大雪", draft?.startSeed?.qimenSolarTerm);
+  assertEqual(id, "startSeed.isIntercalary", false, draft?.startSeed?.isIntercalary);
+  assertEqual(id, "intercalations.isArray", true, Array.isArray(draft?.intercalations));
+  assertEqual(id, "windows.isArray", true, Array.isArray(draft?.windows));
+  assertEqual(id, "windows.length", 2, draft?.windows?.length);
+  assertEqual(
+    id,
+    "windows.hasMangzhong",
+    true,
+    Array.isArray(draft?.windows) && draft.windows.some((window) => window.qimenSolarTerm === "芒種")
+  );
+  assertEqual(
+    id,
+    "windows.hasDaxue",
+    true,
+    Array.isArray(draft?.windows) && draft.windows.some((window) => window.qimenSolarTerm === "大雪")
+  );
+  assertEqual(id, "timeline.isArray", true, Array.isArray(draft?.timeline));
+  assertEqual(id, "timeline.nonEmpty", true, Array.isArray(draft?.timeline) && draft.timeline.length > 0);
+
+  if (Array.isArray(draft?.timeline)) {
+    assertTimelineStartsStrictlyIncreasing(`${id}-timeline`, draft.timeline);
+  }
+}
+
+function assertQimenDraftTimelineLengthByIntercalations(id, draft) {
+  const intercalationCount = Array.isArray(draft?.intercalations) ? draft.intercalations.length : -1;
+  assertEqual(id, "intercalations.supportedCount", true, intercalationCount >= 0 && intercalationCount <= 1);
+
+  const normalEntryCount = Array.isArray(draft?.timeline)
+    ? draft.timeline.filter((entry) => !entry.isIntercalary).length
+    : 0;
+  assertEqual(id, "normalEntryCountAtLeast72", true, normalEntryCount >= 72);
+  assertEqual(id, "timeline.length", 72 + intercalationCount * 3, draft?.timeline?.length);
+}
+
+function assertQimenDraftStartSeedEntry(id, draft) {
+  const start = draft?.startSeed?.effectiveDayStart;
+  const startEntry = Array.isArray(draft?.timeline)
+    ? draft.timeline.find((entry) => entry.start === start)
+    : null;
+
+  assertQimenRange(`${id}-start-seed-entry`, startEntry, {
+    qimenSolarTerm: "大雪",
+    yuan: "上元",
+    start,
+    isIntercalary: false,
+  });
+  assertEqual(
+    `${id}-start-seed-entry`,
+    "sourceDayPillar.isString",
+    true,
+    typeof startEntry?.sourceDayPillar === "string"
+  );
+  assertEqual(`${id}-start-seed-entry`, "sourceDayPillar.length", 2, startEntry?.sourceDayPillar?.length);
+}
+
+function assertQimenDraftIntercalationEntries(id, draft) {
+  if (!Array.isArray(draft?.intercalations) || !Array.isArray(draft?.timeline)) {
+    return;
+  }
+
+  for (const [index, intercalation] of draft.intercalations.entries()) {
+    const intercalationId = `${id}-intercalation-${index + 1}`;
+    const upperIndex = draft.timeline.findIndex(
+      (entry) => entry.start === intercalation.atEffectiveDayStart
+    );
+
+    assertEqual(intercalationId, "upper.present", true, upperIndex >= 0);
+    assertQimenRange(`${intercalationId}-upper`, draft.timeline[upperIndex], {
+      qimenSolarTerm: intercalation.afterTerm,
+      yuan: "上元",
+      start: intercalation.atEffectiveDayStart,
+      isIntercalary: true,
+    });
+    assertQimenRange(`${intercalationId}-middle`, draft.timeline[upperIndex + 1], {
+      qimenSolarTerm: intercalation.afterTerm,
+      yuan: "中元",
+      isIntercalary: true,
+    });
+    assertQimenRange(`${intercalationId}-lower`, draft.timeline[upperIndex + 2], {
+      qimenSolarTerm: intercalation.afterTerm,
+      yuan: "下元",
+      isIntercalary: true,
+    });
   }
 }
 
