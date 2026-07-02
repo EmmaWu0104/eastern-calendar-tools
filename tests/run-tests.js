@@ -160,6 +160,7 @@ let qimenFullTermCycleTimelineDraftLookupVerifiedCaseCount = 0;
 let qimenFullTermCycleTimelineDraftLookupDuplicateBoundaryVerifiedCaseCount = 0;
 let qimenFullTermCycleTimelineDraftLookupResolverAlignmentVerifiedCaseCount = 0;
 let qimenFullTermCycleDraftResolverFormatterVerifiedCaseCount = 0;
+let qimenFullTermCycleDraftResolverFormatterRegressionVerifiedCaseCount = 0;
 let qimenYearSeedRecommendationVerifiedCaseCount = 0;
 let qimenTimelineFromYearSeedRecommendationVerifiedCaseCount = 0;
 let qimenResolverVerifiedCaseCount = 0;
@@ -469,6 +470,7 @@ runQimenFullTermCycleTimelineDraftLookupTests();
 runQimenFullTermCycleTimelineDraftLookupDuplicateBoundaryTests();
 runQimenFullTermCycleTimelineDraftLookupResolverAlignmentTests();
 runQimenFullTermCycleDraftResolverFormatterTests();
+runQimenFullTermCycleDraftResolverFormatterRegressionTests();
 runQimenYearSeedRecommendationTests();
 runQimenTimelineFromYearSeedRecommendationTests();
 runQimenResolverTests();
@@ -527,6 +529,7 @@ if (failures.length > 0) {
   console.log(`奇門完整循環Timeline草案duplicate boundary查詢測試通過：${qimenFullTermCycleTimelineDraftLookupDuplicateBoundaryVerifiedCaseCount} cases`);
   console.log(`奇門完整循環Timeline草案查詢與resolver對齊測試通過：${qimenFullTermCycleTimelineDraftLookupResolverAlignmentVerifiedCaseCount} cases`);
   console.log(`奇門完整循環草案resolver formatter測試通過：${qimenFullTermCycleDraftResolverFormatterVerifiedCaseCount} cases`);
+  console.log(`奇門完整循環草案resolver formatter regression測試通過：${qimenFullTermCycleDraftResolverFormatterRegressionVerifiedCaseCount} cases`);
   console.log(`奇門年度Seed建議測試通過：${qimenYearSeedRecommendationVerifiedCaseCount} cases`);
   console.log(`奇門年度Seed建議Timeline測試通過：${qimenTimelineFromYearSeedRecommendationVerifiedCaseCount} cases`);
   console.log(`奇門置閏法 resolver 初版測試通過：${qimenResolverVerifiedCaseCount} cases`);
@@ -4371,6 +4374,240 @@ function runQimenFullTermCycleDraftResolverFormatterTests() {
   assertThrowsRangeError("qimen-full-term-cycle-draft-resolver-formatter-missing-data", () => {
     resolveQimenJuFromFullTermCycleDraft("1800-01-01T12:00:00+08:00");
   });
+}
+
+function runQimenFullTermCycleDraftResolverFormatterRegressionTests() {
+  const regressionCases = [
+    {
+      id: "qimen-full-term-cycle-draft-resolver-formatter-regression-2024-intercalary-daxue",
+      input: "2024-12-11T12:00:00+08:00",
+      expected: {
+        selectedYear: 2024,
+        qimenSolarTerm: "大雪",
+        yuan: "上元",
+        isIntercalary: true,
+        dunType: "yin",
+        dunName: "陰遁",
+        ju: 4,
+      },
+    },
+    {
+      id: "qimen-full-term-cycle-draft-resolver-formatter-regression-2024-dongzhi",
+      input: "2024-12-26T12:00:00+08:00",
+      expected: {
+        selectedYear: 2024,
+        qimenSolarTerm: "冬至",
+        yuan: "上元",
+        isIntercalary: false,
+        dunType: "yang",
+        dunName: "陽遁",
+        ju: 1,
+      },
+    },
+    {
+      id: "qimen-full-term-cycle-draft-resolver-formatter-regression-2025-daxue",
+      input: "2025-12-06T12:00:00+08:00",
+      expected: {
+        selectedYear: 2025,
+        qimenSolarTerm: "大雪",
+        yuan: "上元",
+        isIntercalary: false,
+        dunType: "yin",
+        dunName: "陰遁",
+        ju: 4,
+      },
+    },
+    {
+      id: "qimen-full-term-cycle-draft-resolver-formatter-regression-2025-dongzhi",
+      input: "2025-12-21T12:00:00+08:00",
+      expected: {
+        selectedYear: 2025,
+        qimenSolarTerm: "冬至",
+        yuan: "上元",
+        isIntercalary: false,
+        dunType: "yang",
+        dunName: "陽遁",
+        ju: 1,
+      },
+    },
+    {
+      id: "qimen-full-term-cycle-draft-resolver-formatter-regression-2026-daxue",
+      input: "2026-12-01T12:00:00+08:00",
+      expected: {
+        selectedYear: 2026,
+        qimenSolarTerm: "大雪",
+        yuan: "上元",
+        isIntercalary: false,
+        dunType: "yin",
+        dunName: "陰遁",
+        ju: 4,
+      },
+    },
+    {
+      id: "qimen-full-term-cycle-draft-resolver-formatter-regression-2026-dongzhi",
+      input: "2026-12-16T12:00:00+08:00",
+      expected: {
+        selectedYear: 2026,
+        qimenSolarTerm: "冬至",
+        yuan: "上元",
+        isIntercalary: false,
+        dunType: "yang",
+        dunName: "陽遁",
+        ju: 1,
+      },
+    },
+    {
+      id: "qimen-full-term-cycle-draft-resolver-formatter-regression-2027-intercalary-daxue",
+      input: "2027-12-11T12:00:00+08:00",
+      expected: {
+        selectedYear: 2027,
+        qimenSolarTerm: "大雪",
+        yuan: "上元",
+        isIntercalary: true,
+        dunType: "yin",
+        dunName: "陰遁",
+        ju: 4,
+      },
+    },
+    {
+      id: "qimen-full-term-cycle-draft-resolver-formatter-regression-2027-dongzhi",
+      input: "2027-12-26T12:00:00+08:00",
+      expected: {
+        selectedYear: 2027,
+        qimenSolarTerm: "冬至",
+        yuan: "上元",
+        isIntercalary: false,
+        dunType: "yang",
+        dunName: "陽遁",
+        ju: 1,
+      },
+    },
+    {
+      id: "qimen-full-term-cycle-draft-resolver-formatter-regression-2028-fallback-dongzhi",
+      input: "2028-01-01T12:00:00+08:00",
+      expected: {
+        selectedYear: 2027,
+        qimenSolarTerm: "冬至",
+        yuan: "中元",
+        isIntercalary: false,
+        dunType: "yang",
+        dunName: "陽遁",
+        ju: 7,
+      },
+    },
+    {
+      id: "qimen-full-term-cycle-draft-resolver-formatter-regression-2028-daxue",
+      input: "2028-12-05T12:00:00+08:00",
+      expected: {
+        selectedYear: 2028,
+        qimenSolarTerm: "大雪",
+        yuan: "上元",
+        isIntercalary: false,
+        dunType: "yin",
+        dunName: "陰遁",
+        ju: 4,
+      },
+    },
+    {
+      id: "qimen-full-term-cycle-draft-resolver-formatter-regression-2029-daxue",
+      input: "2029-11-30T12:00:00+08:00",
+      expected: {
+        selectedYear: 2029,
+        qimenSolarTerm: "大雪",
+        yuan: "上元",
+        isIntercalary: false,
+        dunType: "yin",
+        dunName: "陰遁",
+        ju: 4,
+      },
+    },
+    {
+      id: "qimen-full-term-cycle-draft-resolver-formatter-regression-2029-dongzhi",
+      input: "2029-12-15T12:00:00+08:00",
+      expected: {
+        selectedYear: 2029,
+        qimenSolarTerm: "冬至",
+        yuan: "上元",
+        isIntercalary: false,
+        dunType: "yang",
+        dunName: "陽遁",
+        ju: 1,
+      },
+    },
+    {
+      id: "qimen-full-term-cycle-draft-resolver-formatter-regression-2030-intercalary-daxue",
+      input: "2030-12-10T12:00:00+08:00",
+      expected: {
+        selectedYear: 2030,
+        qimenSolarTerm: "大雪",
+        yuan: "上元",
+        isIntercalary: true,
+        dunType: "yin",
+        dunName: "陰遁",
+        ju: 4,
+      },
+    },
+    {
+      id: "qimen-full-term-cycle-draft-resolver-formatter-regression-2030-dongzhi",
+      input: "2030-12-25T12:00:00+08:00",
+      expected: {
+        selectedYear: 2030,
+        qimenSolarTerm: "冬至",
+        yuan: "上元",
+        isIntercalary: false,
+        dunType: "yang",
+        dunName: "陽遁",
+        ju: 1,
+      },
+    },
+  ];
+  let intercalaryCaseCount = 0;
+  let nonIntercalaryCaseCount = 0;
+  let selectedYearFallbackCount = 0;
+  let selectedYearSameAsCivilYearCount = 0;
+
+  for (const testCase of regressionCases) {
+    const actual = resolveQimenJuFromFullTermCycleDraft(testCase.input);
+    const civilYear = Number(testCase.input.slice(0, 4));
+    qimenFullTermCycleDraftResolverFormatterRegressionVerifiedCaseCount += 1;
+
+    assertEqual(testCase.id, "present", true, Boolean(actual));
+    assertEqual(testCase.id, "actualSolarTerm.isString", true, typeof actual.actualSolarTerm === "string" && actual.actualSolarTerm.length > 0);
+    assertEqual(testCase.id, "qimenSolarTerm", testCase.expected.qimenSolarTerm, actual.qimenSolarTerm);
+    assertEqual(testCase.id, "yuan", testCase.expected.yuan, actual.yuan);
+    assertEqual(testCase.id, "isIntercalary", testCase.expected.isIntercalary, actual.isIntercalary);
+    assertEqual(testCase.id, "dunType", testCase.expected.dunType, actual.dunType);
+    assertEqual(testCase.id, "dunName", testCase.expected.dunName, actual.dunName);
+    assertEqual(testCase.id, "ju", testCase.expected.ju, actual.ju);
+    assertEqual(testCase.id, "hourPillar.isString", true, typeof actual.hourPillar === "string");
+    assertEqual(testCase.id, "hourPillar.length", 2, actual.hourPillar?.length);
+    assertEqual(testCase.id, "status.isString", true, typeof actual.status === "string" && actual.status.length > 0);
+    assertEqual(testCase.id, "notes.isArray", true, Array.isArray(actual.notes));
+    assertEqual(testCase.id, "notes.length", testCase.expected.isIntercalary ? true : 0, testCase.expected.isIntercalary ? actual.notes.length > 0 : actual.notes.length);
+    assertEqual(testCase.id, "lookup.strategy", "cycle-year", actual.lookup?.strategy);
+    assertEqual(testCase.id, "lookup.selectedYear", testCase.expected.selectedYear, actual.lookup?.selectedYear);
+    assertEqual(testCase.id, "lookup.candidateYears.isArray", true, Array.isArray(actual.lookup?.candidateYears));
+    assertEqual(testCase.id, "lookup.candidateYears.nonEmpty", true, actual.lookup?.candidateYears?.length > 0);
+    assertEqual(testCase.id, "lookup.queryEffectiveDayStart.isString", true, typeof actual.lookup?.queryEffectiveDayStart === "string" && actual.lookup.queryEffectiveDayStart.length > 0);
+
+    if (actual.isIntercalary) {
+      intercalaryCaseCount += 1;
+    } else {
+      nonIntercalaryCaseCount += 1;
+    }
+
+    if (actual.lookup?.selectedYear === civilYear) {
+      selectedYearSameAsCivilYearCount += 1;
+    } else {
+      selectedYearFallbackCount += 1;
+    }
+  }
+
+  assertEqual("qimen-full-term-cycle-draft-resolver-formatter-regression-stats", "normalCaseCount", 14, regressionCases.length);
+  assertEqual("qimen-full-term-cycle-draft-resolver-formatter-regression-stats", "intercalaryCaseCount", 3, intercalaryCaseCount);
+  assertEqual("qimen-full-term-cycle-draft-resolver-formatter-regression-stats", "nonIntercalaryCaseCount", 11, nonIntercalaryCaseCount);
+  assertEqual("qimen-full-term-cycle-draft-resolver-formatter-regression-stats", "selectedYearFallbackCount", 1, selectedYearFallbackCount);
+  assertEqual("qimen-full-term-cycle-draft-resolver-formatter-regression-stats", "selectedYearSameAsCivilYearCount", 13, selectedYearSameAsCivilYearCount);
 }
 
 function runQimenYearSeedRecommendationTests() {
