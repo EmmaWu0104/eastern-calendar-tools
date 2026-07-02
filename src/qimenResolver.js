@@ -479,6 +479,42 @@ export function buildQimenFullTermCycleTimelineDraftForYear(year, options = {}) 
   };
 }
 
+export function buildQimenMultiYearFullTermCycleTimelineDraft({ startYear, endYear } = {}) {
+  if (!Number.isInteger(startYear)) {
+    throw new TypeError("startYear 需為整數");
+  }
+  if (!Number.isInteger(endYear)) {
+    throw new TypeError("endYear 需為整數");
+  }
+  if (startYear > endYear) {
+    throw new RangeError("多年完整 cycle 草案範圍需符合 startYear <= endYear");
+  }
+
+  const yearDrafts = [];
+  for (let year = startYear; year <= endYear; year += 1) {
+    yearDrafts.push(buildQimenFullTermCycleTimelineDraftForYear(year));
+  }
+
+  const combinedTimeline = yearDrafts.flatMap((draft) => draft.timeline);
+  const deduped = dedupeTimelineByStartWithDiagnostics(combinedTimeline);
+  const continuity = analyzeTimelineContinuity(deduped.timeline);
+
+  return {
+    startYear,
+    endYear,
+    yearDrafts,
+    timeline: deduped.timeline,
+    diagnostics: {
+      yearCount: yearDrafts.length,
+      entryCountBeforeDedupe: combinedTimeline.length,
+      entryCountAfterDedupe: deduped.timeline.length,
+      duplicateStarts: deduped.duplicateStarts,
+      overlaps: continuity.overlaps,
+      gaps: continuity.gaps,
+    },
+  };
+}
+
 export function buildQimenYearSeedRecommendations(year) {
   if (!Number.isInteger(year)) {
     throw new TypeError("year 需為整數");
@@ -884,6 +920,56 @@ function dedupeTimelineByStart(timeline) {
   }
 
   return [...entryByStart.values()];
+}
+
+function dedupeTimelineByStartWithDiagnostics(timeline) {
+  const sortedTimeline = [...timeline].sort((a, b) => toTimeMs(a.start) - toTimeMs(b.start));
+  const entryByStart = new Map();
+  const countByStart = new Map();
+
+  for (const entry of sortedTimeline) {
+    countByStart.set(entry.start, (countByStart.get(entry.start) ?? 0) + 1);
+    if (!entryByStart.has(entry.start)) {
+      entryByStart.set(entry.start, cloneTimelineEntry(entry));
+    }
+  }
+
+  const duplicateStarts = [...countByStart.entries()]
+    .filter(([, count]) => count > 1)
+    .map(([start, count]) => ({ start, count }));
+
+  return {
+    timeline: [...entryByStart.values()],
+    duplicateStarts,
+  };
+}
+
+function analyzeTimelineContinuity(timeline) {
+  const overlaps = [];
+  const gaps = [];
+
+  for (let index = 1; index < timeline.length; index += 1) {
+    const previous = timeline[index - 1];
+    const current = timeline[index];
+    const previousEndMs = toTimeMs(previous.end);
+    const currentStartMs = toTimeMs(current.start);
+
+    if (previousEndMs > currentStartMs) {
+      overlaps.push({
+        previousStart: previous.start,
+        previousEnd: previous.end,
+        currentStart: current.start,
+      });
+    } else if (previousEndMs < currentStartMs) {
+      gaps.push({
+        previousStart: previous.start,
+        previousEnd: previous.end,
+        currentStart: current.start,
+      });
+    }
+  }
+
+  return { overlaps, gaps };
 }
 
 function findWindowAnalysisByTerm(windows, termName) {
