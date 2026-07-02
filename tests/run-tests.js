@@ -157,6 +157,7 @@ let qimenMultiYearFullRangeDiagnosticsVerifiedCaseCount = 0;
 let qimenMultiYearDuplicateDetailDiagnosticsVerifiedCaseCount = 0;
 let qimenFullTermCycleTimelineDraftLookupVerifiedCaseCount = 0;
 let qimenFullTermCycleTimelineDraftLookupDuplicateBoundaryVerifiedCaseCount = 0;
+let qimenFullTermCycleTimelineDraftLookupResolverAlignmentVerifiedCaseCount = 0;
 let qimenYearSeedRecommendationVerifiedCaseCount = 0;
 let qimenTimelineFromYearSeedRecommendationVerifiedCaseCount = 0;
 let qimenResolverVerifiedCaseCount = 0;
@@ -464,6 +465,7 @@ runQimenMultiYearFullRangeDiagnosticsTests();
 runQimenMultiYearDuplicateDetailDiagnosticsTests();
 runQimenFullTermCycleTimelineDraftLookupTests();
 runQimenFullTermCycleTimelineDraftLookupDuplicateBoundaryTests();
+runQimenFullTermCycleTimelineDraftLookupResolverAlignmentTests();
 runQimenYearSeedRecommendationTests();
 runQimenTimelineFromYearSeedRecommendationTests();
 runQimenResolverTests();
@@ -520,6 +522,7 @@ if (failures.length > 0) {
   console.log(`奇門多年完整循環Timeline duplicate detail diagnostics測試通過：${qimenMultiYearDuplicateDetailDiagnosticsVerifiedCaseCount} cases`);
   console.log(`奇門完整循環Timeline草案查詢測試通過：${qimenFullTermCycleTimelineDraftLookupVerifiedCaseCount} cases`);
   console.log(`奇門完整循環Timeline草案duplicate boundary查詢測試通過：${qimenFullTermCycleTimelineDraftLookupDuplicateBoundaryVerifiedCaseCount} cases`);
+  console.log(`奇門完整循環Timeline草案查詢與resolver對齊測試通過：${qimenFullTermCycleTimelineDraftLookupResolverAlignmentVerifiedCaseCount} cases`);
   console.log(`奇門年度Seed建議測試通過：${qimenYearSeedRecommendationVerifiedCaseCount} cases`);
   console.log(`奇門年度Seed建議Timeline測試通過：${qimenTimelineFromYearSeedRecommendationVerifiedCaseCount} cases`);
   console.log(`奇門置閏法 resolver 初版測試通過：${qimenResolverVerifiedCaseCount} cases`);
@@ -4167,6 +4170,122 @@ function runQimenFullTermCycleTimelineDraftLookupDuplicateBoundaryTests() {
   assertEqual("qimen-full-term-cycle-draft-lookup-duplicate-boundary-1910-before", "sourceDayPillar", "己丑", firstBoundaryBefore?.sourceDayPillar);
   assertEqual("qimen-full-term-cycle-draft-lookup-duplicate-boundary-1910-before", "start", "1910-11-19T23:00:00+08:00", firstBoundaryBefore?.start);
   assertEqual("qimen-full-term-cycle-draft-lookup-duplicate-boundary-1910-before", "end", "1910-11-24T23:00:00+08:00", firstBoundaryBefore?.end);
+}
+
+function runQimenFullTermCycleTimelineDraftLookupResolverAlignmentTests() {
+  const alignmentCases = [
+    {
+      id: "qimen-full-term-cycle-draft-lookup-resolver-alignment-mangzhong-middle",
+      input: "2027-06-06T12:00:00+08:00",
+      expected: {
+        qimenSolarTerm: "芒種",
+        yuan: "中元",
+        isIntercalary: false,
+        selectedYear: 2026,
+      },
+    },
+    {
+      id: "qimen-full-term-cycle-draft-lookup-resolver-alignment-mangzhong-lower",
+      input: "2027-06-13T12:00:00+08:00",
+      expected: {
+        qimenSolarTerm: "芒種",
+        yuan: "下元",
+        isIntercalary: false,
+        selectedYear: 2026,
+      },
+    },
+    {
+      id: "qimen-full-term-cycle-draft-lookup-resolver-alignment-xiazhi-upper",
+      input: "2027-06-14T12:00:00+08:00",
+      expected: {
+        qimenSolarTerm: "夏至",
+        yuan: "上元",
+        isIntercalary: false,
+        selectedYear: 2026,
+      },
+    },
+    {
+      id: "qimen-full-term-cycle-draft-lookup-resolver-alignment-daxue-lower",
+      input: "2027-12-07T18:00:00+08:00",
+      expected: {
+        qimenSolarTerm: "大雪",
+        yuan: "下元",
+        isIntercalary: false,
+        selectedYear: 2027,
+      },
+    },
+    {
+      id: "qimen-full-term-cycle-draft-lookup-resolver-alignment-daxue-intercalary-upper",
+      input: "2027-12-11T12:00:00+08:00",
+      expected: {
+        qimenSolarTerm: "大雪",
+        yuan: "上元",
+        isIntercalary: true,
+        selectedYear: 2027,
+      },
+    },
+    {
+      id: "qimen-full-term-cycle-draft-lookup-resolver-alignment-daxue-intercalary-middle",
+      input: "2027-12-16T12:00:00+08:00",
+      expected: {
+        qimenSolarTerm: "大雪",
+        yuan: "中元",
+        isIntercalary: true,
+        selectedYear: 2027,
+      },
+    },
+    {
+      id: "qimen-full-term-cycle-draft-lookup-resolver-alignment-daxue-intercalary-lower",
+      input: "2027-12-22T12:00:00+08:00",
+      expected: {
+        qimenSolarTerm: "大雪",
+        yuan: "下元",
+        isIntercalary: true,
+        selectedYear: 2027,
+      },
+    },
+    {
+      id: "qimen-full-term-cycle-draft-lookup-resolver-alignment-daxue-intercalary-lower-end",
+      input: "2027-12-25T12:00:00+08:00",
+      expected: {
+        qimenSolarTerm: "大雪",
+        yuan: "下元",
+        isIntercalary: true,
+        selectedYear: 2027,
+      },
+    },
+    {
+      id: "qimen-full-term-cycle-draft-lookup-resolver-alignment-dongzhi-upper",
+      input: "2027-12-26T12:00:00+08:00",
+      expected: {
+        qimenSolarTerm: "冬至",
+        yuan: "上元",
+        isIntercalary: false,
+        selectedYear: 2027,
+      },
+    },
+  ];
+
+  for (const testCase of alignmentCases) {
+    const resolverResult = resolveQimenJu(testCase.input);
+    const draftEntry = findQimenFullTermCycleTimelineDraftEntry(testCase.input);
+    qimenFullTermCycleTimelineDraftLookupResolverAlignmentVerifiedCaseCount += 1;
+
+    assertEqual(testCase.id, "draftEntry.present", true, Boolean(draftEntry));
+    assertEqual(testCase.id, "lookup.strategy", "cycle-year", draftEntry?.lookup?.strategy);
+    assertEqual(testCase.id, "lookup.selectedYear", testCase.expected.selectedYear, draftEntry?.lookup?.selectedYear);
+    assertEqual(testCase.id, "qimenSolarTerm.alignment", resolverResult.qimenSolarTerm, draftEntry?.qimenSolarTerm);
+    assertEqual(testCase.id, "yuan.alignment", resolverResult.yuan, draftEntry?.yuan);
+    assertEqual(testCase.id, "isIntercalary.alignment", resolverResult.isIntercalary, draftEntry?.isIntercalary);
+    assertEqual(testCase.id, "qimenSolarTerm.expected", testCase.expected.qimenSolarTerm, draftEntry?.qimenSolarTerm);
+    assertEqual(testCase.id, "yuan.expected", testCase.expected.yuan, draftEntry?.yuan);
+    assertEqual(testCase.id, "isIntercalary.expected", testCase.expected.isIntercalary, draftEntry?.isIntercalary);
+    assertEqual(testCase.id, "start.isString", true, typeof draftEntry?.start === "string" && draftEntry.start.length > 0);
+    assertEqual(testCase.id, "end.isString", true, typeof draftEntry?.end === "string" && draftEntry.end.length > 0);
+    assertEqual(testCase.id, "ascendingRange", true, Date.parse(draftEntry?.start) < Date.parse(draftEntry?.end));
+    assertEqual(testCase.id, "sourceDayPillar.isString", true, typeof draftEntry?.sourceDayPillar === "string");
+    assertEqual(testCase.id, "sourceDayPillar.length", 2, draftEntry?.sourceDayPillar?.length);
+  }
 }
 
 function runQimenYearSeedRecommendationTests() {
