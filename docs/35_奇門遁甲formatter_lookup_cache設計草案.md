@@ -387,3 +387,183 @@ cached / non-cached 在 2024～2030 逐年 full cycle draft 結果一致。cache
 cache stats 可觀察 size / keys / hits / misses。目前正式 lookup / formatter 尚未使用 cache，因此主線行為不變。
 
 下一階段建議新增 cached lookup helper 與 equivalence tests，而不是直接替換現有 lookup / formatter。
+
+## 17. 第 53 包 cached lookup helper 實作結果
+
+第 53 包新增 cached lookup parallel helper：
+
+```js
+findQimenFullTermCycleTimelineDraftEntryCached(dateTimeText, options = {})
+```
+
+此 helper 是 `findQimenFullTermCycleTimelineDraftEntry(...)` 的 cached parallel version。它使用第 51 包新增的 `getQimenFullTermCycleTimelineDraftForYearCached(...)`，支援 `strategy: "cycle-year"`，candidate years 順序仍為：
+
+- `candidateYear`
+- `candidateYear - 1`
+- `candidateYear + 1`
+
+它也仍支援 `options.startYear` / `options.endYear` 篩選。回傳格式與 non-cached lookup 對齊：
+
+- draft entry clone
+- `lookup.strategy`
+- `lookup.queryEffectiveDayStart`
+- `lookup.selectedYear`
+- `lookup.candidateYears`
+
+目前尚未讓既有 `findQimenFullTermCycleTimelineDraftEntry(...)` 改用 cache，尚未讓 `resolveQimenJuFromFullTermCycleDraft(...)` 使用 cached lookup，也尚未改 `resolveQimenJu()` 主流程。
+
+技術實作補充：
+
+- 第 53 包抽出 private provider helper，讓 cached 與 non-cached lookup 共用主體流程。
+- non-cached lookup 仍傳入 `buildQimenFullTermCycleTimelineDraftForYear`。
+- cached lookup 傳入 `getQimenFullTermCycleTimelineDraftForYearCached(...)`。
+- cached lookup 會把 lookup-only options 與 yearDraft build options 分離。
+- `strategy`、`startYear`、`endYear` 不會進入 yearDraft cache key。
+- yearDraft build options 僅包含：
+  - `startTerm`
+  - `beforeStartEffectiveDays`
+  - `afterEndEffectiveDays`
+
+## 18. 第 53 包測試結果
+
+新增測試輸出：
+
+- 奇門完整循環Timeline草案cached lookup測試通過：16 cases
+
+測試覆蓋：
+
+| 測試項目 | 結果 |
+|---|---|
+| 10 筆代表案例 cached / non-cached lookup equivalence | 通過 |
+| cache stats 確認 cached lookup 使用 cache | 通過 |
+| 2028 年初 cross-year fallback cache stats | 通過 |
+| 69 組 duplicate boundary cached / non-cached lookup equivalence | 通過 |
+| options normalization | 通過 |
+| invalid strategy 不污染 cache | 通過 |
+| missing data 不污染 cache | 通過 |
+
+### 18.1 代表案例
+
+| 查詢時間 | 說明 |
+|---|---|
+| `1910-11-24T23:30:00+08:00` | duplicate boundary after |
+| `1910-11-24T22:30:00+08:00` | duplicate boundary before |
+| `1910-11-25T12:00:00+08:00` | duplicate boundary 後一日 |
+| `2027-06-06T12:00:00+08:00` | 2027 芒種中元，命中 2026 cycle draft |
+| `2027-06-14T12:00:00+08:00` | 2027 夏至上元，命中 2026 cycle draft |
+| `2027-12-11T12:00:00+08:00` | 2027 閏大雪上元 |
+| `2027-12-26T12:00:00+08:00` | 2027 冬至上元 |
+| `2028-01-01T12:00:00+08:00` | 2028 年初 fallback，命中 2027 cycle draft |
+| `2030-12-10T12:00:00+08:00` | 2030 閏大雪上元 |
+| `2030-12-25T12:00:00+08:00` | 2030 冬至上元 |
+
+這 10 筆都逐欄比對 cached / non-cached lookup 結果一致，包括：
+
+- `qimenSolarTerm`
+- `yuan`
+- `start`
+- `end`
+- `isIntercalary`
+- `sourceDayPillar`
+- `lookup.strategy`
+- `lookup.queryEffectiveDayStart`
+- `lookup.selectedYear`
+- `lookup.candidateYears`
+
+### 18.2 cache stats 觀察
+
+2027 三筆連續 cached lookup：
+
+- 查詢：
+  - `2027-12-11T12:00:00+08:00`
+  - `2027-12-16T12:00:00+08:00`
+  - `2027-12-26T12:00:00+08:00`
+- 三筆皆 selectedYear = 2027。
+- stats：
+  - `size = 1`
+  - `misses = 1`
+  - `hits >= 2`
+  - key 包含 `year=2027|startTerm=大雪|before=0|after=15`
+
+2028 年初 fallback：
+
+- 查詢：`2028-01-01T12:00:00+08:00`
+- selectedYear = 2027
+- candidateYears = `[2028, 2027]`
+- stats：
+  - `size = 2`
+  - `misses = 2`
+  - keys 包含：
+    - `year=2028|startTerm=大雪|before=0|after=15`
+    - `year=2027|startTerm=大雪|before=0|after=15`
+
+### 18.3 duplicate boundary cached lookup
+
+- 使用 1899～2101 full range。
+- 從 `yearDrafts` 還原 69 組 duplicate boundary。
+- 對每組測試：
+  - boundary after：duplicate start 當天 23:30
+  - boundary before：duplicate start 當天 22:30
+- 比對 cached / non-cached lookup 結果一致。
+
+固定統計：
+
+| 項目 | 數值 |
+|---|---:|
+| duplicateGroups.length | 69 |
+| boundaryAfterCachedMismatchCount | 0 |
+| boundaryBeforeCachedMismatchCount | 0 |
+
+### 18.4 error / option 行為
+
+- default options 與 explicit default options 共用同一 cache key：
+  - `year=2027|startTerm=大雪|before=0|after=15`
+- invalid strategy：
+  - 丟出 `RangeError`
+  - cache size 維持 0
+- missing data：
+  - `1800-01-01T12:00:00+08:00` 丟出 `RangeError`
+  - cache size 維持 0
+
+## 19. 第 53 包後目前限制
+
+- cached lookup helper 已完成，但既有 lookup 主流程尚未改用 cache。
+- formatter 尚未使用 cached lookup。
+- 尚未新增 cached formatter helper。
+- 尚未跑 cached formatter regression。
+- 尚未跑 cached formatter duplicate boundary regression。
+- 尚未做 1899～2101 full range formatter diagnostics。
+- cache 目前仍是 module-level Map，尚未設計上限、LRU 或 eviction。
+- cache stats 目前用於測試與觀察，是否保留正式版本待定。
+- cached lookup 與 non-cached lookup 結果一致，不代表可以直接替換正式 resolver；下一步仍應新增 cached formatter parallel helper。
+
+## 20. 第 53 包後後續建議
+
+建議下一步：
+
+1. 第 55 包：新增 cached formatter helper，但不要改既有 formatter 主流程。
+   - 例如：`resolveQimenJuFromFullTermCycleDraftCached(dateTimeText, options = {})`
+   - 內部使用 `findQimenFullTermCycleTimelineDraftEntryCached(...)`
+   - 與 non-cached formatter 做 equivalence tests。
+2. 第 56 包：新增 cached formatter 2024～2030 regression。
+3. 第 57 包：新增 69 組 duplicate boundary cached formatter regression。
+4. 第 58 包：再考慮 1899～2101 full range formatter diagnostics。
+5. 最後才討論是否讓正式 `resolveQimenJuFromFullTermCycleDraft(...)` 內部改用 cache。
+
+原則：
+
+- cache 是效能優化，不應改變結果。
+- 目前採 parallel helper 對照策略，比直接替換主流程安全。
+- 不建議現在直接把既有 lookup / formatter 改成 cached 版本。
+
+## 21. 第 53 包結論
+
+第 53 包完成 cached lookup parallel helper。
+
+cached / non-cached lookup 在 10 筆代表案例與 69 組 duplicate boundary 上結果一致。cache stats 已確認 cached lookup 確實使用 yearDraft cache。
+
+cross-year fallback 會依序建立 2028 與 2027 yearDraft cache，並正確命中 2027。invalid strategy 與 missing data 不會污染 cache。
+
+目前正式 lookup / formatter / resolver 主線仍未使用 cache，因此主線行為不變。
+
+下一階段建議新增 cached formatter helper 與 equivalence tests。

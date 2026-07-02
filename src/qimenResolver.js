@@ -548,36 +548,25 @@ export function buildQimenMultiYearFullTermCycleTimelineDraft({ startYear, endYe
 }
 
 export function findQimenFullTermCycleTimelineDraftEntry(dateTimeText, options = {}) {
-  const strategy = options.strategy ?? "cycle-year";
-  if (strategy !== "cycle-year") {
-    throw new RangeError(`不支援的完整 cycle 草案查詢策略：${strategy}`);
-  }
+  return findQimenFullTermCycleTimelineDraftEntryWithYearDraftProvider(
+    dateTimeText,
+    options,
+    buildQimenFullTermCycleTimelineDraftForYear
+  );
+}
 
-  const queryEffectiveDayStart = getQimenEffectiveDayStart(dateTimeText);
-  const candidateYear = getTaipeiCivilYear(dateTimeText);
-  const candidateYears = [candidateYear, candidateYear - 1, candidateYear + 1]
-    .filter((year) => options.startYear === undefined || year >= options.startYear)
-    .filter((year) => options.endYear === undefined || year <= options.endYear);
-  const triedYears = [];
+export function findQimenFullTermCycleTimelineDraftEntryCached(dateTimeText, options = {}) {
+  const yearDraftOptions = {
+    startTerm: options.startTerm,
+    beforeStartEffectiveDays: options.beforeStartEffectiveDays,
+    afterEndEffectiveDays: options.afterEndEffectiveDays,
+  };
 
-  for (const year of candidateYears) {
-    triedYears.push(year);
-    const draft = buildQimenFullTermCycleTimelineDraftForYear(year);
-    const entry = findTimelineEntryByEffectiveDayStart(draft.timeline, queryEffectiveDayStart);
-    if (entry) {
-      return {
-        ...cloneTimelineEntry(entry),
-        lookup: {
-          strategy,
-          queryEffectiveDayStart,
-          selectedYear: year,
-          candidateYears: triedYears,
-        },
-      };
-    }
-  }
-
-  return null;
+  return findQimenFullTermCycleTimelineDraftEntryWithYearDraftProvider(
+    dateTimeText,
+    options,
+    (year) => getQimenFullTermCycleTimelineDraftForYearCached(year, yearDraftOptions)
+  );
 }
 
 export function resolveQimenJuFromFullTermCycleDraft(dateTimeText, options = {}) {
@@ -1262,6 +1251,43 @@ function toTimeMs(dateTimeText) {
 
 function cloneTimelineEntry(entry) {
   return { ...entry };
+}
+
+function findQimenFullTermCycleTimelineDraftEntryWithYearDraftProvider(
+  dateTimeText,
+  options,
+  getYearDraft
+) {
+  const strategy = options.strategy ?? "cycle-year";
+  if (strategy !== "cycle-year") {
+    throw new RangeError(`不支援的完整 cycle 草案查詢策略：${strategy}`);
+  }
+
+  const queryEffectiveDayStart = getQimenEffectiveDayStart(dateTimeText);
+  const candidateYear = getTaipeiCivilYear(dateTimeText);
+  const candidateYears = [candidateYear, candidateYear - 1, candidateYear + 1]
+    .filter((year) => options.startYear === undefined || year >= options.startYear)
+    .filter((year) => options.endYear === undefined || year <= options.endYear);
+  const triedYears = [];
+
+  for (const year of candidateYears) {
+    triedYears.push(year);
+    const draft = getYearDraft(year);
+    const entry = findTimelineEntryByEffectiveDayStart(draft.timeline, queryEffectiveDayStart);
+    if (entry) {
+      return {
+        ...cloneTimelineEntry(entry),
+        lookup: {
+          strategy,
+          queryEffectiveDayStart,
+          selectedYear: year,
+          candidateYears: triedYears,
+        },
+      };
+    }
+  }
+
+  return null;
 }
 
 function createQimenFullTermCycleDraftCacheKey(year, options = {}) {
