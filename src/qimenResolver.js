@@ -548,6 +548,32 @@ export function findQimenFullTermCycleTimelineDraftEntry(dateTimeText, options =
   return null;
 }
 
+export function resolveQimenJuFromFullTermCycleDraft(dateTimeText, options = {}) {
+  const draftEntry = findQimenFullTermCycleTimelineDraftEntry(dateTimeText, options);
+  if (!draftEntry) {
+    throw new RangeError("查詢時間不在奇門 full cycle draft timeline 覆蓋範圍內");
+  }
+
+  const actualSolarTerm = findActualSolarTerm(dateTimeText);
+  const yuanJu = getQimenYuanJu(draftEntry.qimenSolarTerm, draftEntry.yuan);
+  const localDateTimeText = toTaipeiLocalDateTimeText(dateTimeText);
+  const hourPillar = getHourPillar(localDateTimeText).pillar;
+
+  return {
+    actualSolarTerm,
+    qimenSolarTerm: draftEntry.qimenSolarTerm,
+    status: resolveQimenStatus(actualSolarTerm, draftEntry),
+    yuan: draftEntry.yuan,
+    dunType: yuanJu.dunType,
+    dunName: yuanJu.dunName,
+    ju: yuanJu.ju,
+    hourPillar,
+    isIntercalary: draftEntry.isIntercalary,
+    notes: draftEntry.isIntercalary ? ["查詢時間落在 full cycle draft 置閏 timeline 內。"] : [],
+    lookup: draftEntry.lookup,
+  };
+}
+
 export function buildQimenYearSeedRecommendations(year) {
   if (!Number.isInteger(year)) {
     throw new TypeError("year 需為整數");

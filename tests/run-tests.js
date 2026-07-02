@@ -70,6 +70,7 @@ const {
   getQimenYuanByFuTou,
   isQimenFuTou,
   resolveQimenJu,
+  resolveQimenJuFromFullTermCycleDraft,
   scanQimenFuTouDays,
 } = await import("../src/qimenResolver.js");
 const {
@@ -158,6 +159,7 @@ let qimenMultiYearDuplicateDetailDiagnosticsVerifiedCaseCount = 0;
 let qimenFullTermCycleTimelineDraftLookupVerifiedCaseCount = 0;
 let qimenFullTermCycleTimelineDraftLookupDuplicateBoundaryVerifiedCaseCount = 0;
 let qimenFullTermCycleTimelineDraftLookupResolverAlignmentVerifiedCaseCount = 0;
+let qimenFullTermCycleDraftResolverFormatterVerifiedCaseCount = 0;
 let qimenYearSeedRecommendationVerifiedCaseCount = 0;
 let qimenTimelineFromYearSeedRecommendationVerifiedCaseCount = 0;
 let qimenResolverVerifiedCaseCount = 0;
@@ -466,6 +468,7 @@ runQimenMultiYearDuplicateDetailDiagnosticsTests();
 runQimenFullTermCycleTimelineDraftLookupTests();
 runQimenFullTermCycleTimelineDraftLookupDuplicateBoundaryTests();
 runQimenFullTermCycleTimelineDraftLookupResolverAlignmentTests();
+runQimenFullTermCycleDraftResolverFormatterTests();
 runQimenYearSeedRecommendationTests();
 runQimenTimelineFromYearSeedRecommendationTests();
 runQimenResolverTests();
@@ -523,6 +526,7 @@ if (failures.length > 0) {
   console.log(`奇門完整循環Timeline草案查詢測試通過：${qimenFullTermCycleTimelineDraftLookupVerifiedCaseCount} cases`);
   console.log(`奇門完整循環Timeline草案duplicate boundary查詢測試通過：${qimenFullTermCycleTimelineDraftLookupDuplicateBoundaryVerifiedCaseCount} cases`);
   console.log(`奇門完整循環Timeline草案查詢與resolver對齊測試通過：${qimenFullTermCycleTimelineDraftLookupResolverAlignmentVerifiedCaseCount} cases`);
+  console.log(`奇門完整循環草案resolver formatter測試通過：${qimenFullTermCycleDraftResolverFormatterVerifiedCaseCount} cases`);
   console.log(`奇門年度Seed建議測試通過：${qimenYearSeedRecommendationVerifiedCaseCount} cases`);
   console.log(`奇門年度Seed建議Timeline測試通過：${qimenTimelineFromYearSeedRecommendationVerifiedCaseCount} cases`);
   console.log(`奇門置閏法 resolver 初版測試通過：${qimenResolverVerifiedCaseCount} cases`);
@@ -4286,6 +4290,87 @@ function runQimenFullTermCycleTimelineDraftLookupResolverAlignmentTests() {
     assertEqual(testCase.id, "sourceDayPillar.isString", true, typeof draftEntry?.sourceDayPillar === "string");
     assertEqual(testCase.id, "sourceDayPillar.length", 2, draftEntry?.sourceDayPillar?.length);
   }
+}
+
+function runQimenFullTermCycleDraftResolverFormatterTests() {
+  const formatterCases = [
+    {
+      id: "qimen-full-term-cycle-draft-resolver-formatter-mangzhong-middle",
+      input: "2027-06-06T12:00:00+08:00",
+      expectedSelectedYear: 2026,
+    },
+    {
+      id: "qimen-full-term-cycle-draft-resolver-formatter-xiazhi-upper",
+      input: "2027-06-14T12:00:00+08:00",
+      expectedSelectedYear: 2026,
+    },
+    {
+      id: "qimen-full-term-cycle-draft-resolver-formatter-daxue-lower",
+      input: "2027-12-07T18:00:00+08:00",
+      expectedSelectedYear: 2027,
+    },
+    {
+      id: "qimen-full-term-cycle-draft-resolver-formatter-daxue-intercalary-upper",
+      input: "2027-12-11T12:00:00+08:00",
+      expectedSelectedYear: 2027,
+    },
+    {
+      id: "qimen-full-term-cycle-draft-resolver-formatter-daxue-intercalary-lower",
+      input: "2027-12-22T12:00:00+08:00",
+      expectedSelectedYear: 2027,
+    },
+    {
+      id: "qimen-full-term-cycle-draft-resolver-formatter-daxue-intercalary-lower-end",
+      input: "2027-12-25T12:00:00+08:00",
+      expectedSelectedYear: 2027,
+    },
+    {
+      id: "qimen-full-term-cycle-draft-resolver-formatter-dongzhi-upper",
+      input: "2027-12-26T12:00:00+08:00",
+      expectedSelectedYear: 2027,
+    },
+  ];
+
+  for (const testCase of formatterCases) {
+    const baseline = resolveQimenJu(testCase.input);
+    const draftResult = resolveQimenJuFromFullTermCycleDraft(testCase.input);
+    qimenFullTermCycleDraftResolverFormatterVerifiedCaseCount += 1;
+
+    for (const key of [
+      "actualSolarTerm",
+      "qimenSolarTerm",
+      "status",
+      "yuan",
+      "dunType",
+      "dunName",
+      "ju",
+      "hourPillar",
+      "isIntercalary",
+    ]) {
+      assertEqual(testCase.id, key, baseline[key], draftResult[key]);
+    }
+
+    assertEqual(testCase.id, "notes.isArray", true, Array.isArray(draftResult.notes));
+    assertEqual(testCase.id, "notes.length", baseline.isIntercalary ? true : 0, baseline.isIntercalary ? draftResult.notes.length > 0 : draftResult.notes.length);
+    assertEqual(testCase.id, "lookup.present", true, Boolean(draftResult.lookup));
+    assertEqual(testCase.id, "lookup.strategy", "cycle-year", draftResult.lookup?.strategy);
+    assertEqual(testCase.id, "lookup.selectedYear", testCase.expectedSelectedYear, draftResult.lookup?.selectedYear);
+    assertEqual(testCase.id, "lookup.selectedYear.isInteger", true, Number.isInteger(draftResult.lookup?.selectedYear));
+    assertEqual(testCase.id, "lookup.candidateYears.isArray", true, Array.isArray(draftResult.lookup?.candidateYears));
+    assertEqual(testCase.id, "lookup.candidateYears.nonEmpty", true, draftResult.lookup?.candidateYears?.length > 0);
+  }
+
+  qimenFullTermCycleDraftResolverFormatterVerifiedCaseCount += 1;
+  assertThrowsRangeError("qimen-full-term-cycle-draft-resolver-formatter-invalid-strategy", () => {
+    resolveQimenJuFromFullTermCycleDraft("2027-12-26T12:00:00+08:00", {
+      strategy: "unknown",
+    });
+  });
+
+  qimenFullTermCycleDraftResolverFormatterVerifiedCaseCount += 1;
+  assertThrowsRangeError("qimen-full-term-cycle-draft-resolver-formatter-missing-data", () => {
+    resolveQimenJuFromFullTermCycleDraft("1800-01-01T12:00:00+08:00");
+  });
 }
 
 function runQimenYearSeedRecommendationTests() {
