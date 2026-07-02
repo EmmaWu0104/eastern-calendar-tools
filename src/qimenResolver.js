@@ -515,6 +515,39 @@ export function buildQimenMultiYearFullTermCycleTimelineDraft({ startYear, endYe
   };
 }
 
+export function findQimenFullTermCycleTimelineDraftEntry(dateTimeText, options = {}) {
+  const strategy = options.strategy ?? "cycle-year";
+  if (strategy !== "cycle-year") {
+    throw new RangeError(`不支援的完整 cycle 草案查詢策略：${strategy}`);
+  }
+
+  const queryEffectiveDayStart = getQimenEffectiveDayStart(dateTimeText);
+  const candidateYear = getTaipeiCivilYear(dateTimeText);
+  const candidateYears = [candidateYear, candidateYear - 1, candidateYear + 1]
+    .filter((year) => options.startYear === undefined || year >= options.startYear)
+    .filter((year) => options.endYear === undefined || year <= options.endYear);
+  const triedYears = [];
+
+  for (const year of candidateYears) {
+    triedYears.push(year);
+    const draft = buildQimenFullTermCycleTimelineDraftForYear(year);
+    const entry = findTimelineEntryByEffectiveDayStart(draft.timeline, queryEffectiveDayStart);
+    if (entry) {
+      return {
+        ...cloneTimelineEntry(entry),
+        lookup: {
+          strategy,
+          queryEffectiveDayStart,
+          selectedYear: year,
+          candidateYears: triedYears,
+        },
+      };
+    }
+  }
+
+  return null;
+}
+
 export function buildQimenYearSeedRecommendations(year) {
   if (!Number.isInteger(year)) {
     throw new TypeError("year 需為整數");
@@ -972,6 +1005,13 @@ function analyzeTimelineContinuity(timeline) {
   return { overlaps, gaps };
 }
 
+function findTimelineEntryByEffectiveDayStart(timeline, effectiveDayStart) {
+  const effectiveDayStartMs = toTimeMs(effectiveDayStart);
+  return timeline.find((entry) => {
+    return toTimeMs(entry.start) <= effectiveDayStartMs && effectiveDayStartMs < toTimeMs(entry.end);
+  }) ?? null;
+}
+
 function findWindowAnalysisByTerm(windows, termName) {
   const window = Array.isArray(windows)
     ? windows.find((candidate) => candidate.qimenSolarTerm === termName)
@@ -1134,6 +1174,16 @@ function toTaipeiLocalDateTimeText(dateTimeText) {
   const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
 
   return `${values.year}-${values.month}-${values.day}T${values.hour}:${values.minute}:${values.second}`;
+}
+
+function getTaipeiCivilYear(dateTimeText) {
+  const localDateTimeText = toTaipeiLocalDateTimeText(dateTimeText);
+  const year = Number(localDateTimeText.slice(0, 4));
+  if (!Number.isInteger(year)) {
+    throw new Error(`日期時間格式錯誤：${dateTimeText}`);
+  }
+
+  return year;
 }
 
 function hasExplicitOffset(dateTimeText) {
