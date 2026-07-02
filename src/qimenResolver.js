@@ -52,6 +52,9 @@ const solarTerms = normalizeSolarTerms(rawSolarTerms);
 const INITIAL_QIMEN_TIMELINE = Object.freeze(
   buildSeedDrivenQimenTimelineFixture2027().map(cloneTimelineEntry)
 );
+const qimenFullTermCycleDraftCache = new Map();
+let qimenFullTermCycleDraftCacheHits = 0;
+let qimenFullTermCycleDraftCacheMisses = 0;
 
 export function resolveQimenJu(dateTimeText) {
   const timelineEntry = findQimenTimelineEntry(dateTimeText);
@@ -476,6 +479,35 @@ export function buildQimenFullTermCycleTimelineDraftForYear(year, options = {}) 
     intercalations: draftInput.intercalations,
     windows: draftInput.windows,
     timeline,
+  };
+}
+
+export function getQimenFullTermCycleTimelineDraftForYearCached(year, options = {}) {
+  const cacheKey = createQimenFullTermCycleDraftCacheKey(year, options);
+  const cachedDraft = qimenFullTermCycleDraftCache.get(cacheKey);
+  if (cachedDraft) {
+    qimenFullTermCycleDraftCacheHits += 1;
+    return cloneQimenFullTermCycleTimelineDraft(cachedDraft);
+  }
+
+  qimenFullTermCycleDraftCacheMisses += 1;
+  const draft = buildQimenFullTermCycleTimelineDraftForYear(year, options);
+  qimenFullTermCycleDraftCache.set(cacheKey, draft);
+  return cloneQimenFullTermCycleTimelineDraft(draft);
+}
+
+export function clearQimenFullTermCycleTimelineDraftCache() {
+  qimenFullTermCycleDraftCache.clear();
+  qimenFullTermCycleDraftCacheHits = 0;
+  qimenFullTermCycleDraftCacheMisses = 0;
+}
+
+export function getQimenFullTermCycleTimelineDraftCacheStats() {
+  return {
+    size: qimenFullTermCycleDraftCache.size,
+    keys: [...qimenFullTermCycleDraftCache.keys()],
+    hits: qimenFullTermCycleDraftCacheHits,
+    misses: qimenFullTermCycleDraftCacheMisses,
   };
 }
 
@@ -1230,6 +1262,36 @@ function toTimeMs(dateTimeText) {
 
 function cloneTimelineEntry(entry) {
   return { ...entry };
+}
+
+function createQimenFullTermCycleDraftCacheKey(year, options = {}) {
+  const startTerm = options.startTerm ?? "大雪";
+  const beforeStartEffectiveDays = options.beforeStartEffectiveDays ?? 0;
+  const afterEndEffectiveDays = options.afterEndEffectiveDays ?? 15;
+
+  return [
+    `year=${year}`,
+    `startTerm=${startTerm}`,
+    `before=${beforeStartEffectiveDays}`,
+    `after=${afterEndEffectiveDays}`,
+  ].join("|");
+}
+
+function cloneQimenFullTermCycleTimelineDraft(draft) {
+  return clonePlainData(draft);
+}
+
+function clonePlainData(value) {
+  if (Array.isArray(value)) {
+    return value.map((item) => clonePlainData(item));
+  }
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, item]) => [key, clonePlainData(item)])
+    );
+  }
+
+  return value;
 }
 
 function formatTaipeiDateTime(timeMs) {

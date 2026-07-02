@@ -241,3 +241,149 @@ year=2027|startTerm=大雪|before=0|after=15
 下一個技術風險是效能與重複 yearDraft build。在做 full range formatter diagnostics 或正式替換 resolver 前，應先處理 cache 設計。
 
 本包不改任何程式，主線安全不變。
+
+## 12. 第 51 包 cache helper 實作結果
+
+第 51 包新增 read-only per-year yearDraft cache helper：
+
+```js
+getQimenFullTermCycleTimelineDraftForYearCached(year, options = {})
+clearQimenFullTermCycleTimelineDraftCache()
+getQimenFullTermCycleTimelineDraftCacheStats()
+```
+
+目前實作狀態：
+
+- cache helper 使用 module-level `Map`。
+- cache key 使用 normalized options。
+- cache miss 時呼叫 `buildQimenFullTermCycleTimelineDraftForYear(year, options)`。
+- cache hit 時回傳 cached draft 的 clone。
+- `clearQimenFullTermCycleTimelineDraftCache()` 可清空 cache 並重設 stats。
+- `getQimenFullTermCycleTimelineDraftCacheStats()` 可觀察：
+  - `size`
+  - `keys`
+  - `hits`
+  - `misses`
+- cache helper 目前是 read-only helper。
+- 尚未讓 `findQimenFullTermCycleTimelineDraftEntry(...)` 使用 cache。
+- 尚未讓 `resolveQimenJuFromFullTermCycleDraft(...)` 使用 cache。
+- 尚未改 `resolveQimenJu()` 主流程。
+
+### 12.1 cache key
+
+目前第一版 key 格式：
+
+```text
+year=2027|startTerm=大雪|before=0|after=15
+```
+
+key 來源：
+
+- `year`
+- `startTerm`，預設 `大雪`
+- `beforeStartEffectiveDays`，預設 `0`
+- `afterEndEffectiveDays`，預設 `15`
+
+補充：
+
+- `strategy` 未納入 key，因為 yearDraft build 不受 lookup strategy 影響。
+- `undefined` 與 default options 會 normalize 成同一 key。
+- `{ afterEndEffectiveDays: 30 }` 會產生不同 key：
+  - `year=2027|startTerm=大雪|before=0|after=30`
+- 本包仍不做 method switch；未來若支援不同 method，method 必須納入 key。
+
+### 12.2 clone 與 mutation safety
+
+- cache 內部存 draft。
+- 每次對外回傳 clone。
+- clone 目前支援 plain object / array recursive clone。
+- 測試已確認外部修改第一次 cached 回傳結果，不會污染下一次 cached 回傳結果。
+
+mutation safety 測試內容：
+
+- 取得 2027 cached draft。
+- 修改：
+  - `timeline[0].qimenSolarTerm`
+  - `startSeed.qimenSolarTerm`
+  - `intercalations[0].afterTerm`
+- 再次取得 2027 cached draft。
+- 驗證：
+  - `timeline[0].qimenSolarTerm` 未被污染，仍為 `大雪`
+  - `startSeed.qimenSolarTerm` 仍為 `大雪`
+  - `intercalations[0].afterTerm` 仍為 `大雪`
+
+## 13. 第 51 包測試結果
+
+新增測試輸出：
+
+- 奇門完整循環草案yearDraft cache測試通過：13 cases
+
+測試覆蓋：
+
+| 測試項目 | 結果 |
+|---|---|
+| cache 初始與 clear | 通過 |
+| 2024～2030 cached / non-cached equivalence | 通過，7 年一致 |
+| cache size / keys / hits / misses | 通過 |
+| mutation safety | 通過 |
+| options normalization | 通過 |
+| options 分流 | 通過 |
+| error case 不污染 cache | 通過 |
+
+固定觀察：
+
+- 2024～2030 第一次 cached 查詢後：
+  - `size = 7`
+  - `keys.length = 7`
+  - `misses = 7`
+  - `hits = 0`
+- 再查 2024 / 2027 / 2030 後：
+  - `hits = 3`
+  - `misses = 7`
+  - `size = 7`
+- default options 與 explicit default options 共用同一 key。
+- `afterEndEffectiveDays: 30` 會分流成第二個 key。
+- 1800 年錯誤案例丟出 `RangeError`，且 cache size 仍為 0。
+
+## 14. 第 51 包後目前限制
+
+- cache helper 已完成，但 formatter / lookup 尚未使用 cache。
+- cache helper 目前是 module-level Map。
+- 尚未評估長期執行時 cache size 是否需要上限。
+- 尚未設計 LRU 或 eviction。
+- 尚未做 full range formatter diagnostics。
+- 尚未做 cached formatter 查詢。
+- 尚未驗證 cache 接入 lookup / formatter 後，2024～2030 regression 與 69 duplicate boundary regression 是否仍完全通過。
+- cache stats 目前可觀察，但是否保留到正式版本仍待決定。
+- cache 目前沒有納入 method，因為本專案第一版不做 method switch。
+
+## 15. 第 51 包後後續建議
+
+建議下一步：
+
+1. 第 53 包：新增 cached lookup helper，但不要改既有 lookup / formatter 主流程。
+   - 例如：`findQimenFullTermCycleTimelineDraftEntryCached(dateTimeText, options = {})`
+   - 使用 `getQimenFullTermCycleTimelineDraftForYearCached(...)`
+   - 與 non-cached lookup 做 equivalence tests。
+2. 第 54 包：新增 cached formatter helper，但不要改既有 formatter 主流程。
+   - 例如：`resolveQimenJuFromFullTermCycleDraftCached(dateTimeText, options = {})`
+   - 與 non-cached formatter 做 equivalence tests。
+3. 第 55 包：跑 2024～2030 cached formatter regression 與 69 duplicate boundary cached formatter regression。
+4. 再進入 1899～2101 full range formatter diagnostics。
+5. 最後才討論是否讓正式 `resolveQimenJuFromFullTermCycleDraft(...)` 內部改用 cache。
+
+原則：
+
+- 不建議直接把現有 lookup / formatter 改用 cache。
+- 先新增 cached parallel helper 做對照，會比直接替換安全。
+- cache 是效能優化，不應改變行為。
+
+## 16. 第 51 包結論
+
+第 51 包完成 read-only per-year yearDraft cache helper。
+
+cached / non-cached 在 2024～2030 逐年 full cycle draft 結果一致。cache key normalization、options 分流、mutation safety、error no-pollution 皆已測試。
+
+cache stats 可觀察 size / keys / hits / misses。目前正式 lookup / formatter 尚未使用 cache，因此主線行為不變。
+
+下一階段建議新增 cached lookup helper 與 equivalence tests，而不是直接替換現有 lookup / formatter。
