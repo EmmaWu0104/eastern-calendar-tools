@@ -171,6 +171,7 @@ let qimenFullTermCycleDraftCacheVerifiedCaseCount = 0;
 let qimenFullTermCycleTimelineDraftCachedLookupVerifiedCaseCount = 0;
 let qimenFullTermCycleDraftCachedResolverFormatterVerifiedCaseCount = 0;
 let qimenFullTermCycleDraftCachedResolverFormatterRegressionVerifiedCaseCount = 0;
+let qimenFullTermCycleDraftCachedResolverFormatterDuplicateBoundaryVerifiedCaseCount = 0;
 let qimenYearSeedRecommendationVerifiedCaseCount = 0;
 let qimenTimelineFromYearSeedRecommendationVerifiedCaseCount = 0;
 let qimenResolverVerifiedCaseCount = 0;
@@ -486,6 +487,7 @@ runQimenFullTermCycleDraftCacheTests();
 runQimenFullTermCycleTimelineDraftCachedLookupTests();
 runQimenFullTermCycleDraftCachedResolverFormatterTests();
 runQimenFullTermCycleDraftCachedResolverFormatterRegressionTests();
+runQimenFullTermCycleDraftCachedResolverFormatterDuplicateBoundaryTests();
 runQimenYearSeedRecommendationTests();
 runQimenTimelineFromYearSeedRecommendationTests();
 runQimenResolverTests();
@@ -550,6 +552,7 @@ if (failures.length > 0) {
   console.log(`奇門完整循環Timeline草案cached lookup測試通過：${qimenFullTermCycleTimelineDraftCachedLookupVerifiedCaseCount} cases`);
   console.log(`奇門完整循環草案cached resolver formatter測試通過：${qimenFullTermCycleDraftCachedResolverFormatterVerifiedCaseCount} cases`);
   console.log(`奇門完整循環草案cached resolver formatter regression測試通過：${qimenFullTermCycleDraftCachedResolverFormatterRegressionVerifiedCaseCount} cases`);
+  console.log(`奇門完整循環草案cached resolver formatter duplicate boundary測試通過：${qimenFullTermCycleDraftCachedResolverFormatterDuplicateBoundaryVerifiedCaseCount} cases`);
   console.log(`奇門年度Seed建議測試通過：${qimenYearSeedRecommendationVerifiedCaseCount} cases`);
   console.log(`奇門年度Seed建議Timeline測試通過：${qimenTimelineFromYearSeedRecommendationVerifiedCaseCount} cases`);
   console.log(`奇門置閏法 resolver 初版測試通過：${qimenResolverVerifiedCaseCount} cases`);
@@ -5372,6 +5375,112 @@ function runQimenFullTermCycleDraftCachedResolverFormatterRegressionTests() {
   assertEqual("qimen-full-term-cycle-draft-cached-resolver-formatter-regression-cache-stats", "has.2030", true, stats.keys.includes("year=2030|startTerm=大雪|before=0|after=15"));
 }
 
+function runQimenFullTermCycleDraftCachedResolverFormatterDuplicateBoundaryTests() {
+  const fullRange = buildQimenMultiYearFullTermCycleTimelineDraft({
+    startYear: 1899,
+    endYear: 2101,
+  });
+  const duplicateGroups = getDuplicateTimelineGroupsFromYearDrafts(fullRange.yearDrafts);
+  const sortedDuplicateGroups = duplicateGroups.map((group) => ({
+    start: group.start,
+    entries: [...group.entries].sort((a, b) => a.year - b.year),
+  }));
+  let boundaryAfterCachedMismatchCount = 0;
+  let boundaryBeforeCachedMismatchCount = 0;
+  let boundaryAfterSelectedCurrentYearCount = 0;
+  let boundaryBeforeSelectedPreviousYearCount = 0;
+  let boundaryBeforeSelectedCurrentYearCount = 0;
+  let boundaryBeforeOtherSelectedYearCount = 0;
+
+  qimenFullTermCycleDraftCachedResolverFormatterDuplicateBoundaryVerifiedCaseCount += 1;
+  assertEqual("qimen-full-term-cycle-draft-cached-resolver-formatter-duplicate-boundary", "duplicateGroups.length", 69, sortedDuplicateGroups.length);
+  assertEqual("qimen-full-term-cycle-draft-cached-resolver-formatter-duplicate-boundary", "first.start", "1910-11-24T23:00:00+08:00", sortedDuplicateGroups[0]?.start);
+
+  clearQimenFullTermCycleTimelineDraftCache();
+  for (const [index, group] of sortedDuplicateGroups.entries()) {
+    const previousYearEntry = group.entries[0];
+    const currentYearEntry = group.entries[1];
+    const queryAfter = group.start.replace("T23:00:00+08:00", "T23:30:00+08:00");
+    const queryBefore = group.start.replace("T23:00:00+08:00", "T22:30:00+08:00");
+    const nonCachedAfter = resolveQimenJuFromFullTermCycleDraft(queryAfter);
+    const cachedAfter = resolveQimenJuFromFullTermCycleDraftCached(queryAfter);
+    const nonCachedBefore = resolveQimenJuFromFullTermCycleDraft(queryBefore);
+    const cachedBefore = resolveQimenJuFromFullTermCycleDraftCached(queryBefore);
+
+    assertEqual(`qimen-full-term-cycle-draft-cached-resolver-formatter-duplicate-boundary-group-${index + 1}`, "entries.length", 2, group.entries.length);
+    assertEqual(
+      `qimen-full-term-cycle-draft-cached-resolver-formatter-duplicate-boundary-group-${index + 1}`,
+      "adjacentYears",
+      1,
+      currentYearEntry.year - previousYearEntry.year
+    );
+
+    if (!areQimenDraftResolverFormatterResultsEquivalent(nonCachedAfter, cachedAfter)) {
+      boundaryAfterCachedMismatchCount += 1;
+    }
+    if (!areQimenDraftResolverFormatterResultsEquivalent(nonCachedBefore, cachedBefore)) {
+      boundaryBeforeCachedMismatchCount += 1;
+    }
+
+    assertQimenDraftResolverFormatterEquivalent(
+      `qimen-full-term-cycle-draft-cached-resolver-formatter-duplicate-boundary-after-${index + 1}`,
+      nonCachedAfter,
+      cachedAfter
+    );
+    assertQimenDraftResolverFormatterEquivalent(
+      `qimen-full-term-cycle-draft-cached-resolver-formatter-duplicate-boundary-before-${index + 1}`,
+      nonCachedBefore,
+      cachedBefore
+    );
+
+    if (cachedAfter?.lookup?.selectedYear === currentYearEntry.year) {
+      boundaryAfterSelectedCurrentYearCount += 1;
+    }
+
+    if (cachedBefore?.lookup?.selectedYear === previousYearEntry.year) {
+      boundaryBeforeSelectedPreviousYearCount += 1;
+    } else if (cachedBefore?.lookup?.selectedYear === currentYearEntry.year) {
+      boundaryBeforeSelectedCurrentYearCount += 1;
+    } else {
+      boundaryBeforeOtherSelectedYearCount += 1;
+    }
+  }
+
+  qimenFullTermCycleDraftCachedResolverFormatterDuplicateBoundaryVerifiedCaseCount += 1;
+  assertEqual("qimen-full-term-cycle-draft-cached-resolver-formatter-duplicate-boundary-equivalence", "boundaryAfterCachedMismatchCount", 0, boundaryAfterCachedMismatchCount);
+  assertEqual("qimen-full-term-cycle-draft-cached-resolver-formatter-duplicate-boundary-equivalence", "boundaryBeforeCachedMismatchCount", 0, boundaryBeforeCachedMismatchCount);
+
+  qimenFullTermCycleDraftCachedResolverFormatterDuplicateBoundaryVerifiedCaseCount += 1;
+  assertEqual("qimen-full-term-cycle-draft-cached-resolver-formatter-duplicate-boundary-selected-year", "boundaryAfterSelectedCurrentYearCount", 69, boundaryAfterSelectedCurrentYearCount);
+  assertEqual("qimen-full-term-cycle-draft-cached-resolver-formatter-duplicate-boundary-selected-year", "boundaryBeforeSelectedPreviousYearCount", 23, boundaryBeforeSelectedPreviousYearCount);
+  assertEqual("qimen-full-term-cycle-draft-cached-resolver-formatter-duplicate-boundary-selected-year", "boundaryBeforeSelectedCurrentYearCount", 46, boundaryBeforeSelectedCurrentYearCount);
+  assertEqual("qimen-full-term-cycle-draft-cached-resolver-formatter-duplicate-boundary-selected-year", "boundaryBeforeOtherSelectedYearCount", 0, boundaryBeforeOtherSelectedYearCount);
+
+  const firstBoundaryAfter = resolveQimenJuFromFullTermCycleDraftCached("1910-11-24T23:30:00+08:00");
+  const firstBoundaryBefore = resolveQimenJuFromFullTermCycleDraftCached("1910-11-24T22:30:00+08:00");
+  qimenFullTermCycleDraftCachedResolverFormatterDuplicateBoundaryVerifiedCaseCount += 1;
+  assertEqual("qimen-full-term-cycle-draft-cached-resolver-formatter-duplicate-boundary-1910-after", "selectedYear", 1910, firstBoundaryAfter?.lookup?.selectedYear);
+  assertEqual("qimen-full-term-cycle-draft-cached-resolver-formatter-duplicate-boundary-1910-after", "qimenSolarTerm", "大雪", firstBoundaryAfter?.qimenSolarTerm);
+  assertEqual("qimen-full-term-cycle-draft-cached-resolver-formatter-duplicate-boundary-1910-after", "yuan", "上元", firstBoundaryAfter?.yuan);
+  assertEqual("qimen-full-term-cycle-draft-cached-resolver-formatter-duplicate-boundary-1910-after", "isIntercalary", false, firstBoundaryAfter?.isIntercalary);
+  assertEqual("qimen-full-term-cycle-draft-cached-resolver-formatter-duplicate-boundary-1910-after", "dunName", "陰遁", firstBoundaryAfter?.dunName);
+  assertEqual("qimen-full-term-cycle-draft-cached-resolver-formatter-duplicate-boundary-1910-after", "ju", 4, firstBoundaryAfter?.ju);
+  assertEqual("qimen-full-term-cycle-draft-cached-resolver-formatter-duplicate-boundary-1910-before", "selectedYear", 1909, firstBoundaryBefore?.lookup?.selectedYear);
+  assertEqual("qimen-full-term-cycle-draft-cached-resolver-formatter-duplicate-boundary-1910-before", "qimenSolarTerm", "立冬", firstBoundaryBefore?.qimenSolarTerm);
+  assertEqual("qimen-full-term-cycle-draft-cached-resolver-formatter-duplicate-boundary-1910-before", "yuan", "下元", firstBoundaryBefore?.yuan);
+  assertEqual("qimen-full-term-cycle-draft-cached-resolver-formatter-duplicate-boundary-1910-before", "isIntercalary", false, firstBoundaryBefore?.isIntercalary);
+  assertEqual("qimen-full-term-cycle-draft-cached-resolver-formatter-duplicate-boundary-1910-before", "dunName", "陰遁", firstBoundaryBefore?.dunName);
+  assertEqual("qimen-full-term-cycle-draft-cached-resolver-formatter-duplicate-boundary-1910-before", "ju", 3, firstBoundaryBefore?.ju);
+
+  const stats = getQimenFullTermCycleTimelineDraftCacheStats();
+  qimenFullTermCycleDraftCachedResolverFormatterDuplicateBoundaryVerifiedCaseCount += 1;
+  assertEqual("qimen-full-term-cycle-draft-cached-resolver-formatter-duplicate-boundary-cache-stats", "size.positive", true, stats.size > 0);
+  assertEqual("qimen-full-term-cycle-draft-cached-resolver-formatter-duplicate-boundary-cache-stats", "misses.positive", true, stats.misses > 0);
+  assertEqual("qimen-full-term-cycle-draft-cached-resolver-formatter-duplicate-boundary-cache-stats", "hits.positive", true, stats.hits > 0);
+  assertEqual("qimen-full-term-cycle-draft-cached-resolver-formatter-duplicate-boundary-cache-stats", "has.1909", true, stats.keys.includes("year=1909|startTerm=大雪|before=0|after=15"));
+  assertEqual("qimen-full-term-cycle-draft-cached-resolver-formatter-duplicate-boundary-cache-stats", "has.1910", true, stats.keys.includes("year=1910|startTerm=大雪|before=0|after=15"));
+}
+
 function assertQimenDraftResolverFormatterEquivalent(id, expected, actual) {
   for (const key of [
     "actualSolarTerm",
@@ -5398,6 +5507,48 @@ function assertQimenDraftResolverFormatterEquivalent(id, expected, actual) {
   for (const [index, expectedYear] of (expected.lookup?.candidateYears ?? []).entries()) {
     assertEqual(`${id}-candidate-year-${index + 1}`, "year", expectedYear, actual.lookup?.candidateYears?.[index]);
   }
+}
+
+function areQimenDraftResolverFormatterResultsEquivalent(expected, actual) {
+  if (!expected || !actual) {
+    return expected === actual;
+  }
+
+  for (const key of [
+    "actualSolarTerm",
+    "qimenSolarTerm",
+    "status",
+    "yuan",
+    "dunType",
+    "dunName",
+    "ju",
+    "hourPillar",
+    "isIntercalary",
+  ]) {
+    if (expected[key] !== actual[key]) {
+      return false;
+    }
+  }
+  if (expected.notes?.length !== actual.notes?.length) {
+    return false;
+  }
+  for (const [index, expectedNote] of (expected.notes ?? []).entries()) {
+    if (expectedNote !== actual.notes?.[index]) {
+      return false;
+    }
+  }
+  if (
+    expected.lookup?.strategy !== actual.lookup?.strategy
+    || expected.lookup?.queryEffectiveDayStart !== actual.lookup?.queryEffectiveDayStart
+    || expected.lookup?.selectedYear !== actual.lookup?.selectedYear
+    || expected.lookup?.candidateYears?.length !== actual.lookup?.candidateYears?.length
+  ) {
+    return false;
+  }
+
+  return (expected.lookup?.candidateYears ?? []).every((year, index) => {
+    return year === actual.lookup?.candidateYears?.[index];
+  });
 }
 
 function assertQimenDraftLookupEquivalent(id, expected, actual) {

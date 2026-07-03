@@ -879,3 +879,160 @@ runQimenFullTermCycleDraftCachedResolverFormatterRegressionTests()
 cache stats 已確認 cached formatter regression 實際使用 yearDraft cache。目前正式 lookup / formatter / resolver 主線仍未使用 cache，因此主線行為不變。
 
 下一階段建議新增 69 組 duplicate boundary cached formatter regression。
+
+## 31. 第 59 包 cached formatter duplicate boundary regression 測試結果
+
+第 59 包新增測試函式：
+
+```js
+runQimenFullTermCycleDraftCachedResolverFormatterDuplicateBoundaryTests()
+```
+
+新增測試輸出：
+
+```text
+奇門完整循環草案cached resolver formatter duplicate boundary測試通過：5 cases
+```
+
+本包只修改 `tests/run-tests.js`，未修改 `src/qimenResolver.js`，也未修改既有 formatter / lookup / resolver 主流程。
+
+測試使用 1899～2101 full range yearDrafts 還原 duplicate boundary，`duplicateGroups.length` 固定為 69。每組 duplicate boundary 測：
+
+- boundary after：duplicate start 當天 `23:30`
+- boundary before：duplicate start 當天 `22:30`
+
+每筆都比對 cached formatter vs non-cached formatter 完整結果一致，並額外補 1910 sanity check 與 cache stats 觀察，總計 5 cases。
+
+測試覆蓋：
+
+| 測試項目 | 結果 |
+|---|---|
+| duplicateGroups.length = 69 | 通過 |
+| 69 組 boundary after cached / non-cached formatter equivalence | 通過 |
+| 69 組 boundary before cached / non-cached formatter equivalence | 通過 |
+| boundary after mismatch 統計 | 0 |
+| boundary before mismatch 統計 | 0 |
+| selectedYear 固定統計 | 通過 |
+| 1910 sanity check | 通過 |
+| cache stats 確認 cached formatter 使用 cache | 通過 |
+
+### 31.1 fixed duplicate boundary stats
+
+| 統計項目 | 數值 |
+|---|---:|
+| duplicateGroups.length | 69 |
+| boundaryAfterCachedMismatchCount | 0 |
+| boundaryBeforeCachedMismatchCount | 0 |
+| boundaryAfterSelectedCurrentYearCount | 69 |
+| boundaryBeforeSelectedPreviousYearCount | 23 |
+| boundaryBeforeSelectedCurrentYearCount | 46 |
+| boundaryBeforeOtherSelectedYearCount | 0 |
+
+boundary after 全部選到 current year entry。boundary before 沿用既有 non-cached formatter duplicate boundary 統計：
+
+- 23 組 selected previous year
+- 46 組 selected current year
+- 0 組 selected other year
+
+cached formatter 與 non-cached formatter 在 before / after 均完全一致，因此 selectedYear 統計不因 cache 改變。
+
+### 31.2 1910 sanity check
+
+使用 cached formatter 驗證：
+
+```text
+1910-11-24T23:30:00+08:00
+```
+
+預期：
+
+| 欄位 | 值 |
+|---|---|
+| lookup.selectedYear | 1910 |
+| qimenSolarTerm | 大雪 |
+| yuan | 上元 |
+| isIntercalary | false |
+| dunName | 陰遁 |
+| ju | 4 |
+
+查詢：
+
+```text
+1910-11-24T22:30:00+08:00
+```
+
+預期：
+
+| 欄位 | 值 |
+|---|---|
+| lookup.selectedYear | 1909 |
+| qimenSolarTerm | 立冬 |
+| yuan | 下元 |
+| isIntercalary | false |
+| dunName | 陰遁 |
+| ju | 3 |
+
+這與既有 non-cached formatter duplicate boundary sanity check 一致，代表 duplicate start 前後的 selectedYear 行為沒有因 cache 改變。
+
+### 31.3 cache stats 觀察
+
+第 59 包在 duplicate boundary 測試前 clear cache，跑完 69 組 before / after cached formatter 後觀察 cache stats。
+
+測試不鎖死精準 size / hits / misses 數字，但確認：
+
+- `stats.size > 0`
+- `stats.misses > 0`
+- `stats.hits > 0`
+- keys 至少包含：
+  - `year=1909|startTerm=大雪|before=0|after=15`
+  - `year=1910|startTerm=大雪|before=0|after=15`
+
+這證明 duplicate boundary cached formatter regression 實際使用 yearDraft cache。stats 不鎖死精準值，是為了避免 future candidate year fallback / case order 微調造成測試過度脆弱。
+
+## 32. 第 59 包後目前限制
+
+- cached formatter 69 組 duplicate boundary regression 已通過。
+- cached formatter 2024～2030 regression 已通過。
+- cached / non-cached lookup equivalence 已通過。
+- cached / non-cached formatter representative equivalence 已通過。
+- 既有 formatter 主流程尚未改用 cache。
+- 既有 lookup 主流程尚未改用 cache。
+- 尚未做 1899～2101 full range formatter diagnostics。
+- cache 目前仍是 module-level Map，尚未設計上限、LRU 或 eviction。
+- cache stats 目前用於測試與觀察，是否保留正式版本待定。
+- cached formatter 在 duplicate boundary 通過，不代表可以立即替換正式 resolver；下一步仍應做 full range formatter diagnostics 或 resolver replacement 風險評估。
+
+## 33. 第 59 包後後續建議
+
+建議下一步：
+
+1. 第 61 包：1899～2101 full range formatter diagnostics 設計或實作。
+   - 先決定 diagnostics 規模與輸出統計。
+   - 不輸出每筆明細。
+   - 不以執行時間作為硬性測試條件。
+2. 第 62 包：文件補充 full range formatter diagnostics 結果。
+3. 之後再進入正式 replacement 風險評估：
+   - 是否讓 `resolveQimenJuFromFullTermCycleDraft(...)` 內部改用 cache。
+   - 是否保留 non-cached helper 作為測試 baseline。
+   - 是否保留 cache stats export。
+   - 是否需要 cache eviction / clear policy。
+4. UI 接入與盤面手動覆寫功能仍應等待 formatter 主線穩定後再做。
+
+原則：
+
+- cache 是效能優化，不應改變結果。
+- 目前採 parallel helper 對照策略，比直接替換主流程安全。
+- duplicate boundary 是正式替換前的重要風險點，目前 cached formatter 已通過。
+- 仍不建議立刻把既有 formatter 改成 cached 版本，除非先完成 full range diagnostics 或 replacement 風險評估。
+
+## 34. 第 59 包結論
+
+第 59 包完成 69 組 duplicate boundary cached formatter regression。
+
+69 組 boundary after cached / non-cached formatter 結果一致。69 組 boundary before cached / non-cached formatter 結果一致。mismatch 統計皆為 0。
+
+selectedYear 固定統計與既有 non-cached formatter duplicate boundary regression 一致。1910 sanity check 通過。cache stats 已確認 duplicate boundary cached formatter regression 實際使用 yearDraft cache。
+
+目前正式 lookup / formatter / resolver 主線仍未使用 cache，因此主線行為不變。
+
+下一階段建議進入 1899～2101 full range formatter diagnostics 或 replacement 風險評估。
