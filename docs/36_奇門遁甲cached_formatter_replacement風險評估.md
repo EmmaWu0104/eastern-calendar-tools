@@ -263,3 +263,208 @@ buildQimenYearSeedRecommendations(year)
 - `buildQimenYearSeedRecommendations(year)` 主線未修改
 - UI 未修改
 - data JSON 未修改
+
+## 7. 第 64 包 replacement 實作結果
+
+第 64 包已完成短期建議方案 B：
+
+- 只讓 `resolveQimenJuFromFullTermCycleDraft(dateTimeText, options = {})` 內部改用 cached lookup / yearDraft cache。
+- `resolveQimenJuFromFullTermCycleDraftCached(dateTimeText, options = {})` 保留為正式 formatter wrapper。
+- non-cached lookup `findQimenFullTermCycleTimelineDraftEntry(dateTimeText, options = {})` 保留。
+- cached lookup `findQimenFullTermCycleTimelineDraftEntryCached(dateTimeText, options = {})` 保留。
+- cache stats / clear helper 保留。
+- 未修改 `resolveQimenJu()`。
+- 未修改 `findQimenTimelineEntry(...)`。
+- 未修改 `INITIAL_QIMEN_TIMELINE`。
+- 未修改 `buildQimenYearSeedRecommendations(year)` 主線。
+- 未修改 UI。
+- 未修改 data JSON。
+
+目前定位：
+
+- 這次 replacement 只影響 full cycle draft formatter。
+- 不代表正式 UI 主 resolver 已切換到 full cycle draft formatter。
+- 不代表奇門主線已接 1899～2101 full cycle draft。
+- `resolveQimenJu()` 初版 resolver 仍維持原流程。
+
+### 7.1 code change summary
+
+`src/qimenResolver.js`：
+
+- `resolveQimenJuFromFullTermCycleDraft(...)` 由 non-cached lookup 改為 cached lookup。
+- `resolveQimenJuFromFullTermCycleDraftCached(...)` 改為呼叫 / 包裝正式 `resolveQimenJuFromFullTermCycleDraft(...)`。
+- formatter 組裝邏輯仍由共用 formatter helper 處理。
+- `findQimenFullTermCycleTimelineDraftEntry(...)` 仍使用 non-cached provider。
+- `findQimenFullTermCycleTimelineDraftEntryCached(...)` 仍使用 cached provider。
+- `getQimenFullTermCycleTimelineDraftForYearCached(...)` / clear / stats 保留。
+
+`tests/run-tests.js`：
+
+- 新增 `qimenFullTermCycleDraftResolverFormatterCacheReplacementVerifiedCaseCount`。
+- 新增 `runQimenFullTermCycleDraftResolverFormatterCacheReplacementTests()`。
+- 主流程加入 replacement 測試呼叫。
+- 新增輸出：
+  - `奇門完整循環草案resolver formatter cache replacement測試通過：12 cases`
+
+## 8. 第 64 包測試結果
+
+第 64 包檢查結果：
+
+- `npm test`：通過
+- `git diff --check`：通過
+- `node --check src/qimenResolver.js`：通過
+- `node --check tests/run-tests.js`：通過
+
+新增測試輸出：
+
+```text
+奇門完整循環草案resolver formatter cache replacement測試通過：12 cases
+```
+
+| 測試項目 | 結果 |
+|---|---|
+| 正式 `resolveQimenJuFromFullTermCycleDraft(...)` 使用 cache smoke | 通過 |
+| `resolveQimenJuFromFullTermCycleDraftCached(...)` 與正式 formatter 8 筆代表案例一致 | 通過 |
+| non-cached lookup baseline 與 cached lookup 結果一致 | 通過 |
+| non-cached lookup 不污染 cache | 通過 |
+| `resolveQimenJu()` 主流程 sanity | 通過 |
+
+### 8.1 cached wrapper equivalence 代表案例
+
+| 查詢時間 | 說明 |
+|---|---|
+| `1910-11-24T23:30:00+08:00` | duplicate boundary after |
+| `1910-11-24T22:30:00+08:00` | duplicate boundary before |
+| `2027-06-06T12:00:00+08:00` | 2027 芒種中元 |
+| `2027-12-11T12:00:00+08:00` | 2027 閏大雪上元 |
+| `2027-12-26T12:00:00+08:00` | 2027 冬至上元 |
+| `2028-01-01T12:00:00+08:00` | 2028 年初 fallback |
+| `2030-12-10T12:00:00+08:00` | 2030 閏大雪上元 |
+| `2030-12-25T12:00:00+08:00` | 2030 冬至上元 |
+
+每筆都比對正式 formatter 與 cached wrapper 完整結果一致。
+
+比對欄位包含：
+
+- `actualSolarTerm`
+- `qimenSolarTerm`
+- `status`
+- `yuan`
+- `dunType`
+- `dunName`
+- `ju`
+- `hourPillar`
+- `isIntercalary`
+- `notes`
+- `lookup`
+
+## 9. 第 64 包 replacement 驗證重點
+
+### 9.1 正式 formatter 使用 cache
+
+測試方式：
+
+- clear cache
+- 呼叫 `resolveQimenJuFromFullTermCycleDraft("2027-12-11T12:00:00+08:00")`
+- 觀察 cache stats：size > 0、misses > 0
+- 再呼叫 `resolveQimenJuFromFullTermCycleDraft("2027-12-16T12:00:00+08:00")`
+- 觀察 cache hits 增加
+- keys 包含 `year=2027|startTerm=大雪|before=0|after=15`
+
+結論：
+
+- 正式 draft formatter 已確認使用 cache。
+
+### 9.2 non-cached lookup baseline 保留
+
+測試方式：
+
+- `findQimenFullTermCycleTimelineDraftEntry(...)`
+- `findQimenFullTermCycleTimelineDraftEntryCached(...)`
+- 比對 `2027-12-26T12:00:00+08:00` 結果一致。
+
+另測：
+
+- clear cache
+- 呼叫 non-cached lookup
+- cache stats 仍為 size 0 / hits 0 / misses 0
+
+結論：
+
+- non-cached lookup baseline 仍可用。
+- non-cached lookup 不污染 cache。
+
+### 9.3 `resolveQimenJu()` 主流程 sanity
+
+測試：
+
+```text
+2027-12-26T12:00:00+08:00
+```
+
+預期：
+
+| 欄位 | 值 |
+|---|---|
+| qimenSolarTerm | 冬至 |
+| yuan | 上元 |
+| dunName | 陽遁 |
+| ju | 1 |
+| isIntercalary | false |
+
+結論：
+
+- 第 64 包未誤碰 `resolveQimenJu()` 主流程。
+
+## 10. 第 64 包後目前狀態
+
+已完成：
+
+- cached yearDraft helper。
+- cached lookup helper。
+- cached formatter wrapper。
+- 正式 full cycle draft formatter 內部改用 cache。
+- non-cached lookup baseline 保留。
+- 2024～2030 regression 通過。
+- 69 duplicate boundary regression 通過。
+- 1899～2101 full range diagnostics 通過。
+- replacement smoke / wrapper equivalence / baseline no-pollution 通過。
+
+仍未完成：
+
+- `resolveQimenJu()` 主 resolver 尚未切到 full cycle draft。
+- UI 尚未接 full cycle draft formatter。
+- 1080 盤面 lookup 尚未接。
+- 手動覆寫遁別 / 局數 UI 尚未接。
+- cache eviction / LRU 尚未設計。
+- cache stats 是否長期保留尚未決定。
+- docs/34 年度完整循環草案交接摘要尚未同步最新 replacement 狀態；若需要可後續另包整理。
+- 尚未建立本階段總結交接文件。
+
+## 11. 第 64 包後後續建議
+
+1. 第 66 包：docs-only 階段交接摘要。
+   - 彙整第 50～65 包 cache / formatter replacement 階段狀態。
+   - 說明目前 full cycle draft formatter 已 cached。
+   - 說明正式 `resolveQimenJu()` 尚未切換。
+   - 說明後續可以開始討論 UI 接入前的資料 / formatter / plate lookup 邊界。
+2. 後續可選：
+   - 盤面 lookup 層設計。
+   - UI 接 full cycle draft formatter。
+   - 盤面缺資料 fallback。
+   - 手動覆寫遁別 / 局數 UI 設計。
+   - cache stats 正式化或隱藏。
+3. 不建議立刻改 `resolveQimenJu()` 主線，除非另做完整替換評估。
+4. 不建議現在直接接 UI，除非先整理 formatter 對 UI 的穩定回傳格式。
+
+第 64 包是 full cycle draft formatter replacement，不是主 resolver replacement。cache 是效能優化，不改結果。目前最安全的下一步是文件收斂 / 階段交接，而不是繼續直接改 UI。
+
+## 12. 第 64 包結論
+
+第 64 包完成 `resolveQimenJuFromFullTermCycleDraft(...)` 內部改用 cache。
+
+`resolveQimenJuFromFullTermCycleDraftCached(...)` 保留為 wrapper。non-cached lookup baseline 保留且不污染 cache。replacement tests 12 cases 通過。`resolveQimenJu()` 主流程 sanity 通過。
+
+`INITIAL_QIMEN_TIMELINE` 與 `buildQimenYearSeedRecommendations(year)` 主線未修改。UI / data JSON 未修改。
+
+目前 full cycle draft formatter 已具備 cache，但正式主 resolver 與 UI 尚未切換。下一步建議 docs-only 階段交接摘要。

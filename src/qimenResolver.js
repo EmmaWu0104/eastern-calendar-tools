@@ -570,7 +570,7 @@ export function findQimenFullTermCycleTimelineDraftEntryCached(dateTimeText, opt
 }
 
 export function resolveQimenJuFromFullTermCycleDraft(dateTimeText, options = {}) {
-  const draftEntry = findQimenFullTermCycleTimelineDraftEntry(dateTimeText, options);
+  const draftEntry = findQimenFullTermCycleTimelineDraftEntryCached(dateTimeText, options);
   if (!draftEntry) {
     throw new RangeError("查詢時間不在奇門 full cycle draft timeline 覆蓋範圍內");
   }
@@ -579,12 +579,7 @@ export function resolveQimenJuFromFullTermCycleDraft(dateTimeText, options = {})
 }
 
 export function resolveQimenJuFromFullTermCycleDraftCached(dateTimeText, options = {}) {
-  const draftEntry = findQimenFullTermCycleTimelineDraftEntryCached(dateTimeText, options);
-  if (!draftEntry) {
-    throw new RangeError("查詢時間不在奇門 full cycle draft timeline 覆蓋範圍內");
-  }
-
-  return resolveQimenJuFromFullTermCycleDraftEntry(dateTimeText, draftEntry);
+  return resolveQimenJuFromFullTermCycleDraft(dateTimeText, options);
 }
 
 function resolveQimenJuFromFullTermCycleDraftEntry(dateTimeText, draftEntry) {

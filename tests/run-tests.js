@@ -173,6 +173,7 @@ let qimenFullTermCycleDraftCachedResolverFormatterVerifiedCaseCount = 0;
 let qimenFullTermCycleDraftCachedResolverFormatterRegressionVerifiedCaseCount = 0;
 let qimenFullTermCycleDraftCachedResolverFormatterDuplicateBoundaryVerifiedCaseCount = 0;
 let qimenFullTermCycleDraftCachedResolverFormatterFullRangeDiagnosticsVerifiedCaseCount = 0;
+let qimenFullTermCycleDraftResolverFormatterCacheReplacementVerifiedCaseCount = 0;
 let qimenYearSeedRecommendationVerifiedCaseCount = 0;
 let qimenTimelineFromYearSeedRecommendationVerifiedCaseCount = 0;
 let qimenResolverVerifiedCaseCount = 0;
@@ -490,6 +491,7 @@ runQimenFullTermCycleDraftCachedResolverFormatterTests();
 runQimenFullTermCycleDraftCachedResolverFormatterRegressionTests();
 runQimenFullTermCycleDraftCachedResolverFormatterDuplicateBoundaryTests();
 runQimenFullTermCycleDraftCachedResolverFormatterFullRangeDiagnosticsTests();
+runQimenFullTermCycleDraftResolverFormatterCacheReplacementTests();
 runQimenYearSeedRecommendationTests();
 runQimenTimelineFromYearSeedRecommendationTests();
 runQimenResolverTests();
@@ -556,6 +558,7 @@ if (failures.length > 0) {
   console.log(`奇門完整循環草案cached resolver formatter regression測試通過：${qimenFullTermCycleDraftCachedResolverFormatterRegressionVerifiedCaseCount} cases`);
   console.log(`奇門完整循環草案cached resolver formatter duplicate boundary測試通過：${qimenFullTermCycleDraftCachedResolverFormatterDuplicateBoundaryVerifiedCaseCount} cases`);
   console.log(`奇門完整循環草案cached resolver formatter full range diagnostics測試通過：${qimenFullTermCycleDraftCachedResolverFormatterFullRangeDiagnosticsVerifiedCaseCount} cases`);
+  console.log(`奇門完整循環草案resolver formatter cache replacement測試通過：${qimenFullTermCycleDraftResolverFormatterCacheReplacementVerifiedCaseCount} cases`);
   console.log(`奇門年度Seed建議測試通過：${qimenYearSeedRecommendationVerifiedCaseCount} cases`);
   console.log(`奇門年度Seed建議Timeline測試通過：${qimenTimelineFromYearSeedRecommendationVerifiedCaseCount} cases`);
   console.log(`奇門置閏法 resolver 初版測試通過：${qimenResolverVerifiedCaseCount} cases`);
@@ -5608,6 +5611,69 @@ function runQimenFullTermCycleDraftCachedResolverFormatterFullRangeDiagnosticsTe
   assertEqual("qimen-full-term-cycle-draft-cached-resolver-formatter-full-range-cache-stats", "has.1899", true, stats.keys.includes("year=1899|startTerm=大雪|before=0|after=15"));
   assertEqual("qimen-full-term-cycle-draft-cached-resolver-formatter-full-range-cache-stats", "has.1900", true, stats.keys.includes("year=1900|startTerm=大雪|before=0|after=15"));
   assertEqual("qimen-full-term-cycle-draft-cached-resolver-formatter-full-range-cache-stats", "has.2101", true, stats.keys.includes("year=2101|startTerm=大雪|before=0|after=15"));
+}
+
+function runQimenFullTermCycleDraftResolverFormatterCacheReplacementTests() {
+  clearQimenFullTermCycleTimelineDraftCache();
+  const first = resolveQimenJuFromFullTermCycleDraft("2027-12-11T12:00:00+08:00");
+  const afterFirstStats = getQimenFullTermCycleTimelineDraftCacheStats();
+  const second = resolveQimenJuFromFullTermCycleDraft("2027-12-16T12:00:00+08:00");
+  const afterSecondStats = getQimenFullTermCycleTimelineDraftCacheStats();
+  qimenFullTermCycleDraftResolverFormatterCacheReplacementVerifiedCaseCount += 1;
+  assertEqual("qimen-full-term-cycle-draft-resolver-formatter-cache-replacement-smoke", "first.lookup.selectedYear", 2027, first.lookup?.selectedYear);
+  assertEqual("qimen-full-term-cycle-draft-resolver-formatter-cache-replacement-smoke", "second.lookup.selectedYear", 2027, second.lookup?.selectedYear);
+  assertEqual("qimen-full-term-cycle-draft-resolver-formatter-cache-replacement-smoke", "afterFirstStats.size.positive", true, afterFirstStats.size > 0);
+  assertEqual("qimen-full-term-cycle-draft-resolver-formatter-cache-replacement-smoke", "afterFirstStats.misses.positive", true, afterFirstStats.misses > 0);
+  assertEqual("qimen-full-term-cycle-draft-resolver-formatter-cache-replacement-smoke", "afterSecondStats.hits.increased", true, afterSecondStats.hits > afterFirstStats.hits);
+  assertEqual("qimen-full-term-cycle-draft-resolver-formatter-cache-replacement-smoke", "has.2027", true, afterSecondStats.keys.includes("year=2027|startTerm=大雪|before=0|after=15"));
+
+  const equivalenceCases = [
+    "1910-11-24T23:30:00+08:00",
+    "1910-11-24T22:30:00+08:00",
+    "2027-06-06T12:00:00+08:00",
+    "2027-12-11T12:00:00+08:00",
+    "2027-12-26T12:00:00+08:00",
+    "2028-01-01T12:00:00+08:00",
+    "2030-12-10T12:00:00+08:00",
+    "2030-12-25T12:00:00+08:00",
+  ];
+
+  clearQimenFullTermCycleTimelineDraftCache();
+  for (const input of equivalenceCases) {
+    const formal = resolveQimenJuFromFullTermCycleDraft(input);
+    const cached = resolveQimenJuFromFullTermCycleDraftCached(input);
+    qimenFullTermCycleDraftResolverFormatterCacheReplacementVerifiedCaseCount += 1;
+    assertQimenDraftResolverFormatterEquivalent(
+      `qimen-full-term-cycle-draft-resolver-formatter-cache-replacement-alias-${input}`,
+      formal,
+      cached
+    );
+  }
+
+  const nonCachedLookup = findQimenFullTermCycleTimelineDraftEntry("2027-12-26T12:00:00+08:00");
+  const cachedLookup = findQimenFullTermCycleTimelineDraftEntryCached("2027-12-26T12:00:00+08:00");
+  qimenFullTermCycleDraftResolverFormatterCacheReplacementVerifiedCaseCount += 1;
+  assertQimenDraftLookupEquivalent(
+    "qimen-full-term-cycle-draft-resolver-formatter-cache-replacement-lookup-baseline",
+    nonCachedLookup,
+    cachedLookup
+  );
+
+  clearQimenFullTermCycleTimelineDraftCache();
+  findQimenFullTermCycleTimelineDraftEntry("2027-12-26T12:00:00+08:00");
+  const nonCachedLookupStats = getQimenFullTermCycleTimelineDraftCacheStats();
+  qimenFullTermCycleDraftResolverFormatterCacheReplacementVerifiedCaseCount += 1;
+  assertEqual("qimen-full-term-cycle-draft-resolver-formatter-cache-replacement-lookup-no-pollution", "size", 0, nonCachedLookupStats.size);
+  assertEqual("qimen-full-term-cycle-draft-resolver-formatter-cache-replacement-lookup-no-pollution", "hits", 0, nonCachedLookupStats.hits);
+  assertEqual("qimen-full-term-cycle-draft-resolver-formatter-cache-replacement-lookup-no-pollution", "misses", 0, nonCachedLookupStats.misses);
+
+  const initialResolver = resolveQimenJu("2027-12-26T12:00:00+08:00");
+  qimenFullTermCycleDraftResolverFormatterCacheReplacementVerifiedCaseCount += 1;
+  assertEqual("qimen-full-term-cycle-draft-resolver-formatter-cache-replacement-initial-resolver", "qimenSolarTerm", "冬至", initialResolver.qimenSolarTerm);
+  assertEqual("qimen-full-term-cycle-draft-resolver-formatter-cache-replacement-initial-resolver", "yuan", "上元", initialResolver.yuan);
+  assertEqual("qimen-full-term-cycle-draft-resolver-formatter-cache-replacement-initial-resolver", "dunName", "陽遁", initialResolver.dunName);
+  assertEqual("qimen-full-term-cycle-draft-resolver-formatter-cache-replacement-initial-resolver", "ju", 1, initialResolver.ju);
+  assertEqual("qimen-full-term-cycle-draft-resolver-formatter-cache-replacement-initial-resolver", "isIntercalary", false, initialResolver.isIntercalary);
 }
 
 function assertQimenDraftResolverFormatterEquivalent(id, expected, actual) {
