@@ -1036,3 +1036,144 @@ selectedYear 固定統計與既有 non-cached formatter duplicate boundary regre
 目前正式 lookup / formatter / resolver 主線仍未使用 cache，因此主線行為不變。
 
 下一階段建議進入 1899～2101 full range formatter diagnostics 或 replacement 風險評估。
+
+## 35. 第 61 包 full range cached formatter diagnostics 測試結果
+
+第 61 包新增 full range cached formatter diagnostics 測試：
+
+```js
+runQimenFullTermCycleDraftCachedResolverFormatterFullRangeDiagnosticsTests()
+```
+
+測試輸出：
+
+```text
+奇門完整循環草案cached resolver formatter full range diagnostics測試通過：7 cases
+```
+
+第 61 包只修改 `tests/run-tests.js`，沒有修改 `src/qimenResolver.js`，也沒有修改既有 formatter、lookup 或 resolver 主流程。
+
+測試使用 1899～2101 full range timeline，並用 `fullRange.timeline` 建立 14829 筆查詢。每一筆查詢點取 entry start 後 30 分鐘，例如 `T23:00:00+08:00` 轉成 `T23:30:00+08:00`，避免剛好落在 entry end boundary。
+
+每一筆查詢使用：
+
+```js
+resolveQimenJuFromFullTermCycleDraftCached(query, {
+  startYear: 1899,
+  endYear: 2101,
+})
+```
+
+測試不輸出逐筆明細，也不以 runtime 作為 pass/fail 條件。總計驗證 7 cases。
+
+| 測試項目 | 結果 |
+|---|---|
+| full range input sanity | 通過 |
+| full range cached formatter coverage | 通過 |
+| intercalary statistics | 通過 |
+| dunType statistics | 通過 |
+| ju distribution statistics | 通過 |
+| selectedYear statistics | 通過 |
+| cache stats 確認 cached formatter 使用 cache | 通過 |
+
+### 35.1 full range 基礎統計
+
+| 統計項目 | 數值 |
+|---|---:|
+| yearDrafts.length | 203 |
+| entryCountBeforeDedupe | 14898 |
+| entryCountAfterDedupe | 14829 |
+| duplicateStarts.length | 69 |
+| gaps.length | 0 |
+| overlaps.length | 0 |
+| queryCount | 14829 |
+
+`queryCount` 等於 `entryCountAfterDedupe`，代表每一筆 deduped timeline entry 都有建立 cached formatter 查詢。查詢點使用 start + 30 分鐘，避免直接壓在 entry end boundary。
+
+### 35.2 full range formatter 統計
+
+| 統計項目 | 數值 |
+|---|---:|
+| intercalaryResultCount | 282 |
+| nonIntercalaryResultCount | 14547 |
+| yinCount / yangCount | 皆 > 0 |
+| juCounts | 涵蓋 1～9 局 |
+| selectedYearFallbackCount | > 0 |
+
+full range 共 203 年。既有 diagnostics 顯示 94 年有置閏，每個置閏年有 3 筆 intercalary entries，因此 `intercalaryResultCount = 94 * 3 = 282`。
+
+`nonIntercalaryResultCount = 14829 - 282 = 14547`。陰遁與陽遁都出現，1～9 局也都出現。`selectedYearFallbackCount > 0`，代表跨年度 selectedYear fallback 邏輯沒有因 cache 失效。
+
+### 35.3 cache stats 觀察
+
+第 61 包在 full range cached formatter diagnostics 前 clear cache，完成 14829 筆查詢後觀察 cache stats。
+
+測試不鎖死精準 size / hits / misses 數字，但確認：
+
+- `stats.size > 0`
+- `stats.misses > 0`
+- `stats.hits > 0`
+- `stats.keys.length === stats.size`
+- keys 至少包含：
+  - `year=1899|startTerm=大雪|before=0|after=15`
+  - `year=1900|startTerm=大雪|before=0|after=15`
+  - `year=2101|startTerm=大雪|before=0|after=15`
+
+這證明 full range diagnostics 實際使用 yearDraft cache。stats 採寬鬆確認，是為了避免 future candidate year fallback 或 case order 微調造成測試過度脆弱。
+
+### 35.4 duplicate start 查詢對齊註記
+
+full range timeline 是 deduped timeline。duplicate boundary 的同一個 start 在相鄰 yearDraft 中可能有不同 `qimenSolarTerm`。
+
+cached formatter lookup strategy 是 `cycle-year` strategy，不是把全域 deduped timeline entry 當成唯一真相。
+
+第 61 包測試建立 `yearDraftEntryByYearAndStart`：
+
+- 先用 `cached.lookup.selectedYear`
+- 再用 `entry.start`
+- 找出 selected year draft 中對應的 entry
+- 找得到時以該 entry 作為 `expectedEntry`
+- 找不到時才 fallback 到 deduped timeline entry
+
+這避免 deduped fullRange entry 與 cycle-year selectedYear 語意不一致造成誤判，也保留先前 duplicate boundary 的結論：lookup 行為應以 selected year draft 為準，而不是全域 deduped 單一 entry。
+
+## 36. 第 61 包後目前限制
+
+- full range cached formatter diagnostics 已通過 14829 筆查詢。
+- cached formatter 69 組 duplicate boundary regression 已通過。
+- cached formatter 2024～2030 regression 已通過。
+- cached / non-cached lookup equivalence 已通過。
+- cached / non-cached formatter representative equivalence 已通過。
+- 既有 formatter 主流程尚未改用 cache。
+- 既有 lookup 主流程尚未改用 cache。
+- 尚未做 resolver replacement 風險評估。
+- 尚未決定是否保留 non-cached helper 作為 baseline。
+- 尚未決定是否保留 cache stats export。
+- 尚未設計 cache 上限、LRU 或 eviction。
+- UI 接入與盤面手動覆寫尚未開始。
+
+## 37. 第 61 包後後續建議
+
+1. 第 63 包：resolver replacement 風險評估 docs-only。
+   - 評估是否讓 `resolveQimenJuFromFullTermCycleDraft(...)` 內部改用 cache。
+   - 評估是否保留 `resolveQimenJuFromFullTermCycleDraftCached(...)` 作為 public helper。
+   - 評估是否保留 non-cached lookup / formatter 作為測試 baseline。
+   - 評估 cache stats export 是否保留到正式版本。
+   - 評估 module-level cache 的上限、clear policy、LRU / eviction 是否必要。
+2. 第 64 包：若風險評估通過，再做 formatter 主流程改用 cache。
+3. 第 65 包：文件補充正式 formatter 改用 cache 結果。
+4. UI 接入與盤面手動覆寫功能仍應等待 formatter 主線穩定後再做。
+
+cache 是效能優化，不應改變結果。cached formatter 已通過 representative cases、2024～2030 regression、69 組 duplicate boundary regression 與 full range diagnostics。
+
+但目前仍不建議直接替換正式 formatter 主流程，應先做 replacement 風險評估。duplicate start 語意也不能用全域 deduped entry 取代 cycle-year selectedYear entry。
+
+## 38. 第 61 包結論
+
+第 61 包完成 1899～2101 full range cached formatter diagnostics。
+
+full range deduped timeline 共 14829 筆，已全部建立 cached formatter 查詢。置閏統計 282 筆，非置閏 14547 筆。陰遁與陽遁皆出現，1～9 局皆出現。
+
+`selectedYear` fallback 存在且不因 cache 失效。cache stats 已確認 diagnostics 實際使用 yearDraft cache。
+
+正式 lookup / formatter / resolver 主線目前仍未使用 cache。下一步應先做 resolver replacement 風險評估，而不是直接替換 formatter 主流程。
