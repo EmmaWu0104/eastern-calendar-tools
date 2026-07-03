@@ -97,7 +97,6 @@ const CHINESE_NUMBER_LABELS = Object.freeze(["", "一", "二", "三", "四", "�
 
 const elements = {
   datetime: getElement("#datetime"),
-  calculate: getElement("#calculate"),
   useNow: getElement("#use-now"),
   weekdayLabel: getElement("#weekday-label"),
   pillars: getElement(".pillars"),
@@ -125,28 +124,27 @@ let isJinhanDunTypeManuallyOverridden = false;
 let isAutoNowMode = false;
 let autoNowTimerId = null;
 let isCalculating = false;
+let pendingDateTimeValue = null;
+let currentDateTimeValue = null;
 const pillarExtraPanel = createPillarExtraPanel();
 
 elements.pillars.append(pillarExtraPanel);
 
-elements.calculate.addEventListener("click", () => {
-  handleCalculate();
-});
 elements.useNow.addEventListener("click", () => {
   startAutoNowMode();
 });
-elements.datetime.addEventListener("input", pauseAutoNowMode);
-elements.datetime.addEventListener("change", pauseAutoNowMode);
+elements.datetime.addEventListener("input", handleManualDateTimeInput);
+elements.datetime.addEventListener("change", handleManualDateTimeChange);
 elements.datetime.addEventListener("keydown", (event) => {
   if (event.key === "Enter") {
     event.preventDefault();
-    handleCalculate();
+    handleManualDateTimeChange();
   }
 });
 window.addEventListener("pagehide", stopAutoNowRefresh);
 elements.jinhanDunType.addEventListener("change", () => {
   isJinhanDunTypeManuallyOverridden = true;
-  void renderJinhanYujing(currentCalendarResult);
+  void renderJinhanYujing(currentCalendarResult, currentDateTimeValue ?? elements.datetime.value);
 });
 
 startAutoNowMode();
@@ -180,56 +178,89 @@ function refreshFromCurrentTime() {
   }
 
   elements.datetime.value = toLocalDatetimeValue(new Date());
-  handleCalculate();
+  requestRenderDateTime(elements.datetime.value);
 }
 
-async function handleCalculate() {
+function handleManualDateTimeInput() {
+  pauseAutoNowMode();
+
+  if (!readDateTimeInput()) {
+    return;
+  }
+
+  requestRenderDateTime(elements.datetime.value);
+}
+
+function handleManualDateTimeChange() {
+  pauseAutoNowMode();
+
+  if (!readDateTimeInput()) {
+    return;
+  }
+
+  requestRenderDateTime(elements.datetime.value);
+}
+
+function readDateTimeInput() {
+  return parseDateTimeLocalValue(elements.datetime.value);
+}
+
+function requestRenderDateTime(dateTimeValue) {
+  if (!parseDateTimeLocalValue(dateTimeValue)) {
+    return;
+  }
+
   if (isCalculating) {
+    pendingDateTimeValue = dateTimeValue;
     return;
   }
 
-  const value = elements.datetime.value;
+  void renderByDateTime(dateTimeValue);
+}
 
-  if (!value) {
-    clearResult();
-    setMessage("請先輸入日期時間。", "error");
-    return;
-  }
-
+async function renderByDateTime(dateTimeValue) {
   setMessage("計算中...", "loading");
-  elements.calculate.disabled = true;
   isCalculating = true;
 
   try {
     const solarTerms = await loadSolarTerms();
-    const result = calculateBaziFromSolarTerms(value, solarTerms);
+    const result = calculateBaziFromSolarTerms(dateTimeValue, solarTerms);
     currentCalendarResult = result;
     currentSolarTerms = solarTerms;
+    currentDateTimeValue = dateTimeValue;
     isJinhanDunTypeManuallyOverridden = false;
-    renderResult(result);
-    renderFlyingStars(result, value);
-    await renderJinhanYujing(result);
+    renderResult(result, dateTimeValue);
+    renderFlyingStars(result, dateTimeValue);
+    await renderJinhanYujing(result, dateTimeValue);
     setMessage("", "");
   } catch (error) {
     currentCalendarResult = null;
     currentSolarTerms = null;
+    currentDateTimeValue = null;
     clearResult();
     const message = error instanceof Error ? error.message : String(error);
     setMessage(`查詢失敗：${message}`, "error");
   } finally {
     isCalculating = false;
-    elements.calculate.disabled = false;
+
+    if (pendingDateTimeValue !== null && pendingDateTimeValue !== dateTimeValue) {
+      const nextDateTimeValue = pendingDateTimeValue;
+      pendingDateTimeValue = null;
+      requestRenderDateTime(nextDateTimeValue);
+    } else {
+      pendingDateTimeValue = null;
+    }
   }
 }
 
-function renderResult(result) {
+function renderResult(result, dateTimeValue) {
   const dailyDaHuangDao = getDailyDaHuangDao(result.monthBranch, result.dayPillar?.[1]);
   renderPillar(elements.yearPillar, result.yearPillar, undefined, undefined, true);
   renderPillar(elements.monthPillar, result.monthPillar, undefined, undefined, true);
   renderPillar(elements.dayPillar, result.dayPillar, undefined, undefined, true);
   renderPillar(elements.hourPillar, result.hourPillar, undefined, undefined, true);
   renderPillarExtraPanel(result.jianchu, dailyDaHuangDao, result.dailyInfo);
-  updateWeekdayLabel(elements.datetime.value, result.dailyInfo);
+  updateWeekdayLabel(dateTimeValue, result.dailyInfo);
   renderSeasonInfo(result);
   renderDongGongDaySelection(result);
   renderSpecNotes();
@@ -680,7 +711,7 @@ function clearFlyingStars() {
   elements.flyingStarsMessage.textContent = "";
 }
 
-async function renderJinhanYujing(calendarResult) {
+async function renderJinhanYujing(calendarResult, dateTimeValue) {
   const dayPillar = calendarResult?.dayPillar;
   if (typeof dayPillar !== "string" || dayPillar.length < 2) {
     clearJinhanYujing("尚無日柱資料，無法顯示金函玉鏡日盤");
@@ -688,7 +719,7 @@ async function renderJinhanYujing(calendarResult) {
   }
 
   try {
-    const dunTypeStatus = getJinhanDunType(elements.datetime.value, calendarResult, currentSolarTerms);
+    const dunTypeStatus = getJinhanDunType(dateTimeValue, calendarResult, currentSolarTerms);
     const selectedDunType = resolveJinhanSelectedDunType(dunTypeStatus);
     const pan = getJinhanYujingDayPan(dayPillar, selectedDunType.dunType);
 
@@ -699,9 +730,9 @@ async function renderJinhanYujing(calendarResult) {
 
     const deitiesByPalace = getJinhanDeitiesByPalace(pan.meta);
     const blackYellowHours = getJinhanBlackYellowHours(dayPillar);
-    const currentHourInfo = getCurrentChineseHourInfo(elements.datetime.value);
+    const currentHourInfo = getCurrentChineseHourInfo(dateTimeValue);
     const currentHourIndex = currentHourInfo?.index ?? null;
-    const guiDeng = await getGuiDengForCalendarResult(calendarResult, elements.datetime.value);
+    const guiDeng = await getGuiDengForCalendarResult(calendarResult, dateTimeValue);
     const dengGuiBranches = getDengGuiBranchSet(guiDeng);
     elements.jinhanMessage.textContent = "";
     updateJinhanCurrentHourLabel(currentHourInfo);
