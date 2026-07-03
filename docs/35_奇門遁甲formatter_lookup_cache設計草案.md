@@ -757,3 +757,125 @@ cross-year fallback 會依序建立 2028 與 2027 yearDraft cache，並正確命
 目前正式 lookup / formatter / resolver 主線仍未使用 cache，因此主線行為不變。
 
 下一階段建議擴大 cached formatter regression，而不是直接替換現有 formatter。
+
+## 27. 第 57 包 cached formatter regression 測試結果
+
+第 57 包新增測試函式：
+
+```js
+runQimenFullTermCycleDraftCachedResolverFormatterRegressionTests()
+```
+
+新增測試輸出：
+
+```text
+奇門完整循環草案cached resolver formatter regression測試通過：15 cases
+```
+
+本包只修改 `tests/run-tests.js`，未修改 `src/qimenResolver.js`，也未修改既有 formatter / lookup / resolver 主流程。測試使用既有 2024～2030 formatter regression 的 14 筆代表 cases。
+
+每筆同時比對：
+
+- cached formatter vs non-cached formatter
+- cached formatter vs 固定預期
+
+另額外新增 1 筆 cache stats 觀察 case，總計 15 cases。
+
+測試覆蓋：
+
+| 測試項目 | 結果 |
+|---|---|
+| 14 筆 cached / non-cached formatter equivalence | 通過 |
+| 14 筆 cached / 固定預期對齊 | 通過 |
+| 統計固定值 | 通過 |
+| cache stats 確認 cached formatter 使用 cache | 通過 |
+
+### 27.1 2024～2030 regression cases
+
+| 查詢時間 | selectedYear | 奇門節氣 | 元 | 是否置閏 | 遁別 | 局 |
+|---|---:|---|---|---|---|---:|
+| `2024-12-11T12:00:00+08:00` | 2024 | 大雪 | 上元 | 是 | 陰遁 | 4 |
+| `2024-12-26T12:00:00+08:00` | 2024 | 冬至 | 上元 | 否 | 陽遁 | 1 |
+| `2025-12-06T12:00:00+08:00` | 2025 | 大雪 | 上元 | 否 | 陰遁 | 4 |
+| `2025-12-21T12:00:00+08:00` | 2025 | 冬至 | 上元 | 否 | 陽遁 | 1 |
+| `2026-12-01T12:00:00+08:00` | 2026 | 大雪 | 上元 | 否 | 陰遁 | 4 |
+| `2026-12-16T12:00:00+08:00` | 2026 | 冬至 | 上元 | 否 | 陽遁 | 1 |
+| `2027-12-11T12:00:00+08:00` | 2027 | 大雪 | 上元 | 是 | 陰遁 | 4 |
+| `2027-12-26T12:00:00+08:00` | 2027 | 冬至 | 上元 | 否 | 陽遁 | 1 |
+| `2028-01-01T12:00:00+08:00` | 2027 | 冬至 | 中元 | 否 | 陽遁 | 7 |
+| `2028-12-05T12:00:00+08:00` | 2028 | 大雪 | 上元 | 否 | 陰遁 | 4 |
+| `2029-11-30T12:00:00+08:00` | 2029 | 大雪 | 上元 | 否 | 陰遁 | 4 |
+| `2029-12-15T12:00:00+08:00` | 2029 | 冬至 | 上元 | 否 | 陽遁 | 1 |
+| `2030-12-10T12:00:00+08:00` | 2030 | 大雪 | 上元 | 是 | 陰遁 | 4 |
+| `2030-12-25T12:00:00+08:00` | 2030 | 冬至 | 上元 | 否 | 陽遁 | 1 |
+
+`2028-01-01T12:00:00+08:00` 是 cross-year fallback 案例，查詢 civil year 是 2028，但 selectedYear = 2027。14 筆皆逐欄比對 cached / non-cached formatter 結果一致，且 14 筆 cached formatter 皆與固定預期一致。
+
+### 27.2 固定統計
+
+| 統計項目 | 數值 |
+|---|---:|
+| normalCaseCount | 14 |
+| intercalaryCaseCount | 3 |
+| nonIntercalaryCaseCount | 11 |
+| selectedYearFallbackCount | 1 |
+| selectedYearSameAsCivilYearCount | 13 |
+
+這些統計與既有 non-cached formatter regression 相同。3 筆置閏案例為 2024、2027、2030 的大雪上元案例。1 筆 selectedYear fallback 為 `2028-01-01T12:00:00+08:00`。
+
+### 27.3 cache stats 觀察
+
+第 57 包在測試開始前 clear cache，跑完 14 筆 cached formatter regression 後觀察 cache stats。
+
+測試不鎖死精準 size / hits / misses 數字，但確認：
+
+- `size > 0`
+- `misses > 0`
+- `hits > 0`
+- keys 至少包含：
+  - `year=2024|startTerm=大雪|before=0|after=15`
+  - `year=2027|startTerm=大雪|before=0|after=15`
+  - `year=2030|startTerm=大雪|before=0|after=15`
+
+這證明 cached formatter regression 實際使用 yearDraft cache。stats 不鎖死精準值，是為了避免 future candidate year fallback / case order 微調造成過度脆弱。
+
+## 28. 第 57 包後目前限制
+
+- cached formatter 2024～2030 regression 已通過。
+- 既有 formatter 主流程尚未改用 cache。
+- 既有 lookup 主流程尚未改用 cache。
+- 尚未跑 69 組 duplicate boundary cached formatter regression。
+- 尚未做 1899～2101 full range formatter diagnostics。
+- cache 目前仍是 module-level Map，尚未設計上限、LRU 或 eviction。
+- cache stats 目前用於測試與觀察，是否保留正式版本待定。
+- cached formatter 在 14 筆 regression 通過，不代表可以直接替換正式 resolver；下一步仍應驗證 69 組 duplicate boundary cached formatter regression。
+
+## 29. 第 57 包後後續建議
+
+建議下一步：
+
+1. 第 59 包：新增 69 組 duplicate boundary cached formatter regression。
+   - 比對 cached / non-cached formatter。
+   - 固定 boundary after / before 統計。
+   - 確認 duplicate boundary 在 cached formatter 下仍與 non-cached formatter 一致。
+2. 第 60 包：文件補充第 59 包結果。
+3. 第 61 包：再考慮 1899～2101 full range formatter diagnostics。
+4. 最後才討論是否讓正式 `resolveQimenJuFromFullTermCycleDraft(...)` 內部改用 cache。
+5. UI 接入與盤面手動覆寫功能仍應等待 formatter 主線穩定後再做。
+
+原則：
+
+- cache 是效能優化，不應改變結果。
+- 目前採 parallel helper 對照策略，比直接替換主流程安全。
+- 不建議現在直接把既有 formatter 改成 cached 版本。
+- duplicate boundary 是正式替換前的重要風險點，應先完成 cached formatter duplicate boundary regression。
+
+## 30. 第 57 包結論
+
+第 57 包完成 cached formatter 2024～2030 regression。
+
+14 筆 cached / non-cached formatter 結果一致。14 筆 cached formatter 也與固定預期一致。統計固定值與既有 non-cached formatter regression 一致。
+
+cache stats 已確認 cached formatter regression 實際使用 yearDraft cache。目前正式 lookup / formatter / resolver 主線仍未使用 cache，因此主線行為不變。
+
+下一階段建議新增 69 組 duplicate boundary cached formatter regression。
