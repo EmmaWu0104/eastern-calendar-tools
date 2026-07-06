@@ -897,6 +897,101 @@ dd {
   font: inherit;
 }
 
+.qimen-heading {
+  display: grid;
+  gap: 4px;
+  margin-bottom: 14px;
+}
+
+.qimen-heading h2 {
+  margin: 0;
+}
+
+.qimen-subtitle {
+  margin: 0;
+  color: #52616f;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.qimen-body {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) minmax(0, 2fr);
+  gap: 16px;
+  align-items: stretch;
+}
+
+.qimen-summary-panel {
+  min-width: 0;
+}
+
+.qimen-summary {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 7px;
+  color: #334e68;
+  font-size: 14px;
+}
+
+.qimen-summary-row {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 4px;
+  align-items: baseline;
+  min-width: 0;
+}
+
+.qimen-label {
+  color: #52616f;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.qimen-value {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-weight: 700;
+}
+
+.qimen-note {
+  grid-column: 1 / -1;
+}
+
+.qimen-plate-panel {
+  display: grid;
+  align-content: start;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid #d8dee6;
+  border-radius: 6px;
+  background: #fbfcfe;
+}
+
+.qimen-plate-title {
+  color: #52616f;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.qimen-fallback {
+  margin: 8px 0 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #52616f;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.45;
+}
+
+.qimen-fallback:empty {
+  display: none;
+}
+
+.qimen-fallback-error {
+  color: #b42318;
+}
+
 .jinhan-summary {
   display: grid;
   grid-template-columns: 1fr;
@@ -1246,6 +1341,10 @@ dd {
 
 @media (max-width: 760px) {
   .jinhan-content-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .qimen-body {
     grid-template-columns: 1fr;
   }
 }

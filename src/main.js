@@ -21,6 +21,8 @@ import {
 } from "./jinhanYujing.js";
 import { getJinhanDunType } from "./jinhanDunType.js";
 import { getNaYinByPillar } from "./nayin.js";
+import { getQimenPlate } from "./qimenPlateLookup.js";
+import { resolveQimenJuFromFullTermCycleDraft } from "./qimenResolver.js";
 import { loadSolarTerms } from "./solarTerms.js";
 
 const AUTO_NOW_REFRESH_MS = 30_000;
@@ -94,6 +96,20 @@ const BRANCH_MONTH_LABELS = Object.freeze({
 });
 
 const CHINESE_NUMBER_LABELS = Object.freeze(["", "一", "二", "三", "四", "五", "六", "七", "八", "九"]);
+const QIMEN_JU_LABELS = Object.freeze({
+  1: "一局",
+  2: "二局",
+  3: "三局",
+  4: "四局",
+  5: "五局",
+  6: "六局",
+  7: "七局",
+  8: "八局",
+  9: "九局",
+});
+const QIMEN_MISSING_PLATE_MESSAGE = "盤面資料尚未建立，目前僅顯示定局結果。";
+const QIMEN_FORMATTER_ERROR_MESSAGE = "奇門遁甲資料目前無法查詢此時間。";
+const QIMEN_PLATE_LOAD_ERROR_MESSAGE = "奇門盤面資料讀取失敗，暫時無法顯示盤面。";
 
 const elements = {
   datetime: getElement("#datetime"),
@@ -127,8 +143,10 @@ let isCalculating = false;
 let pendingDateTimeValue = null;
 let currentDateTimeValue = null;
 const pillarExtraPanel = createPillarExtraPanel();
+const qimenElements = createQimenSection();
 
 elements.pillars.append(pillarExtraPanel);
+insertQimenSection(qimenElements.section);
 
 elements.useNow.addEventListener("click", () => {
   startAutoNowMode();
@@ -232,6 +250,7 @@ async function renderByDateTime(dateTimeValue) {
     renderResult(result, dateTimeValue);
     renderFlyingStars(result, dateTimeValue);
     await renderJinhanYujing(result, dateTimeValue);
+    renderQimenSection(dateTimeValue);
     setMessage("", "");
   } catch (error) {
     currentCalendarResult = null;
@@ -283,6 +302,7 @@ function clearResult() {
   clearDongGongDaySelection();
   clearFlyingStars();
   clearJinhanYujing();
+  clearQimenSection();
 }
 
 function renderDongGongDaySelection(result) {
@@ -791,6 +811,148 @@ function clearJinhanYujing(message = "") {
   elements.jinhanSummary.replaceChildren();
   elements.jinhanGrid.replaceChildren();
   elements.jinhanHoursBody.replaceChildren();
+}
+
+function createQimenSection() {
+  const section = document.createElement("section");
+  section.className = "panel qimen-section";
+  section.setAttribute("aria-labelledby", "qimen-title");
+
+  const heading = document.createElement("div");
+  heading.className = "qimen-heading";
+
+  const title = document.createElement("h2");
+  title.id = "qimen-title";
+  title.textContent = "奇門遁甲";
+
+  const subtitle = document.createElement("p");
+  subtitle.className = "qimen-subtitle";
+  subtitle.textContent = "傳統置閏法定局";
+
+  heading.append(title, subtitle);
+
+  const body = document.createElement("div");
+  body.className = "qimen-body";
+
+  const summaryPanel = document.createElement("div");
+  summaryPanel.className = "qimen-summary-panel";
+
+  const summary = document.createElement("div");
+  summary.className = "qimen-summary";
+
+  const platePanel = document.createElement("div");
+  platePanel.className = "qimen-plate-panel";
+
+  const plateTitle = document.createElement("div");
+  plateTitle.className = "qimen-plate-title";
+  plateTitle.textContent = "盤面";
+
+  const fallback = document.createElement("p");
+  fallback.className = "qimen-fallback";
+  fallback.setAttribute("role", "status");
+  fallback.setAttribute("aria-live", "polite");
+
+  summaryPanel.append(summary);
+  platePanel.append(plateTitle, fallback);
+  body.append(summaryPanel, platePanel);
+  section.append(heading, body);
+
+  return {
+    section,
+    summary,
+    fallback,
+  };
+}
+
+function insertQimenSection(section) {
+  const jinhanSection = getElement(".jinhan-section");
+  jinhanSection.after(section);
+}
+
+function renderQimenSection(dateTimeText) {
+  try {
+    const qimen = resolveQimenJuFromFullTermCycleDraft(dateTimeText);
+    qimenElements.summary.replaceChildren(...createQimenSummaryRows(qimen));
+    qimenElements.fallback.className = "qimen-fallback";
+
+    try {
+      const plate = getQimenPlate({
+        dunType: qimen.dunType,
+        ju: qimen.ju,
+        hourPillar: qimen.hourPillar,
+      });
+
+      qimenElements.fallback.textContent =
+        plate.status !== "found" ? plate.message || QIMEN_MISSING_PLATE_MESSAGE : "";
+    } catch (error) {
+      console.error("奇門遁甲盤面查詢失敗", error);
+      qimenElements.fallback.textContent = QIMEN_PLATE_LOAD_ERROR_MESSAGE;
+    }
+  } catch (error) {
+    console.error("奇門遁甲定局查詢失敗", error);
+    qimenElements.summary.replaceChildren();
+    qimenElements.fallback.className = "qimen-fallback qimen-fallback-error";
+    qimenElements.fallback.textContent = QIMEN_FORMATTER_ERROR_MESSAGE;
+  }
+}
+
+function clearQimenSection() {
+  qimenElements.summary.replaceChildren();
+  qimenElements.fallback.className = "qimen-fallback";
+  qimenElements.fallback.textContent = "";
+}
+
+function createQimenSummaryRows(qimen) {
+  const rows = [];
+
+  if (qimen.actualSolarTerm && qimen.actualSolarTerm !== qimen.qimenSolarTerm) {
+    rows.push(createQimenSummaryRow("實際節氣", qimen.actualSolarTerm));
+  }
+
+  rows.push(
+    createQimenSummaryRow("奇門節氣", formatQimenSolarTermLabel(qimen)),
+    createQimenSummaryRow("元別", qimen.yuan),
+    createQimenSummaryRow("遁別", qimen.dunName),
+    createQimenSummaryRow("局數", formatQimenJuLabel(qimen.ju)),
+    createQimenSummaryRow("時柱", qimen.hourPillar),
+    createQimenSummaryRow("狀態", qimen.status)
+  );
+
+  const notes = formatQimenNotes(qimen.notes);
+  if (notes) {
+    rows.push(createQimenSummaryRow("備註", notes, "qimen-note"));
+  }
+
+  return rows;
+}
+
+function createQimenSummaryRow(label, value, className = "") {
+  const row = document.createElement("div");
+  row.className = ["qimen-summary-row", className].filter(Boolean).join(" ");
+
+  const labelElement = document.createElement("span");
+  labelElement.className = "qimen-label";
+  labelElement.textContent = `${label}：`;
+
+  const valueElement = document.createElement("span");
+  valueElement.className = "qimen-value";
+  valueElement.textContent = value || "—";
+
+  row.append(labelElement, valueElement);
+  return row;
+}
+
+function formatQimenSolarTermLabel(qimen) {
+  const term = qimen?.qimenSolarTerm || "—";
+  return qimen?.isIntercalary === true ? `${term}（置閏）` : term;
+}
+
+function formatQimenJuLabel(ju) {
+  return QIMEN_JU_LABELS[ju] ?? `${ju}局`;
+}
+
+function formatQimenNotes(notes) {
+  return Array.isArray(notes) && notes.length > 0 ? notes.join("；") : "";
 }
 
 function createJinhanSummaryItems(dayPillar, pan, guiDeng = null) {
