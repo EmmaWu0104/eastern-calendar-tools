@@ -967,10 +967,129 @@ dd {
   background: #fbfcfe;
 }
 
+.qimen-plate-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
 .qimen-plate-title {
   color: #52616f;
   font-size: 13px;
   font-weight: 800;
+}
+
+.qimen-plate-usage {
+  display: grid;
+  gap: 4px;
+  margin-top: 8px;
+  color: #334e68;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.qimen-plate-usage-line {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.qimen-manual-controls {
+  display: grid;
+  gap: 6px;
+  margin: 0 0 10px;
+  padding: 0 0 10px;
+  border-bottom: 1px solid #d8dee6;
+}
+
+.qimen-manual-control-row {
+  display: flex;
+  gap: 10px;
+  align-items: end;
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+
+.qimen-manual-toggle {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  margin: 0;
+  color: #334e68;
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.3;
+  white-space: nowrap;
+}
+
+.qimen-manual-toggle-input {
+  flex: 0 0 auto;
+  width: 16px;
+  min-width: 16px;
+  height: 16px;
+  min-height: 16px;
+  margin: 0;
+  padding: 0;
+}
+
+.qimen-manual-fields {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: end;
+  justify-content: flex-end;
+}
+
+.qimen-manual-field {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+}
+
+.qimen-manual-field-label {
+  color: #52616f;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.qimen-manual-dun-select,
+.qimen-manual-ju-select {
+  min-height: 34px;
+  padding: 5px 28px 5px 8px;
+  border: 1px solid #b8c2cc;
+  border-radius: 6px;
+  background: #ffffff;
+  font: inherit;
+}
+
+.qimen-manual-dun-select:disabled,
+.qimen-manual-ju-select:disabled {
+  background: #eef2f6;
+  color: #7b8794;
+}
+
+.qimen-manual-restore {
+  min-height: 34px;
+  padding: 5px 10px;
+  border: 1px solid #b8c2cc;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #334e68;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.qimen-manual-restore:disabled {
+  color: #9aa5b1;
+  background: #eef2f6;
+}
+
+.qimen-manual-hint {
+  margin: 0;
+  color: #7b8794;
+  font-size: 12px;
+  line-height: 1.45;
 }
 
 .qimen-fallback {
@@ -1388,6 +1507,23 @@ dd {
 
   .pillar-extra-panel {
     grid-column: 1 / -1;
+  }
+
+  .qimen-plate-header {
+    align-items: start;
+  }
+
+  .qimen-manual-control-row {
+    display: grid;
+    gap: 8px;
+  }
+
+  .qimen-manual-fields {
+    justify-content: flex-start;
+  }
+
+  .qimen-manual-toggle {
+    white-space: normal;
   }
 
   .jinhan-palace {

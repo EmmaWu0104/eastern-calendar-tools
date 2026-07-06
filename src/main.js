@@ -142,6 +142,11 @@ let autoNowTimerId = null;
 let isCalculating = false;
 let pendingDateTimeValue = null;
 let currentDateTimeValue = null;
+let qimenManualOverride = {
+  enabled: false,
+  dunType: "",
+  ju: null,
+};
 const pillarExtraPanel = createPillarExtraPanel();
 const qimenElements = createQimenSection();
 
@@ -164,6 +169,10 @@ elements.jinhanDunType.addEventListener("change", () => {
   isJinhanDunTypeManuallyOverridden = true;
   void renderJinhanYujing(currentCalendarResult, currentDateTimeValue ?? elements.datetime.value);
 });
+qimenElements.manualToggle.addEventListener("change", handleQimenManualToggleChange);
+qimenElements.manualDunSelect.addEventListener("change", handleQimenManualDunChange);
+qimenElements.manualJuSelect.addEventListener("change", handleQimenManualJuChange);
+qimenElements.manualRestore.addEventListener("click", restoreQimenAutoPlateLookup);
 
 startAutoNowMode();
 
@@ -843,9 +852,68 @@ function createQimenSection() {
   const platePanel = document.createElement("div");
   platePanel.className = "qimen-plate-panel";
 
+  const plateHeader = document.createElement("div");
+  plateHeader.className = "qimen-plate-header";
+
   const plateTitle = document.createElement("div");
   plateTitle.className = "qimen-plate-title";
   plateTitle.textContent = "盤面";
+
+  const plateUsage = document.createElement("div");
+  plateUsage.className = "qimen-plate-usage";
+
+  const manualControls = document.createElement("div");
+  manualControls.className = "qimen-manual-controls";
+
+  const manualControlRow = document.createElement("div");
+  manualControlRow.className = "qimen-manual-control-row";
+
+  const manualToggleLabel = document.createElement("label");
+  manualToggleLabel.className = "qimen-manual-toggle";
+
+  const manualToggle = document.createElement("input");
+  manualToggle.type = "checkbox";
+  manualToggle.className = "qimen-manual-toggle-input";
+
+  const manualToggleText = document.createElement("span");
+  manualToggleText.textContent = "手動覆寫盤面遁局";
+
+  manualToggleLabel.append(manualToggle, manualToggleText);
+
+  const manualFields = document.createElement("div");
+  manualFields.className = "qimen-manual-fields";
+
+  const dunField = createQimenManualField("遁別");
+  const manualDunSelect = document.createElement("select");
+  manualDunSelect.className = "qimen-manual-dun-select";
+  manualDunSelect.append(
+    createOption("yang", "陽遁"),
+    createOption("yin", "陰遁")
+  );
+  dunField.append(manualDunSelect);
+
+  const juField = createQimenManualField("局數");
+  const manualJuSelect = document.createElement("select");
+  manualJuSelect.className = "qimen-manual-ju-select";
+  for (let ju = 1; ju <= 9; ju += 1) {
+    manualJuSelect.append(createOption(String(ju), formatQimenJuLabel(ju)));
+  }
+  juField.append(manualJuSelect);
+
+  const manualRestore = document.createElement("button");
+  manualRestore.type = "button";
+  manualRestore.className = "qimen-manual-restore";
+  manualRestore.textContent = "恢復自動";
+
+  manualFields.append(dunField, juField, manualRestore);
+
+  const manualHint = document.createElement("p");
+  manualHint.className = "qimen-manual-hint";
+  manualHint.textContent = "手動覆寫只影響盤面查表，不改變左側自動定局。";
+
+  manualControlRow.append(manualToggleLabel, manualFields);
+  manualControls.append(manualControlRow, manualHint);
+  plateHeader.append(plateTitle);
 
   const fallback = document.createElement("p");
   fallback.className = "qimen-fallback";
@@ -853,13 +921,20 @@ function createQimenSection() {
   fallback.setAttribute("aria-live", "polite");
 
   summaryPanel.append(summary);
-  platePanel.append(plateTitle, fallback);
+  platePanel.append(manualControls, plateHeader, plateUsage, fallback);
   body.append(summaryPanel, platePanel);
   section.append(heading, body);
 
   return {
     section,
     summary,
+    plateUsage,
+    manualToggle,
+    manualFields,
+    manualDunSelect,
+    manualJuSelect,
+    manualRestore,
+    manualHint,
     fallback,
   };
 }
@@ -872,14 +947,18 @@ function insertQimenSection(section) {
 function renderQimenSection(dateTimeText) {
   try {
     const qimen = resolveQimenJuFromFullTermCycleDraft(dateTimeText);
+    syncQimenManualControlsWithAuto(qimen);
+    const effective = resolveQimenPlateLookupInput(qimen, qimenManualOverride);
     qimenElements.summary.replaceChildren(...createQimenSummaryRows(qimen));
+    renderQimenPlateUsage(qimen, effective);
+    renderQimenManualControlState();
     qimenElements.fallback.className = "qimen-fallback";
 
     try {
       const plate = getQimenPlate({
-        dunType: qimen.dunType,
-        ju: qimen.ju,
-        hourPillar: qimen.hourPillar,
+        dunType: effective.dunType,
+        ju: effective.ju,
+        hourPillar: effective.hourPillar,
       });
 
       qimenElements.fallback.textContent =
@@ -891,6 +970,7 @@ function renderQimenSection(dateTimeText) {
   } catch (error) {
     console.error("奇門遁甲定局查詢失敗", error);
     qimenElements.summary.replaceChildren();
+    qimenElements.plateUsage.replaceChildren();
     qimenElements.fallback.className = "qimen-fallback qimen-fallback-error";
     qimenElements.fallback.textContent = QIMEN_FORMATTER_ERROR_MESSAGE;
   }
@@ -898,8 +978,115 @@ function renderQimenSection(dateTimeText) {
 
 function clearQimenSection() {
   qimenElements.summary.replaceChildren();
+  qimenElements.plateUsage.replaceChildren();
   qimenElements.fallback.className = "qimen-fallback";
   qimenElements.fallback.textContent = "";
+  renderQimenManualControlState();
+}
+
+function handleQimenManualToggleChange() {
+  qimenManualOverride.enabled = qimenElements.manualToggle.checked;
+  rerenderCurrentQimenSection();
+}
+
+function handleQimenManualDunChange() {
+  qimenManualOverride.dunType = qimenElements.manualDunSelect.value;
+  rerenderCurrentQimenSection();
+}
+
+function handleQimenManualJuChange() {
+  qimenManualOverride.ju = Number(qimenElements.manualJuSelect.value);
+  rerenderCurrentQimenSection();
+}
+
+function restoreQimenAutoPlateLookup() {
+  qimenManualOverride.enabled = false;
+  rerenderCurrentQimenSection();
+}
+
+function rerenderCurrentQimenSection() {
+  if (!currentDateTimeValue) {
+    return;
+  }
+
+  renderQimenSection(currentDateTimeValue);
+}
+
+function syncQimenManualControlsWithAuto(qimen) {
+  if (!qimenManualOverride.enabled) {
+    qimenManualOverride.dunType = qimen.dunType;
+    qimenManualOverride.ju = qimen.ju;
+  } else if (!isValidQimenManualOverride(qimenManualOverride)) {
+    qimenManualOverride.dunType = qimen.dunType;
+    qimenManualOverride.ju = qimen.ju;
+  }
+
+  qimenElements.manualToggle.checked = qimenManualOverride.enabled;
+  qimenElements.manualDunSelect.value = qimenManualOverride.dunType || qimen.dunType;
+  qimenElements.manualJuSelect.value = String(qimenManualOverride.ju ?? qimen.ju);
+}
+
+function renderQimenManualControlState() {
+  const isEnabled = qimenManualOverride.enabled;
+  qimenElements.manualToggle.checked = isEnabled;
+  qimenElements.manualDunSelect.disabled = !isEnabled;
+  qimenElements.manualJuSelect.disabled = !isEnabled;
+  qimenElements.manualRestore.disabled = !isEnabled;
+  qimenElements.manualHint.hidden = !isEnabled;
+}
+
+function resolveQimenPlateLookupInput(qimen, manualOverride) {
+  if (manualOverride?.enabled && isValidQimenManualOverride(manualOverride)) {
+    return {
+      dunType: manualOverride.dunType,
+      dunName: getQimenDunName(manualOverride.dunType),
+      ju: manualOverride.ju,
+      hourPillar: qimen.hourPillar,
+      source: "manual",
+    };
+  }
+
+  return {
+    dunType: qimen.dunType,
+    dunName: qimen.dunName,
+    ju: qimen.ju,
+    hourPillar: qimen.hourPillar,
+    source: "auto",
+  };
+}
+
+function isValidQimenManualOverride(manualOverride) {
+  return (
+    ["yang", "yin"].includes(manualOverride?.dunType) &&
+    Number.isInteger(manualOverride?.ju) &&
+    manualOverride.ju >= 1 &&
+    manualOverride.ju <= 9
+  );
+}
+
+function renderQimenPlateUsage(qimen, effective) {
+  qimenElements.plateUsage.replaceChildren();
+  const autoText = `${qimen.dunName}${formatQimenJuLabel(qimen.ju)}`;
+
+  if (effective.source === "manual") {
+    const effectiveText = `${effective.dunName}${formatQimenJuLabel(effective.ju)}`;
+    qimenElements.plateUsage.append(
+      createQimenPlateUsageLine(`自動定局：${autoText}`),
+      createQimenPlateUsageLine(`盤面查表使用：${effectiveText}（手動）`)
+    );
+    return;
+  }
+
+  qimenElements.plateUsage.append(
+    createQimenPlateUsageLine(`目前使用：自動定局（${autoText}）`)
+  );
+}
+
+function createQimenPlateUsageLine(text) {
+  const line = document.createElement("div");
+  line.className = "qimen-plate-usage-line";
+  line.textContent = text;
+  return line;
 }
 
 function createQimenSummaryRows(qimen) {
@@ -940,6 +1127,29 @@ function createQimenSummaryRow(label, value, className = "") {
 
   row.append(labelElement, valueElement);
   return row;
+}
+
+function createQimenManualField(labelText) {
+  const field = document.createElement("label");
+  field.className = "qimen-manual-field";
+
+  const label = document.createElement("span");
+  label.className = "qimen-manual-field-label";
+  label.textContent = labelText;
+
+  field.append(label);
+  return field;
+}
+
+function createOption(value, text) {
+  const option = document.createElement("option");
+  option.value = value;
+  option.textContent = text;
+  return option;
+}
+
+function getQimenDunName(dunType) {
+  return dunType === "yang" ? "陽遁" : dunType === "yin" ? "陰遁" : "";
 }
 
 function formatQimenSolarTermLabel(qimen) {
