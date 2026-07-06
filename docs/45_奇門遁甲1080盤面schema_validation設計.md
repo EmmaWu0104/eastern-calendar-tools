@@ -428,3 +428,226 @@ function validateAllQimenPlateFiles() {
 * content-level validation 暫緩。
 * validation 應在 test / build-time 執行，不放進一般 lookup flow。
 * 下一步可實作 minimal validation helper / tests。
+
+## 14. 第 81 包實作結果
+
+第 81 包已完成 minimal schema validation helper / tests。
+
+新增檔案：
+
+* `src/qimenPlateValidation.js`
+
+修改檔案：
+
+* `tests/run-tests.js`
+
+完成內容：
+
+* 新增 schema validation helper。
+* 新增 file-level validation。
+* 新增 plate-level validation。
+* 新增 palace-level validation。
+* 新增 validation result 格式。
+* 新增 error / warning object 格式。
+* 新增 validation tests。
+* 驗證目前 18 個正式 skeleton plate JSON。
+* 以測試內 memory fixture 驗證錯誤情境。
+* 未修改正式 plate JSON。
+* 未修改 resolver。
+* 未修改 plate lookup helper。
+* 未掛進 runtime lookup。
+* 未做 UI rendering。
+* 未做 content-level validation。
+* 未填入 sample plate object。
+
+### 14.1 helper 實作摘要
+
+`src/qimenPlateValidation.js` export 的常數：
+
+* `QIMEN_DUN_TYPES`
+* `QIMEN_JU_NUMBERS`
+* `QIMEN_HOUR_PILLARS`
+* `QIMEN_PALACE_META`
+* `QIMEN_PALACE_KEYS`
+
+export 的 functions：
+
+* `validateQimenPlateFile(fileData, context)`
+* `validateQimenPlateObject(plate, context)`
+* `validateQimenPalaces(palaces, context)`
+* `mergeQimenValidationResults(...results)`
+* `createQimenValidationError(code, path, message)`
+* `createQimenValidationWarning(code, path, message)`
+
+helper 邊界：
+
+* 不讀 DOM。
+* 不做 UI。
+* 不做 lookup。
+* 不計算盤面。
+* 不驗八門 / 九星 / 八神內容正確性。
+* 只做 schema-level validation。
+* `null` plate 合法。
+* object plate 才進 plate-level / palace-level validation。
+
+### 14.2 file-level validation 實作摘要
+
+`validateQimenPlateFile(...)` 已檢查：
+
+* fileData 必須是 plain object。
+* `meta` 必須存在。
+* `plates` 必須存在。
+* `meta.dunType` 必須符合 context.expectedDunType。
+* `meta.ju` 必須符合 context.expectedJu。
+* `plates` 必須是 plain object。
+* `plates` 必須包含 60 個 `QIMEN_HOUR_PILLARS` key。
+* 缺 key 回 `MISSING_HOUR_PILLAR`。
+* 多 key 回 `UNKNOWN_HOUR_PILLAR`。
+* plate value 必須是 null 或 plain object。
+* value 非 null 且非 object 回 `INVALID_PLATE_VALUE`。
+* value 是 object 時轉給 `validateQimenPlateObject(...)`。
+
+### 14.3 plate-level validation 實作摘要
+
+`validateQimenPlateObject(...)` 已檢查：
+
+* plate 必須是 plain object。
+* `schemaVersion` 必須是 number 且等於 1。
+* 必須有 `hourPillar`。
+* `hourPillar` 必須等於 context.hourPillarKey。
+* 必須有 `palaces`。
+* `palaces` 必須是 plain object。
+* `notes` 若存在必須是 string array。
+* `zhiFuStar` / `zhiShiDoor` / `xunShou` 若存在，必須是 string 或 null。
+* `palaces` 合法時轉給 `validateQimenPalaces(...)`。
+
+錯誤代碼包含：
+
+* `INVALID_PLATE_OBJECT`
+* `INVALID_SCHEMA_VERSION`
+* `MISSING_HOUR_PILLAR_FIELD`
+* `HOUR_PILLAR_MISMATCH`
+* `MISSING_PALACES`
+* `INVALID_PALACES_OBJECT`
+* `INVALID_FIELD_TYPE`
+* `INVALID_NOTES`
+
+### 14.4 palace-level validation 實作摘要
+
+`validateQimenPalaces(...)` 已檢查：
+
+* palaces 必須是 plain object。
+* 必須包含 9 個 `QIMEN_PALACE_KEYS`。
+* 缺宮位 key 回 `MISSING_PALACE`。
+* 多宮位 key 回 `UNKNOWN_PALACE`。
+* 每宮 value 必須是 plain object。
+* `palaceName` / `direction` / `luoshuNumber` 必須符合 `QIMEN_PALACE_META`。
+* `earthStem` / `heavenStem` / `door` / `star` / `deity` 若存在，必須是 string 或 null。
+* `isEmpty` / `isHorse` / `isZhiFuPalace` / `isZhiShiPalace` 若存在，必須是 boolean。
+* `notes` 若存在，必須是 string array。
+
+補充：
+
+* 第一版不檢查八門 / 九星 / 八神合法文字集合。
+* 第一版不檢查值符 / 值使唯一性。
+* 第一版不檢查盤面推導正確性。
+
+## 15. 第 81 包測試實作摘要
+
+`tests/run-tests.js` 新增：
+
+* import `QIMEN_PALACE_KEYS`
+* import `QIMEN_PALACE_META`
+* import `validateQimenPlateFile` 並 alias 為 `validateQimenPlateSchemaFile`
+* 新增 counter：
+  * `qimenPlateValidationVerifiedCaseCount`
+* 新增測試函式：
+  * `runQimenPlateValidationTests()`
+* 主測試流程呼叫：
+  * `await runQimenPlateValidationTests()`
+* 成功輸出：
+  * `奇門1080盤面schema validation測試通過：8 cases`
+
+測試 cases：
+
+| 測試 | 內容 |
+|---|---|
+| current skeleton passes | 驗 18 個正式 plate JSON，全 60 key、value 全 null |
+| missing hour key fails | 刪除 `plates.甲子`，預期 `MISSING_HOUR_PILLAR` |
+| unknown hour key fails | 新增 `plates.不存在`，預期 `UNKNOWN_HOUR_PILLAR` |
+| invalid meta fails | 修改 `meta.dunType` / `meta.ju`，預期 `DUN_TYPE_MISMATCH` / `JU_MISMATCH` |
+| valid minimal object passes | 以 memory fixture 建立一筆合法 plate object |
+| invalid palace meta fails | 修改 `kan.palaceName`，預期 `PALACE_META_MISMATCH` |
+| invalid field type fails | 設 `isEmpty: "false"`，預期 `INVALID_FIELD_TYPE` |
+| invalid notes fails | 設非 string array notes，預期 `INVALID_NOTES` |
+
+補充：
+
+* invalid fixture 都在測試程式記憶體內建立。
+* 沒有新增 invalid fixture 檔案。
+* 沒有修改正式 `data/qimen/plates/**`。
+* 沒有填入 sample plate object。
+
+## 16. 第 81 包驗證結果
+
+* `npm test`：通過
+  * 新增輸出：`奇門1080盤面schema validation測試通過：8 cases`
+* `node --check src/qimenPlateValidation.js`：通過
+* `node --check tests/run-tests.js`：通過
+* `git diff --check`：通過
+
+補充：
+
+* 未修改 docs。
+* 未修改 UI。
+* 未修改 data JSON。
+* 未修改 resolver。
+* 未修改 plate lookup helper。
+* 未修改正式 plate skeleton。
+
+## 17. 目前能力與限制
+
+目前能力：
+
+* 可以驗 18 個正式 plate skeleton。
+* 可以驗 file-level `meta` / `plates`。
+* 可以驗 60 時柱 key。
+* 可以允許 null plate。
+* 可以驗 object plate 的基本 schema。
+* 可以驗 9 宮 key 與固定 meta。
+* 可以驗基本欄位型別。
+* 可以產生穩定 error code。
+* 可以在 test-time 使用 validation。
+
+目前限制：
+
+* 尚未有完整 validation runner 檔案。
+* 目前 validation 由 `tests/run-tests.js` 呼叫。
+* 尚未驗八門 / 九星 / 八神合法文字集合。
+* 尚未驗值符 / 值使唯一性。
+* 尚未驗盤面推導正確性。
+* 尚未填入任何 sample plate object。
+* 尚未做 UI rendering found plate。
+* 尚未將 validation 獨立成 CLI。
+* 尚未將 validation 掛入 build script。
+
+## 18. 後續建議更新
+
+1. 先 commit 第 81～82 包。
+2. 第 83 包建議做「填入一筆 sample plate object」設計或實作前討論。
+3. 若要實作 sample，建議只填：
+   * `data/qimen/plates/yang/ju-1.json`
+   * `甲子`
+   * 一筆完整但明確標記來源的 sample plate object
+4. 或先做「UI rendering found plate 設計文件」。
+5. 不建議下一包直接填大量 plate JSON。
+6. 不建議把 sample data 與 UI rendering 混在同一包。
+7. 不建議現在做 content-level validation。
+
+## 19. 第 81～82 包結論
+
+* 第 81 包已把第 80 包 validation 設計落成 minimal helper / tests。
+* 目前 skeleton plate JSON 可通過 validation。
+* 未來 plate object 可在寫入前先受 schema-level validation。
+* validation 維持 test-time，不進 runtime lookup。
+* 下一步可選擇先填一筆 sample plate object，或先設計 found plate UI rendering。
