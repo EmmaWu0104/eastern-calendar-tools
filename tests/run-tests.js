@@ -54,6 +54,9 @@ const {
   writeQimen1080PreviewFiles,
 } = await import("../src/qimen1080PreviewWriter.js");
 const {
+  buildQimen1080FormalPlateAdapterReport,
+} = await import("../src/qimen1080FormalPlateAdapter.js");
+const {
   QIMEN_PALACE_KEYS,
   QIMEN_PALACE_META,
   validateQimenPlateFile: validateQimenPlateSchemaFile,
@@ -198,6 +201,7 @@ let qimenPlateValidationVerifiedCaseCount = 0;
 let qimen1080MarkdownParserVerifiedCaseCount = 0;
 let qimen1080ConverterDryRunVerifiedCaseCount = 0;
 let qimen1080PreviewWriterVerifiedCaseCount = 0;
+let qimen1080FormalPlateAdapterVerifiedCaseCount = 0;
 let qimenYearSeedRecommendationVerifiedCaseCount = 0;
 let qimenTimelineFromYearSeedRecommendationVerifiedCaseCount = 0;
 let qimenResolverVerifiedCaseCount = 0;
@@ -521,6 +525,7 @@ await runQimenPlateValidationTests();
 runQimen1080MarkdownParserTests();
 await runQimen1080ConverterDryRunTests();
 await runQimen1080PreviewWriterTests();
+await runQimen1080FormalPlateAdapterTests();
 runQimenYearSeedRecommendationTests();
 runQimenTimelineFromYearSeedRecommendationTests();
 runQimenResolverTests();
@@ -593,6 +598,7 @@ if (failures.length > 0) {
   console.log(`奇門1080.md parser diagnostics測試通過：${qimen1080MarkdownParserVerifiedCaseCount} cases`);
   console.log(`奇門1080.md converter dry-run測試通過：${qimen1080ConverterDryRunVerifiedCaseCount} cases`);
   console.log(`奇門1080.md preview writer測試通過：${qimen1080PreviewWriterVerifiedCaseCount} cases`);
+  console.log(`奇門1080.md formal plate adapter測試通過：${qimen1080FormalPlateAdapterVerifiedCaseCount} cases`);
   console.log(`奇門年度Seed建議測試通過：${qimenYearSeedRecommendationVerifiedCaseCount} cases`);
   console.log(`奇門年度Seed建議Timeline測試通過：${qimenTimelineFromYearSeedRecommendationVerifiedCaseCount} cases`);
   console.log(`奇門置閏法 resolver 初版測試通過：${qimenResolverVerifiedCaseCount} cases`);
@@ -6085,6 +6091,100 @@ async function runQimen1080PreviewWriterTests() {
     true,
     forbiddenOutputRootResult.errors.some((error) => error.code === "OUTPUT_ROOT_FORMAL_PLATES_FORBIDDEN")
   );
+}
+
+async function runQimen1080FormalPlateAdapterTests() {
+  const plateFilesSnapshotBefore = await readQimenPlateFilesSnapshot();
+  const parsed = parseQimen1080Markdown(qimen1080MarkdownRaw);
+  const report = buildQimen1080FormalPlateAdapterReport(parsed);
+  const plateFilesSnapshotAfter = await readQimenPlateFilesSnapshot();
+
+  qimen1080FormalPlateAdapterVerifiedCaseCount += 1;
+  assertEqual("qimen-1080-formal-adapter-report", "ok", true, report.ok);
+  assertEqual("qimen-1080-formal-adapter-report", "errors.length", 0, report.errors.length);
+  assertEqual("qimen-1080-formal-adapter-report", "warnings.length", 0, report.warnings.length);
+  assertEqual("qimen-1080-formal-adapter-report", "files.length", 18, report.files.length);
+
+  qimen1080FormalPlateAdapterVerifiedCaseCount += 1;
+  assertEqual("qimen-1080-formal-adapter-stats", "totalFiles", 18, report.stats.totalFiles);
+  assertEqual("qimen-1080-formal-adapter-stats", "totalPlates", 1080, report.stats.totalPlates);
+  assertEqual("qimen-1080-formal-adapter-stats", "yangPlates", 540, report.stats.yangPlates);
+  assertEqual("qimen-1080-formal-adapter-stats", "yinPlates", 540, report.stats.yinPlates);
+  for (const dunType of ["yang", "yin"]) {
+    for (let ju = 1; ju <= 9; ju += 1) {
+      assertEqual("qimen-1080-formal-adapter-by-ju", `${dunType}-${ju}`, 60, report.stats.byDunJu[`${dunType}-${ju}`]);
+    }
+  }
+
+  qimen1080FormalPlateAdapterVerifiedCaseCount += 1;
+  assertEqual("qimen-1080-formal-adapter-validation", "allFilesValid", true, report.validation.allFilesValid);
+  assertEqual("qimen-1080-formal-adapter-validation", "fileResults.length", 18, report.validation.fileResults.length);
+  assertEqual(
+    "qimen-1080-formal-adapter-validation",
+    "allFileResultsOk",
+    true,
+    report.validation.fileResults.every((fileResult) => fileResult.ok === true)
+  );
+
+  qimen1080FormalPlateAdapterVerifiedCaseCount += 1;
+  assertEqual("qimen-1080-formal-adapter-samples", "yangJu1Jiazi.exists", true, Boolean(report.samples.yangJu1Jiazi));
+  assertEqual("qimen-1080-formal-adapter-samples", "yangJu9Guihai.exists", true, Boolean(report.samples.yangJu9Guihai));
+  assertEqual("qimen-1080-formal-adapter-samples", "yinJu1Jiazi.exists", true, Boolean(report.samples.yinJu1Jiazi));
+  assertEqual("qimen-1080-formal-adapter-samples", "yinJu9Guihai.exists", true, Boolean(report.samples.yinJu9Guihai));
+
+  qimen1080FormalPlateAdapterVerifiedCaseCount += 1;
+  assertFormalAdapterSamplePlate("qimen-1080-formal-adapter-sample-yang-ju-1-jiazi", report.samples.yangJu1Jiazi, "甲子");
+  assertFormalAdapterSamplePlate("qimen-1080-formal-adapter-sample-yang-ju-9-guihai", report.samples.yangJu9Guihai, "癸亥");
+  assertFormalAdapterSamplePlate("qimen-1080-formal-adapter-sample-yin-ju-1-jiazi", report.samples.yinJu1Jiazi, "甲子");
+  assertFormalAdapterSamplePlate("qimen-1080-formal-adapter-sample-yin-ju-9-guihai", report.samples.yinJu9Guihai, "癸亥");
+
+  const yangJu1File = report.files.find((file) => file.relativePath === "yang/ju-1.json");
+  qimen1080FormalPlateAdapterVerifiedCaseCount += 1;
+  assertEqual("qimen-1080-formal-adapter-file-shape", "yangJu1.exists", true, Boolean(yangJu1File));
+  assertEqual("qimen-1080-formal-adapter-file-shape", "meta.schemaVersion", "1.0.0", yangJu1File?.content?.meta?.schemaVersion);
+  assertEqual("qimen-1080-formal-adapter-file-shape", "meta.dunType", "yang", yangJu1File?.content?.meta?.dunType);
+  assertEqual("qimen-1080-formal-adapter-file-shape", "meta.ju", 1, yangJu1File?.content?.meta?.ju);
+  assertEqual("qimen-1080-formal-adapter-file-shape", "plates.length", 60, Object.keys(yangJu1File?.content?.plates ?? {}).length);
+
+  qimen1080FormalPlateAdapterVerifiedCaseCount += 1;
+  assertEqual(
+    "qimen-1080-formal-adapter-no-formal-write",
+    "data/qimen/plates snapshot",
+    plateFilesSnapshotBefore,
+    plateFilesSnapshotAfter
+  );
+
+  const lookupAfterAdapter = getQimenPlate({ dunType: "yang", ju: 1, hourPillar: "甲子" });
+  qimen1080FormalPlateAdapterVerifiedCaseCount += 1;
+  assertEqual("qimen-1080-formal-adapter-lookup-unchanged", "found", false, lookupAfterAdapter.found);
+  assertEqual("qimen-1080-formal-adapter-lookup-unchanged", "status", "nullPlate", lookupAfterAdapter.status);
+  assertEqual("qimen-1080-formal-adapter-lookup-unchanged", "plate", null, lookupAfterAdapter.plate);
+}
+
+function assertFormalAdapterSamplePlate(id, plate, expectedHourPillar) {
+  assertEqual(id, "schemaVersion", 1, plate?.schemaVersion);
+  assertEqual(id, "hourPillar", expectedHourPillar, plate?.hourPillar);
+  assertEqual(id, "zhiFuStar.exists", true, typeof plate?.zhiFuStar === "string" && plate.zhiFuStar.length > 0);
+  assertEqual(id, "zhiShiDoor.exists", true, typeof plate?.zhiShiDoor === "string" && plate.zhiShiDoor.length > 0);
+  assertEqual(id, "xunShou", null, plate?.xunShou);
+  assertEqual(id, "notes.array", true, Array.isArray(plate?.notes));
+  assertEqual(id, "source.type", "qimen1080-md", plate?.source?.type);
+  assertEqual(id, "source.file", "data/1080.md", plate?.source?.file);
+  assertEqual(id, "source.rawHeader.exists", true, typeof plate?.source?.rawHeader === "string" && plate.source.rawHeader.length > 0);
+  assertEqual(id, "source.rawCells.9", 9, Object.keys(plate?.source?.rawCells ?? {}).length);
+  assertEqual(id, "palaces.9", 9, Object.keys(plate?.palaces ?? {}).length);
+  assertEqual(id, "center.exists", true, Boolean(plate?.palaces?.center));
+  assertEqual(id, "center.palaceName", "中", plate?.palaces?.center?.palaceName);
+  assertEqual(id, "center.direction", "中", plate?.palaces?.center?.direction);
+  assertEqual(id, "center.luoshuNumber", 5, plate?.palaces?.center?.luoshuNumber);
+  assertEqual(id, "center.star", "天禽", plate?.palaces?.center?.star);
+  assertEqual(id, "kan.palaceName", "坎", plate?.palaces?.kan?.palaceName);
+  assertEqual(id, "kan.direction", "北", plate?.palaces?.kan?.direction);
+  assertEqual(id, "kan.luoshuNumber", 1, plate?.palaces?.kan?.luoshuNumber);
+  assertEqual(id, "kan.isZhiFuPalace.boolean", true, typeof plate?.palaces?.kan?.isZhiFuPalace === "boolean");
+  assertEqual(id, "kan.isZhiShiPalace.boolean", true, typeof plate?.palaces?.kan?.isZhiShiPalace === "boolean");
+  assertEqual(id, "center.isZhiFuPalace.boolean", true, typeof plate?.palaces?.center?.isZhiFuPalace === "boolean");
+  assertEqual(id, "center.isZhiShiPalace.boolean", true, typeof plate?.palaces?.center?.isZhiShiPalace === "boolean");
 }
 
 async function readPreviewJsonFiles(filesWritten) {
