@@ -50,6 +50,10 @@ const {
   convertQimen1080ParsedToDryRun,
 } = await import("../src/qimen1080ConverterDryRun.js");
 const {
+  clearQimen1080PreviewOutput,
+  writeQimen1080PreviewFiles,
+} = await import("../src/qimen1080PreviewWriter.js");
+const {
   QIMEN_PALACE_KEYS,
   QIMEN_PALACE_META,
   validateQimenPlateFile: validateQimenPlateSchemaFile,
@@ -193,6 +197,7 @@ let qimenPlateLookupVerifiedCaseCount = 0;
 let qimenPlateValidationVerifiedCaseCount = 0;
 let qimen1080MarkdownParserVerifiedCaseCount = 0;
 let qimen1080ConverterDryRunVerifiedCaseCount = 0;
+let qimen1080PreviewWriterVerifiedCaseCount = 0;
 let qimenYearSeedRecommendationVerifiedCaseCount = 0;
 let qimenTimelineFromYearSeedRecommendationVerifiedCaseCount = 0;
 let qimenResolverVerifiedCaseCount = 0;
@@ -515,6 +520,7 @@ runQimenPlateLookupTests();
 await runQimenPlateValidationTests();
 runQimen1080MarkdownParserTests();
 await runQimen1080ConverterDryRunTests();
+await runQimen1080PreviewWriterTests();
 runQimenYearSeedRecommendationTests();
 runQimenTimelineFromYearSeedRecommendationTests();
 runQimenResolverTests();
@@ -586,6 +592,7 @@ if (failures.length > 0) {
   console.log(`奇門1080盤面schema validation測試通過：${qimenPlateValidationVerifiedCaseCount} cases`);
   console.log(`奇門1080.md parser diagnostics測試通過：${qimen1080MarkdownParserVerifiedCaseCount} cases`);
   console.log(`奇門1080.md converter dry-run測試通過：${qimen1080ConverterDryRunVerifiedCaseCount} cases`);
+  console.log(`奇門1080.md preview writer測試通過：${qimen1080PreviewWriterVerifiedCaseCount} cases`);
   console.log(`奇門年度Seed建議測試通過：${qimenYearSeedRecommendationVerifiedCaseCount} cases`);
   console.log(`奇門年度Seed建議Timeline測試通過：${qimenTimelineFromYearSeedRecommendationVerifiedCaseCount} cases`);
   console.log(`奇門置閏法 resolver 初版測試通過：${qimenResolverVerifiedCaseCount} cases`);
@@ -5992,6 +5999,137 @@ async function runQimen1080ConverterDryRunTests() {
     plateFilesSnapshotBefore,
     plateFilesSnapshotAfter
   );
+}
+
+async function runQimen1080PreviewWriterTests() {
+  const plateFilesSnapshotBefore = await readQimenPlateFilesSnapshot();
+  const parsed = parseQimen1080Markdown(qimen1080MarkdownRaw);
+  const dryRunReport = buildQimen1080DryRunReport(parsed);
+  await clearQimen1080PreviewOutput();
+
+  let writeResult = null;
+  let previewFiles = new Map();
+  try {
+    writeResult = await writeQimen1080PreviewFiles(parsed);
+    previewFiles = await readPreviewJsonFiles(writeResult.filesWritten);
+
+    qimen1080PreviewWriterVerifiedCaseCount += 1;
+    assertEqual("qimen-1080-preview-writer-result", "ok", true, writeResult.ok);
+    assertEqual("qimen-1080-preview-writer-result", "filesWritten.length", 18, writeResult.filesWritten.length);
+    assertEqual("qimen-1080-preview-writer-result", "errors.length", 0, writeResult.errors.length);
+    assertEqual("qimen-1080-preview-writer-result", "warnings.length", 0, writeResult.warnings.length);
+
+    qimen1080PreviewWriterVerifiedCaseCount += 1;
+    assertPreviewFileMeta(previewFiles, "yang/ju-1.json", "yang", 1);
+    assertPreviewFileMeta(previewFiles, "yang/ju-9.json", "yang", 9);
+    assertPreviewFileMeta(previewFiles, "yin/ju-1.json", "yin", 1);
+    assertPreviewFileMeta(previewFiles, "yin/ju-9.json", "yin", 9);
+    assertEqual("qimen-1080-preview-writer-meta-all", "allIsPreview", true, [...previewFiles.values()].every((file) => file.meta?.isPreview === true));
+    assertEqual("qimen-1080-preview-writer-meta-all", "allPlateCount60", true, [...previewFiles.values()].every((file) => file.meta?.plateCount === 60));
+    assertEqual("qimen-1080-preview-writer-meta-all", "allGeneratedAtNull", true, [...previewFiles.values()].every((file) => file.meta?.generatedAt === null));
+
+    const previewStats = buildPreviewJsonStats(previewFiles);
+    qimen1080PreviewWriterVerifiedCaseCount += 1;
+    assertEqual("qimen-1080-preview-writer-stats", "totalPlates", 1080, previewStats.totalPlates);
+    assertEqual("qimen-1080-preview-writer-stats", "yangPlates", 540, previewStats.yangPlates);
+    assertEqual("qimen-1080-preview-writer-stats", "yinPlates", 540, previewStats.yinPlates);
+    assertEqual("qimen-1080-preview-writer-stats", "matchesDryRunTotal", dryRunReport.stats.totalObjects, previewStats.totalPlates);
+    assertEqual("qimen-1080-preview-writer-stats", "matchesDryRunYang", dryRunReport.stats.yangObjects, previewStats.yangPlates);
+    assertEqual("qimen-1080-preview-writer-stats", "matchesDryRunYin", dryRunReport.stats.yinObjects, previewStats.yinPlates);
+    for (const [key, expectedCount] of Object.entries(dryRunReport.stats.byDunJu)) {
+      assertEqual("qimen-1080-preview-writer-stats-by-ju", key, expectedCount, previewStats.byDunJu[key]);
+    }
+
+    qimen1080PreviewWriterVerifiedCaseCount += 1;
+    assertEqual("qimen-1080-preview-writer-samples", "yang/ju-1 甲子", true, Boolean(previewFiles.get("yang/ju-1.json")?.plates?.["甲子"]));
+    assertEqual("qimen-1080-preview-writer-samples", "yang/ju-9 癸亥", true, Boolean(previewFiles.get("yang/ju-9.json")?.plates?.["癸亥"]));
+    assertEqual("qimen-1080-preview-writer-samples", "yin/ju-1 甲子", true, Boolean(previewFiles.get("yin/ju-1.json")?.plates?.["甲子"]));
+    assertEqual("qimen-1080-preview-writer-samples", "yin/ju-9 癸亥", true, Boolean(previewFiles.get("yin/ju-9.json")?.plates?.["癸亥"]));
+    assertEqual("qimen-1080-preview-writer-samples", "center.preserved", true, Boolean(previewFiles.get("yang/ju-1.json")?.plates?.["甲子"]?.palaces?.center));
+    assertEqual("qimen-1080-preview-writer-samples", "raw.header.preserved", true, Boolean(previewFiles.get("yang/ju-1.json")?.plates?.["甲子"]?.raw?.header));
+    assertEqual("qimen-1080-preview-writer-samples", "raw.cells.preserved", 9, Object.keys(previewFiles.get("yang/ju-1.json")?.plates?.["甲子"]?.raw?.cells ?? {}).length);
+
+    qimen1080PreviewWriterVerifiedCaseCount += 1;
+    assertEqual("qimen-1080-preview-writer-validation", "allPlateCountTrue", true, [...previewFiles.values()].every((file) => file.validation?.plateCount === true));
+    assertEqual("qimen-1080-preview-writer-validation", "allEveryPlateHas9PalacesTrue", true, [...previewFiles.values()].every((file) => file.validation?.everyPlateHas9Palaces === true));
+    assertEqual("qimen-1080-preview-writer-validation", "allRequiredFieldsPresentTrue", true, [...previewFiles.values()].every((file) => file.validation?.requiredFieldsPresent === true));
+    assertEqual("qimen-1080-preview-writer-validation", "allParserOk", true, [...previewFiles.values()].every((file) => file.diagnostics?.parserOk === true));
+    assertEqual("qimen-1080-preview-writer-validation", "allDryRunOk", true, [...previewFiles.values()].every((file) => file.diagnostics?.dryRunOk === true));
+
+    const lookupWhilePreviewExists = getQimenPlate({ dunType: "yang", ju: 1, hourPillar: "甲子" });
+    qimen1080PreviewWriterVerifiedCaseCount += 1;
+    assertEqual("qimen-1080-preview-writer-lookup-ignores-preview", "found", false, lookupWhilePreviewExists.found);
+    assertEqual("qimen-1080-preview-writer-lookup-ignores-preview", "status", "nullPlate", lookupWhilePreviewExists.status);
+    assertEqual("qimen-1080-preview-writer-lookup-ignores-preview", "plate", null, lookupWhilePreviewExists.plate);
+  } finally {
+    await clearQimen1080PreviewOutput();
+  }
+
+  const plateFilesSnapshotAfter = await readQimenPlateFilesSnapshot();
+  qimen1080PreviewWriterVerifiedCaseCount += 1;
+  assertEqual(
+    "qimen-1080-preview-writer-no-formal-write",
+    "data/qimen/plates snapshot",
+    plateFilesSnapshotBefore,
+    plateFilesSnapshotAfter
+  );
+
+  const forbiddenOutputRootResult = await writeQimen1080PreviewFiles(parsed, {
+    outputRoot: new URL("../data/qimen/plates/", import.meta.url),
+  });
+  qimen1080PreviewWriterVerifiedCaseCount += 1;
+  assertEqual("qimen-1080-preview-writer-forbidden-output-root", "ok", false, forbiddenOutputRootResult.ok);
+  assertEqual(
+    "qimen-1080-preview-writer-forbidden-output-root",
+    "hasForbiddenCode",
+    true,
+    forbiddenOutputRootResult.errors.some((error) => error.code === "OUTPUT_ROOT_FORMAL_PLATES_FORBIDDEN")
+  );
+}
+
+async function readPreviewJsonFiles(filesWritten) {
+  const previewFiles = new Map();
+  for (const file of filesWritten) {
+    const raw = await readFile(file.path, "utf8");
+    previewFiles.set(file.relativePath, JSON.parse(raw));
+  }
+  return previewFiles;
+}
+
+function assertPreviewFileMeta(previewFiles, relativePath, dun, ju) {
+  const file = previewFiles.get(relativePath);
+  assertEqual(`qimen-1080-preview-writer-meta-${relativePath}`, "exists", true, Boolean(file));
+  assertEqual(`qimen-1080-preview-writer-meta-${relativePath}`, "schemaVersion", "qimen-1080-preview-v1", file?.meta?.schemaVersion);
+  assertEqual(`qimen-1080-preview-writer-meta-${relativePath}`, "source", "data/1080.md", file?.meta?.source);
+  assertEqual(`qimen-1080-preview-writer-meta-${relativePath}`, "generatedBy", "qimen1080PreviewWriter", file?.meta?.generatedBy);
+  assertEqual(`qimen-1080-preview-writer-meta-${relativePath}`, "generatedAt", null, file?.meta?.generatedAt);
+  assertEqual(`qimen-1080-preview-writer-meta-${relativePath}`, "dun", dun, file?.meta?.dun);
+  assertEqual(`qimen-1080-preview-writer-meta-${relativePath}`, "ju", ju, file?.meta?.ju);
+  assertEqual(`qimen-1080-preview-writer-meta-${relativePath}`, "plateCount", 60, file?.meta?.plateCount);
+  assertEqual(`qimen-1080-preview-writer-meta-${relativePath}`, "isPreview", true, file?.meta?.isPreview);
+  assertEqual(`qimen-1080-preview-writer-meta-${relativePath}`, "plates.length", 60, Object.keys(file?.plates ?? {}).length);
+}
+
+function buildPreviewJsonStats(previewFiles) {
+  const stats = {
+    totalPlates: 0,
+    yangPlates: 0,
+    yinPlates: 0,
+    byDunJu: {},
+  };
+
+  for (const file of previewFiles.values()) {
+    const count = Object.keys(file.plates ?? {}).length;
+    stats.totalPlates += count;
+    if (file.meta?.dun === "yang") {
+      stats.yangPlates += count;
+    } else if (file.meta?.dun === "yin") {
+      stats.yinPlates += count;
+    }
+    stats.byDunJu[`${file.meta?.dun}-${file.meta?.ju}`] = count;
+  }
+
+  return stats;
 }
 
 async function readQimenPlateFilesSnapshot() {
