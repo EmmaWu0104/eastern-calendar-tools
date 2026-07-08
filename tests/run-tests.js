@@ -5,7 +5,7 @@ const {
   getAnnualAfflictionBadgesByPalace,
   getAnnualAfflictionsByYearBranch,
 } = await import("../src/annualAfflictions.js");
-const { readFile } = await import("node:fs/promises");
+const { readdir, readFile } = await import("node:fs/promises");
 const { calculateBaziFromSolarTerms } = await import("../src/bazi.js");
 const { getDailyGodsByStem } = await import("../src/dailyGods.js");
 const {
@@ -45,6 +45,10 @@ const { getNaYinByPillar } = await import("../src/nayin.js");
 const {
   parseQimen1080Markdown,
 } = await import("../src/qimen1080MarkdownParser.js");
+const {
+  buildQimen1080DryRunReport,
+  convertQimen1080ParsedToDryRun,
+} = await import("../src/qimen1080ConverterDryRun.js");
 const {
   QIMEN_PALACE_KEYS,
   QIMEN_PALACE_META,
@@ -188,6 +192,7 @@ let qimenFullTermCycleDraftResolverFormatterCacheReplacementVerifiedCaseCount = 
 let qimenPlateLookupVerifiedCaseCount = 0;
 let qimenPlateValidationVerifiedCaseCount = 0;
 let qimen1080MarkdownParserVerifiedCaseCount = 0;
+let qimen1080ConverterDryRunVerifiedCaseCount = 0;
 let qimenYearSeedRecommendationVerifiedCaseCount = 0;
 let qimenTimelineFromYearSeedRecommendationVerifiedCaseCount = 0;
 let qimenResolverVerifiedCaseCount = 0;
@@ -509,6 +514,7 @@ runQimenFullTermCycleDraftResolverFormatterCacheReplacementTests();
 runQimenPlateLookupTests();
 await runQimenPlateValidationTests();
 runQimen1080MarkdownParserTests();
+await runQimen1080ConverterDryRunTests();
 runQimenYearSeedRecommendationTests();
 runQimenTimelineFromYearSeedRecommendationTests();
 runQimenResolverTests();
@@ -579,6 +585,7 @@ if (failures.length > 0) {
   console.log(`奇門1080盤面lookup測試通過：${qimenPlateLookupVerifiedCaseCount} cases`);
   console.log(`奇門1080盤面schema validation測試通過：${qimenPlateValidationVerifiedCaseCount} cases`);
   console.log(`奇門1080.md parser diagnostics測試通過：${qimen1080MarkdownParserVerifiedCaseCount} cases`);
+  console.log(`奇門1080.md converter dry-run測試通過：${qimen1080ConverterDryRunVerifiedCaseCount} cases`);
   console.log(`奇門年度Seed建議測試通過：${qimenYearSeedRecommendationVerifiedCaseCount} cases`);
   console.log(`奇門年度Seed建議Timeline測試通過：${qimenTimelineFromYearSeedRecommendationVerifiedCaseCount} cases`);
   console.log(`奇門置閏法 resolver 初版測試通過：${qimenResolverVerifiedCaseCount} cases`);
@@ -5932,6 +5939,80 @@ function runQimen1080MarkdownParserTests() {
     true,
     ["INVALID_TABLE_SHAPE", "INVALID_CELL_FORMAT", "SUSPICIOUS_TEXT"].some((code) => invalidCodes.includes(code))
   );
+}
+
+async function runQimen1080ConverterDryRunTests() {
+  const plateFilesSnapshotBefore = await readQimenPlateFilesSnapshot();
+  const parsed = parseQimen1080Markdown(qimen1080MarkdownRaw);
+  const conversion = convertQimen1080ParsedToDryRun(parsed);
+  const report = buildQimen1080DryRunReport(parsed);
+  const plateFilesSnapshotAfter = await readQimenPlateFilesSnapshot();
+
+  qimen1080ConverterDryRunVerifiedCaseCount += 1;
+  assertEqual("qimen-1080-converter-dry-run-conversion", "ok", true, conversion.ok);
+  assertEqual("qimen-1080-converter-dry-run-conversion", "objects.length", 1080, conversion.objects.length);
+  assertEqual("qimen-1080-converter-dry-run-conversion", "errors.length", 0, conversion.errors.length);
+  assertEqual("qimen-1080-converter-dry-run-conversion", "warnings.length", 0, conversion.warnings.length);
+
+  qimen1080ConverterDryRunVerifiedCaseCount += 1;
+  assertEqual("qimen-1080-converter-dry-run-report", "ok", true, report.ok);
+  assertEqual("qimen-1080-converter-dry-run-report", "stats.totalObjects", 1080, report.stats.totalObjects);
+  assertEqual("qimen-1080-converter-dry-run-report", "stats.yangObjects", 540, report.stats.yangObjects);
+  assertEqual("qimen-1080-converter-dry-run-report", "stats.yinObjects", 540, report.stats.yinObjects);
+  assertEqual("qimen-1080-converter-dry-run-report", "errors.length", 0, report.errors.length);
+  assertEqual("qimen-1080-converter-dry-run-report", "warnings.length", 0, report.warnings.length);
+
+  qimen1080ConverterDryRunVerifiedCaseCount += 1;
+  for (const dun of ["yang", "yin"]) {
+    for (let ju = 1; ju <= 9; ju += 1) {
+      assertEqual("qimen-1080-converter-dry-run-by-ju", `${dun}-${ju}`, 60, report.stats.byDunJu[`${dun}-${ju}`]);
+    }
+  }
+
+  qimen1080ConverterDryRunVerifiedCaseCount += 1;
+  assertEqual("qimen-1080-converter-dry-run-samples", "yangJu1JiajiJiazi", true, Boolean(report.samples.yangJu1JiajiJiazi?.object));
+  assertEqual("qimen-1080-converter-dry-run-samples", "yangJu9WuguiGuihai", true, Boolean(report.samples.yangJu9WuguiGuihai?.object));
+  assertEqual("qimen-1080-converter-dry-run-samples", "yinJu1JiajiJiazi", true, Boolean(report.samples.yinJu1JiajiJiazi?.object));
+  assertEqual("qimen-1080-converter-dry-run-samples", "yinJu9WuguiGuihai", true, Boolean(report.samples.yinJu9WuguiGuihai?.object));
+  assertEqual("qimen-1080-converter-dry-run-samples", "center.preserved", true, Boolean(report.samples.yangJu1JiajiJiazi?.object?.palaces?.center));
+
+  qimen1080ConverterDryRunVerifiedCaseCount += 1;
+  assertEqual("qimen-1080-converter-dry-run-validation", "totalObjects1080", true, report.validation.totalObjects1080.ok);
+  assertEqual("qimen-1080-converter-dry-run-validation", "dunCounts", true, report.validation.dunCounts.ok);
+  assertEqual("qimen-1080-converter-dry-run-validation", "byDunJuCounts", true, report.validation.byDunJuCounts.ok);
+  assertEqual("qimen-1080-converter-dry-run-validation", "everyPlateHas9Palaces", true, report.validation.everyPlateHas9Palaces.ok);
+  assertEqual("qimen-1080-converter-dry-run-validation", "requiredFieldsPresent", true, report.validation.requiredFieldsPresent.ok);
+  assertEqual("qimen-1080-converter-dry-run-validation", "zhifuStarFound", true, report.validation.zhifuStarFound.ok);
+  assertEqual("qimen-1080-converter-dry-run-validation", "zhishiDoorFound", true, report.validation.zhishiDoorFound.ok);
+
+  qimen1080ConverterDryRunVerifiedCaseCount += 1;
+  assertEqual(
+    "qimen-1080-converter-dry-run-no-formal-write",
+    "data/qimen/plates snapshot",
+    plateFilesSnapshotBefore,
+    plateFilesSnapshotAfter
+  );
+}
+
+async function readQimenPlateFilesSnapshot() {
+  const entries = await readDirectoryFilesSnapshot(new URL("../data/qimen/plates/", import.meta.url));
+  return entries.join("\n--- qimen plate file ---\n");
+}
+
+async function readDirectoryFilesSnapshot(directoryUrl, prefix = "") {
+  const entries = await readdir(directoryUrl, { withFileTypes: true });
+  const snapshots = [];
+
+  for (const entry of entries.sort((left, right) => left.name.localeCompare(right.name))) {
+    if (entry.isDirectory()) {
+      snapshots.push(...await readDirectoryFilesSnapshot(new URL(`${entry.name}/`, directoryUrl), `${prefix}${entry.name}/`));
+    } else if (entry.isFile()) {
+      const content = await readFile(new URL(entry.name, directoryUrl), "utf8");
+      snapshots.push(`${prefix}${entry.name}\n${content}`);
+    }
+  }
+
+  return snapshots;
 }
 
 async function loadQimenPlateFileFixture(dunType, ju) {
