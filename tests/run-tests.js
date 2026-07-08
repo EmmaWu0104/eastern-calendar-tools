@@ -5,7 +5,7 @@ const {
   getAnnualAfflictionBadgesByPalace,
   getAnnualAfflictionsByYearBranch,
 } = await import("../src/annualAfflictions.js");
-const { readdir, readFile } = await import("node:fs/promises");
+const { access, readdir, readFile } = await import("node:fs/promises");
 const { calculateBaziFromSolarTerms } = await import("../src/bazi.js");
 const { getDailyGodsByStem } = await import("../src/dailyGods.js");
 const {
@@ -56,6 +56,10 @@ const {
 const {
   buildQimen1080FormalPlateAdapterReport,
 } = await import("../src/qimen1080FormalPlateAdapter.js");
+const {
+  clearQimen1080FormalCandidateOutput,
+  writeQimen1080FormalCandidateFiles,
+} = await import("../src/qimen1080FormalCandidateWriter.js");
 const {
   QIMEN_PALACE_KEYS,
   QIMEN_PALACE_META,
@@ -202,6 +206,7 @@ let qimen1080MarkdownParserVerifiedCaseCount = 0;
 let qimen1080ConverterDryRunVerifiedCaseCount = 0;
 let qimen1080PreviewWriterVerifiedCaseCount = 0;
 let qimen1080FormalPlateAdapterVerifiedCaseCount = 0;
+let qimen1080FormalCandidateWriterVerifiedCaseCount = 0;
 let qimenYearSeedRecommendationVerifiedCaseCount = 0;
 let qimenTimelineFromYearSeedRecommendationVerifiedCaseCount = 0;
 let qimenResolverVerifiedCaseCount = 0;
@@ -526,6 +531,7 @@ runQimen1080MarkdownParserTests();
 await runQimen1080ConverterDryRunTests();
 await runQimen1080PreviewWriterTests();
 await runQimen1080FormalPlateAdapterTests();
+await runQimen1080FormalCandidateWriterTests();
 runQimenYearSeedRecommendationTests();
 runQimenTimelineFromYearSeedRecommendationTests();
 runQimenResolverTests();
@@ -599,6 +605,7 @@ if (failures.length > 0) {
   console.log(`奇門1080.md converter dry-run測試通過：${qimen1080ConverterDryRunVerifiedCaseCount} cases`);
   console.log(`奇門1080.md preview writer測試通過：${qimen1080PreviewWriterVerifiedCaseCount} cases`);
   console.log(`奇門1080.md formal plate adapter測試通過：${qimen1080FormalPlateAdapterVerifiedCaseCount} cases`);
+  console.log(`奇門1080.md formal candidate writer測試通過：${qimen1080FormalCandidateWriterVerifiedCaseCount} cases`);
   console.log(`奇門年度Seed建議測試通過：${qimenYearSeedRecommendationVerifiedCaseCount} cases`);
   console.log(`奇門年度Seed建議Timeline測試通過：${qimenTimelineFromYearSeedRecommendationVerifiedCaseCount} cases`);
   console.log(`奇門置閏法 resolver 初版測試通過：${qimenResolverVerifiedCaseCount} cases`);
@@ -6161,6 +6168,152 @@ async function runQimen1080FormalPlateAdapterTests() {
   assertEqual("qimen-1080-formal-adapter-lookup-unchanged", "plate", null, lookupAfterAdapter.plate);
 }
 
+async function runQimen1080FormalCandidateWriterTests() {
+  const plateFilesSnapshotBefore = await readQimenPlateFilesSnapshot();
+  const parsed = parseQimen1080Markdown(qimen1080MarkdownRaw);
+  await clearQimen1080FormalCandidateOutput();
+
+  let writeResult = null;
+  let candidateFiles = new Map();
+  try {
+    writeResult = await writeQimen1080FormalCandidateFiles(parsed);
+    candidateFiles = await readFormalCandidateJsonFiles(writeResult.filesWritten);
+
+    qimen1080FormalCandidateWriterVerifiedCaseCount += 1;
+    assertEqual("qimen-1080-formal-candidate-writer-result", "ok", true, writeResult.ok);
+    assertEqual("qimen-1080-formal-candidate-writer-result", "filesWritten.length", 18, writeResult.filesWritten.length);
+    assertEqual("qimen-1080-formal-candidate-writer-result", "errors.length", 0, writeResult.errors.length);
+    assertEqual("qimen-1080-formal-candidate-writer-result", "warnings.length", 0, writeResult.warnings.length);
+
+    qimen1080FormalCandidateWriterVerifiedCaseCount += 1;
+    assertEqual("qimen-1080-formal-candidate-writer-files", "allFilesRead", 18, candidateFiles.size);
+    assertFormalCandidateFile(candidateFiles, "yang/ju-1.json", "yang", "陽遁", 1);
+    assertFormalCandidateFile(candidateFiles, "yang/ju-9.json", "yang", "陽遁", 9);
+    assertFormalCandidateFile(candidateFiles, "yin/ju-1.json", "yin", "陰遁", 1);
+    assertFormalCandidateFile(candidateFiles, "yin/ju-9.json", "yin", "陰遁", 9);
+
+    const candidateStats = buildFormalCandidateJsonStats(candidateFiles);
+    qimen1080FormalCandidateWriterVerifiedCaseCount += 1;
+    assertEqual("qimen-1080-formal-candidate-writer-stats", "totalPlates", 1080, candidateStats.totalPlates);
+    assertEqual("qimen-1080-formal-candidate-writer-stats", "yangPlates", 540, candidateStats.yangPlates);
+    assertEqual("qimen-1080-formal-candidate-writer-stats", "yinPlates", 540, candidateStats.yinPlates);
+    for (const [key, expectedCount] of Object.entries(writeResult.stats.byDunJu)) {
+      assertEqual("qimen-1080-formal-candidate-writer-stats-by-ju", key, expectedCount, candidateStats.byDunJu[key]);
+    }
+
+    qimen1080FormalCandidateWriterVerifiedCaseCount += 1;
+    for (const [relativePath, file] of candidateFiles) {
+      const [dunType, juFile] = relativePath.split("/");
+      const ju = Number(juFile.replace("ju-", "").replace(".json", ""));
+      const validation = validateQimenPlateSchemaFile(file, {
+        filePath: `tmp/qimen1080-formal-candidate/${relativePath}`,
+        expectedDunType: dunType,
+        expectedJu: ju,
+      });
+      assertEqual(`qimen-1080-formal-candidate-writer-validation-${relativePath}`, "ok", true, validation.ok);
+      assertEqual(`qimen-1080-formal-candidate-writer-validation-${relativePath}`, "errors.length", 0, validation.errors.length);
+      assertEqual(`qimen-1080-formal-candidate-writer-validation-${relativePath}`, "warnings.length", 0, validation.warnings.length);
+    }
+
+    qimen1080FormalCandidateWriterVerifiedCaseCount += 1;
+    assertEqual("qimen-1080-formal-candidate-writer-samples", "yang/ju-1 甲子", true, Boolean(candidateFiles.get("yang/ju-1.json")?.plates?.["甲子"]));
+    assertEqual("qimen-1080-formal-candidate-writer-samples", "yang/ju-9 癸亥", true, Boolean(candidateFiles.get("yang/ju-9.json")?.plates?.["癸亥"]));
+    assertEqual("qimen-1080-formal-candidate-writer-samples", "yin/ju-1 甲子", true, Boolean(candidateFiles.get("yin/ju-1.json")?.plates?.["甲子"]));
+    assertEqual("qimen-1080-formal-candidate-writer-samples", "yin/ju-9 癸亥", true, Boolean(candidateFiles.get("yin/ju-9.json")?.plates?.["癸亥"]));
+    assertFormalAdapterSamplePlate("qimen-1080-formal-candidate-writer-sample-yang-ju-1-jiazi", candidateFiles.get("yang/ju-1.json")?.plates?.["甲子"], "甲子");
+    assertFormalAdapterSamplePlate("qimen-1080-formal-candidate-writer-sample-yang-ju-9-guihai", candidateFiles.get("yang/ju-9.json")?.plates?.["癸亥"], "癸亥");
+    assertFormalAdapterSamplePlate("qimen-1080-formal-candidate-writer-sample-yin-ju-1-jiazi", candidateFiles.get("yin/ju-1.json")?.plates?.["甲子"], "甲子");
+    assertFormalAdapterSamplePlate("qimen-1080-formal-candidate-writer-sample-yin-ju-9-guihai", candidateFiles.get("yin/ju-9.json")?.plates?.["癸亥"], "癸亥");
+
+    const lookupWhileCandidateExists = getQimenPlate({ dunType: "yang", ju: 1, hourPillar: "甲子" });
+    qimen1080FormalCandidateWriterVerifiedCaseCount += 1;
+    assertEqual("qimen-1080-formal-candidate-writer-lookup-ignores-candidate", "found", false, lookupWhileCandidateExists.found);
+    assertEqual("qimen-1080-formal-candidate-writer-lookup-ignores-candidate", "status", "nullPlate", lookupWhileCandidateExists.status);
+    assertEqual("qimen-1080-formal-candidate-writer-lookup-ignores-candidate", "plate", null, lookupWhileCandidateExists.plate);
+  } finally {
+    await clearQimen1080FormalCandidateOutput();
+  }
+
+  const plateFilesSnapshotAfter = await readQimenPlateFilesSnapshot();
+  qimen1080FormalCandidateWriterVerifiedCaseCount += 1;
+  assertEqual(
+    "qimen-1080-formal-candidate-writer-no-formal-write",
+    "data/qimen/plates snapshot",
+    plateFilesSnapshotBefore,
+    plateFilesSnapshotAfter
+  );
+
+  qimen1080FormalCandidateWriterVerifiedCaseCount += 1;
+  assertEqual(
+    "qimen-1080-formal-candidate-writer-cleanup",
+    "candidate root exists",
+    false,
+    await pathExists(new URL("../tmp/qimen1080-formal-candidate/", import.meta.url))
+  );
+
+  const forbiddenFormalRoot = await writeQimen1080FormalCandidateFiles(parsed, {
+    outputRoot: new URL("../data/qimen/plates/", import.meta.url),
+  });
+  const forbiddenFormalSubRoot = await writeQimen1080FormalCandidateFiles(parsed, {
+    outputRoot: new URL("../data/qimen/plates/yang/", import.meta.url),
+  });
+  const forbiddenProjectRoot = await writeQimen1080FormalCandidateFiles(parsed, {
+    outputRoot: new URL("../", import.meta.url),
+  });
+
+  qimen1080FormalCandidateWriterVerifiedCaseCount += 1;
+  assertEqual("qimen-1080-formal-candidate-writer-forbidden-output-root", "formalRoot.ok", false, forbiddenFormalRoot.ok);
+  assertEqual("qimen-1080-formal-candidate-writer-forbidden-output-root", "formalRoot.hasForbiddenCode", true, forbiddenFormalRoot.errors.some((error) => error.code === "OUTPUT_ROOT_FORMAL_PLATES_FORBIDDEN"));
+  assertEqual("qimen-1080-formal-candidate-writer-forbidden-output-root", "formalSubRoot.ok", false, forbiddenFormalSubRoot.ok);
+  assertEqual("qimen-1080-formal-candidate-writer-forbidden-output-root", "formalSubRoot.hasForbiddenCode", true, forbiddenFormalSubRoot.errors.some((error) => error.code === "OUTPUT_ROOT_FORMAL_PLATES_FORBIDDEN"));
+  assertEqual("qimen-1080-formal-candidate-writer-forbidden-output-root", "projectRoot.ok", false, forbiddenProjectRoot.ok);
+  assertEqual("qimen-1080-formal-candidate-writer-forbidden-output-root", "projectRoot.hasForbiddenCode", true, forbiddenProjectRoot.errors.some((error) => error.code === "OUTPUT_ROOT_PROJECT_ROOT_FORBIDDEN"));
+}
+
+async function readFormalCandidateJsonFiles(filesWritten) {
+  const candidateFiles = new Map();
+  for (const file of filesWritten) {
+    const raw = await readFile(file.path, "utf8");
+    candidateFiles.set(file.relativePath, JSON.parse(raw));
+  }
+  return candidateFiles;
+}
+
+function assertFormalCandidateFile(candidateFiles, relativePath, dunType, dunName, ju) {
+  const file = candidateFiles.get(relativePath);
+  assertEqual(`qimen-1080-formal-candidate-writer-file-${relativePath}`, "exists", true, Boolean(file));
+  assertEqual(`qimen-1080-formal-candidate-writer-file-${relativePath}`, "meta.schemaVersion", "1.0.0", file?.meta?.schemaVersion);
+  assertEqual(`qimen-1080-formal-candidate-writer-file-${relativePath}`, "meta.dunType", dunType, file?.meta?.dunType);
+  assertEqual(`qimen-1080-formal-candidate-writer-file-${relativePath}`, "meta.dunName", dunName, file?.meta?.dunName);
+  assertEqual(`qimen-1080-formal-candidate-writer-file-${relativePath}`, "meta.ju", ju, file?.meta?.ju);
+  assertEqual(`qimen-1080-formal-candidate-writer-file-${relativePath}`, "meta.plateCount", 60, file?.meta?.plateCount);
+  assertEqual(`qimen-1080-formal-candidate-writer-file-${relativePath}`, "meta.source", "data/1080.md", file?.meta?.source);
+  assertEqual(`qimen-1080-formal-candidate-writer-file-${relativePath}`, "meta.notes", "由 data/1080.md 轉換產生。", file?.meta?.notes);
+  assertEqual(`qimen-1080-formal-candidate-writer-file-${relativePath}`, "plates.length", 60, Object.keys(file?.plates ?? {}).length);
+}
+
+function buildFormalCandidateJsonStats(candidateFiles) {
+  const stats = {
+    totalPlates: 0,
+    yangPlates: 0,
+    yinPlates: 0,
+    byDunJu: {},
+  };
+
+  for (const file of candidateFiles.values()) {
+    const count = Object.keys(file.plates ?? {}).length;
+    stats.totalPlates += count;
+    if (file.meta?.dunType === "yang") {
+      stats.yangPlates += count;
+    } else if (file.meta?.dunType === "yin") {
+      stats.yinPlates += count;
+    }
+    stats.byDunJu[`${file.meta?.dunType}-${file.meta?.ju}`] = count;
+  }
+
+  return stats;
+}
+
 function assertFormalAdapterSamplePlate(id, plate, expectedHourPillar) {
   assertEqual(id, "schemaVersion", 1, plate?.schemaVersion);
   assertEqual(id, "hourPillar", expectedHourPillar, plate?.hourPillar);
@@ -6235,6 +6388,15 @@ function buildPreviewJsonStats(previewFiles) {
 async function readQimenPlateFilesSnapshot() {
   const entries = await readDirectoryFilesSnapshot(new URL("../data/qimen/plates/", import.meta.url));
   return entries.join("\n--- qimen plate file ---\n");
+}
+
+async function pathExists(pathUrl) {
+  try {
+    await access(pathUrl);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 async function readDirectoryFilesSnapshot(directoryUrl, prefix = "") {
