@@ -43,6 +43,9 @@ const {
 } = await import("../src/jinhanYujing.js");
 const { getNaYinByPillar } = await import("../src/nayin.js");
 const {
+  parseQimen1080Markdown,
+} = await import("../src/qimen1080MarkdownParser.js");
+const {
   QIMEN_PALACE_KEYS,
   QIMEN_PALACE_META,
   validateQimenPlateFile: validateQimenPlateSchemaFile,
@@ -115,6 +118,7 @@ const [
   flyingStarsCasesRaw,
   jinhanYujingRaw,
   qimenYuanJuTableRaw,
+  qimen1080MarkdownRaw,
   dongGongDataRaw,
   dongGongModuleRaw,
 ] = await Promise.all([
@@ -123,6 +127,7 @@ const [
   readFile(new URL("./flying-stars-testcases.json", import.meta.url), "utf8"),
   readFile(new URL("../data/jinhan_yujing_day_pan.json", import.meta.url), "utf8"),
   readFile(new URL("../data/qimen/qimen_yuan_ju_table.json", import.meta.url), "utf8"),
+  readFile(new URL("../data/1080.md", import.meta.url), "utf8"),
   readFile(new URL("../data/dong_gong_day_selection.json", import.meta.url), "utf8"),
   readFile(new URL("../src/dongGongDaySelection.js", import.meta.url), "utf8"),
 ]);
@@ -182,6 +187,7 @@ let qimenFullTermCycleDraftCachedResolverFormatterFullRangeDiagnosticsVerifiedCa
 let qimenFullTermCycleDraftResolverFormatterCacheReplacementVerifiedCaseCount = 0;
 let qimenPlateLookupVerifiedCaseCount = 0;
 let qimenPlateValidationVerifiedCaseCount = 0;
+let qimen1080MarkdownParserVerifiedCaseCount = 0;
 let qimenYearSeedRecommendationVerifiedCaseCount = 0;
 let qimenTimelineFromYearSeedRecommendationVerifiedCaseCount = 0;
 let qimenResolverVerifiedCaseCount = 0;
@@ -502,6 +508,7 @@ runQimenFullTermCycleDraftCachedResolverFormatterFullRangeDiagnosticsTests();
 runQimenFullTermCycleDraftResolverFormatterCacheReplacementTests();
 runQimenPlateLookupTests();
 await runQimenPlateValidationTests();
+runQimen1080MarkdownParserTests();
 runQimenYearSeedRecommendationTests();
 runQimenTimelineFromYearSeedRecommendationTests();
 runQimenResolverTests();
@@ -571,6 +578,7 @@ if (failures.length > 0) {
   console.log(`奇門完整循環草案resolver formatter cache replacement測試通過：${qimenFullTermCycleDraftResolverFormatterCacheReplacementVerifiedCaseCount} cases`);
   console.log(`奇門1080盤面lookup測試通過：${qimenPlateLookupVerifiedCaseCount} cases`);
   console.log(`奇門1080盤面schema validation測試通過：${qimenPlateValidationVerifiedCaseCount} cases`);
+  console.log(`奇門1080.md parser diagnostics測試通過：${qimen1080MarkdownParserVerifiedCaseCount} cases`);
   console.log(`奇門年度Seed建議測試通過：${qimenYearSeedRecommendationVerifiedCaseCount} cases`);
   console.log(`奇門年度Seed建議Timeline測試通過：${qimenTimelineFromYearSeedRecommendationVerifiedCaseCount} cases`);
   console.log(`奇門置閏法 resolver 初版測試通過：${qimenResolverVerifiedCaseCount} cases`);
@@ -5872,6 +5880,60 @@ async function runQimenPlateValidationTests() {
   assertValidationHasError(invalidNotesResult, "INVALID_NOTES", "qimen-plate-validation-invalid-notes");
 }
 
+function runQimen1080MarkdownParserTests() {
+  const parsed = parseQimen1080Markdown(qimen1080MarkdownRaw);
+
+  qimen1080MarkdownParserVerifiedCaseCount += 1;
+  assertEqual("qimen-1080-md-parser-smoke", "result.object", true, isPlainTestObject(parsed));
+  assertEqual("qimen-1080-md-parser-smoke", "stats.object", true, isPlainTestObject(parsed.stats));
+  assertEqual("qimen-1080-md-parser-smoke", "plates.array", true, Array.isArray(parsed.plates));
+  assertEqual("qimen-1080-md-parser-smoke", "errors.array", true, Array.isArray(parsed.errors));
+  assertEqual("qimen-1080-md-parser-smoke", "warnings.array", true, Array.isArray(parsed.warnings));
+  assertEqual("qimen-1080-md-parser-smoke", "totalPlates.positive", true, parsed.stats.totalPlates > 0);
+  assertEqual("qimen-1080-md-parser-smoke", "yangPlates.positive", true, parsed.stats.yangPlates > 0);
+  assertEqual("qimen-1080-md-parser-smoke", "yinPlates.positive", true, parsed.stats.yinPlates > 0);
+
+  const yangJu1Jiazi = parsed.plates.find((plate) => (
+    plate.dunType === "yang" &&
+    plate.ju === 1 &&
+    plate.hourPillar === "甲子"
+  ));
+  qimen1080MarkdownParserVerifiedCaseCount += 1;
+  assertEqual("qimen-1080-md-parser-yang-ju-1-jiazi", "plate.exists", true, Boolean(yangJu1Jiazi));
+  assertEqual("qimen-1080-md-parser-yang-ju-1-jiazi", "zhiShiDoor", "休", yangJu1Jiazi?.zhiShiDoor);
+  assertEqual("qimen-1080-md-parser-yang-ju-1-jiazi", "palaces.xun.heavenStem", "辛", yangJu1Jiazi?.palaces?.xun?.heavenStem);
+  assertEqual("qimen-1080-md-parser-yang-ju-1-jiazi", "palaces.xun.earthStem", "辛", yangJu1Jiazi?.palaces?.xun?.earthStem);
+  assertEqual("qimen-1080-md-parser-yang-ju-1-jiazi", "palaces.xun.star", "天輔", yangJu1Jiazi?.palaces?.xun?.star);
+  assertEqual("qimen-1080-md-parser-yang-ju-1-jiazi", "palaces.xun.door", "杜", yangJu1Jiazi?.palaces?.xun?.door);
+  assertEqual("qimen-1080-md-parser-yang-ju-1-jiazi", "palaces.xun.deity", "六合", yangJu1Jiazi?.palaces?.xun?.deity);
+  assertEqual("qimen-1080-md-parser-yang-ju-1-jiazi", "palaces.center.star", "天禽", yangJu1Jiazi?.palaces?.center?.star);
+  assertEqual("qimen-1080-md-parser-yang-ju-1-jiazi", "palaces.center.door", null, yangJu1Jiazi?.palaces?.center?.door);
+  assertEqual("qimen-1080-md-parser-yang-ju-1-jiazi", "palaces.center.deity", null, yangJu1Jiazi?.palaces?.center?.deity);
+  assertEqual("qimen-1080-md-parser-yang-ju-1-jiazi", "palaces.kan.star", "天蓬", yangJu1Jiazi?.palaces?.kan?.star);
+  assertEqual("qimen-1080-md-parser-yang-ju-1-jiazi", "palaces.kan.door", "休", yangJu1Jiazi?.palaces?.kan?.door);
+  assertEqual("qimen-1080-md-parser-yang-ju-1-jiazi", "palaces.kan.deity", "值符", yangJu1Jiazi?.palaces?.kan?.deity);
+
+  const invalidFixture = `# 陽遁
+### 陽遁一局
+| 甲子 | | 直符：逢<br>直使：休 |
+| --- | --- | --- |
+| 辛 輔<br>辛 杜 合 | 壞資料 | 己 芮<br>己 死 雀 |`;
+  const invalidResult = parseQimen1080Markdown(invalidFixture);
+  const invalidCodes = [
+    ...invalidResult.errors.map((error) => error.code),
+    ...invalidResult.warnings.map((warning) => warning.code),
+  ];
+  qimen1080MarkdownParserVerifiedCaseCount += 1;
+  assertEqual("qimen-1080-md-parser-invalid-fixture", "result.object", true, isPlainTestObject(invalidResult));
+  assertEqual("qimen-1080-md-parser-invalid-fixture", "diagnostics.present", true, invalidCodes.length > 0);
+  assertEqual(
+    "qimen-1080-md-parser-invalid-fixture",
+    "diagnostics.expected-code",
+    true,
+    ["INVALID_TABLE_SHAPE", "INVALID_CELL_FORMAT", "SUSPICIOUS_TEXT"].some((code) => invalidCodes.includes(code))
+  );
+}
+
 async function loadQimenPlateFileFixture(dunType, ju) {
   const raw = await readFile(
     new URL(`../data/qimen/plates/${dunType}/ju-${ju}.json`, import.meta.url),
@@ -5937,6 +5999,10 @@ function assertValidationHasError(result, code, label) {
 
 function clonePlainTestData(value) {
   return JSON.parse(JSON.stringify(value));
+}
+
+function isPlainTestObject(value) {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 
 function assertQimenDraftResolverFormatterEquivalent(id, expected, actual) {
