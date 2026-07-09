@@ -1150,6 +1150,9 @@ function createQimenPalaceCell(palace, palaceMeta, palaceMarkers = {}) {
   cell.className = [
     "qimen-palace-cell",
     palaceMeta.key === "center" ? "qimen-palace-center" : "",
+    palace?.isZhiFuPalace === true || palace?.isZhiShiPalace === true ? "qimen-palace-zhi-marker" : "",
+    palace?.isZhiFuPalace === true ? "qimen-palace-zhi-fu" : "",
+    palace?.isZhiShiPalace === true ? "qimen-palace-zhi-shi" : "",
   ].filter(Boolean).join(" ");
 
   const header = document.createElement("div");
@@ -1166,20 +1169,9 @@ function createQimenPalaceCell(palace, palaceMeta, palaceMarkers = {}) {
 
   const content = createQimenPalaceContent(palace, palaceMarkers);
 
-  const badges = document.createElement("div");
-  badges.className = "qimen-palace-badges";
-
-  if (palace.isZhiFuPalace === true) {
-    badges.append(createQimenPalaceBadge("直符", "qimen-badge-zhi-fu"));
-  }
-
-  if (palace.isZhiShiPalace === true) {
-    badges.append(createQimenPalaceBadge("直使", "qimen-badge-zhi-shi"));
-  }
-
   const note = createQimenPalaceNote(palace);
 
-  cell.append(header, content, badges);
+  cell.append(header, content);
   if (note) {
     cell.append(note);
   }
@@ -1195,7 +1187,10 @@ function createQimenPalaceContent(palace, palaceMarkers = {}) {
   left.className = "qimen-palace-left";
 
   const deity = document.createElement("div");
-  deity.className = "qimen-palace-deity";
+  deity.className = [
+    "qimen-palace-deity",
+    palace.isZhiFuPalace === true ? "qimen-palace-deity-zhi-fu" : "",
+  ].filter(Boolean).join(" ");
   deity.textContent = formatNullableQimenValue(palace.deity);
 
   const star = document.createElement("div");
@@ -1208,7 +1203,10 @@ function createQimenPalaceContent(palace, palaceMarkers = {}) {
   center.className = "qimen-palace-center-main";
 
   const door = document.createElement("div");
-  door.className = "qimen-palace-door";
+  door.className = [
+    "qimen-palace-door",
+    palace.isZhiShiPalace === true ? "qimen-palace-door-zhi-shi" : "",
+  ].filter(Boolean).join(" ");
   door.append(document.createTextNode(formatNullableQimenValue(palace.door)));
   if (palaceMarkers.doorPo) {
     door.append(createQimenInlineMarker(palaceMarkers.doorPo, "qimen-door-po-marker"));
@@ -1246,13 +1244,6 @@ function createQimenInlineMarker(text, className) {
   marker.className = className;
   marker.textContent = text;
   return marker;
-}
-
-function createQimenPalaceBadge(text, className) {
-  const badge = document.createElement("span");
-  badge.className = className;
-  badge.textContent = text;
-  return badge;
 }
 
 function createQimenPalaceNote(palace) {

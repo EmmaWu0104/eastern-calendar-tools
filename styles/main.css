@@ -1018,9 +1018,19 @@ dd {
   background: #ffffff;
 }
 
+.qimen-palace-zhi-marker {
+  border-width: 2px;
+  border-color: #52616f;
+  padding: 5px 6px 6px;
+}
+
 .qimen-palace-center {
   border-color: #b8c2cc;
   background: #f6f8fb;
+}
+
+.qimen-palace-center.qimen-palace-zhi-marker {
+  border-color: #52616f;
 }
 
 .qimen-palace-header {
@@ -1091,6 +1101,17 @@ dd {
   line-height: 1.25;
 }
 
+.qimen-palace-deity-zhi-fu {
+  display: inline-grid;
+  place-items: center;
+  width: fit-content;
+  max-width: 100%;
+  padding: 1px 5px 2px;
+  border: 1px solid #52616f;
+  border-radius: 4px;
+  background: #ffffff;
+}
+
 .qimen-palace-star {
   color: #52616f;
   font-size: 12px;
@@ -1110,6 +1131,12 @@ dd {
   font-size: 16px;
   line-height: 1;
   text-align: center;
+}
+
+.qimen-palace-door-zhi-shi {
+  border-width: 2px;
+  border-color: #52616f;
+  font-weight: 900;
 }
 
 .qimen-stem-wrap {
@@ -1161,25 +1188,6 @@ dd {
   font-size: 15px;
   line-height: 1.2;
   text-align: center;
-}
-
-.qimen-palace-badges {
-  display: flex;
-  gap: 4px;
-  flex-wrap: wrap;
-  min-height: 0;
-}
-
-.qimen-badge-zhi-fu,
-.qimen-badge-zhi-shi {
-  padding: 1px 5px 2px;
-  border: 1px solid #b8c2cc;
-  border-radius: 999px;
-  background: #ffffff;
-  color: #334e68;
-  font-size: 11px;
-  font-weight: 850;
-  line-height: 1.35;
 }
 
 .qimen-palace-note {
@@ -1724,6 +1732,10 @@ dd {
   .qimen-palace-cell {
     min-height: 96px;
     padding: 5px;
+  }
+
+  .qimen-palace-zhi-marker {
+    padding: 4px;
   }
 
   .qimen-plate-summary,
