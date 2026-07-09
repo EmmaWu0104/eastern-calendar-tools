@@ -870,16 +870,6 @@ function createQimenSection() {
   const platePanel = document.createElement("div");
   platePanel.className = "qimen-plate-panel";
 
-  const plateHeader = document.createElement("div");
-  plateHeader.className = "qimen-plate-header";
-
-  const plateTitle = document.createElement("div");
-  plateTitle.className = "qimen-plate-title";
-  plateTitle.textContent = "盤面";
-
-  const plateUsage = document.createElement("div");
-  plateUsage.className = "qimen-plate-usage";
-
   const manualControls = document.createElement("div");
   manualControls.className = "qimen-manual-controls";
 
@@ -931,7 +921,6 @@ function createQimenSection() {
 
   manualControlRow.append(manualToggleLabel, manualFields);
   manualControls.append(manualControlRow, manualHint);
-  plateHeader.append(plateTitle);
 
   const fallback = document.createElement("p");
   fallback.className = "qimen-fallback";
@@ -941,14 +930,13 @@ function createQimenSection() {
   const platePlaceholder = renderQimenPlatePlaceholder();
 
   summaryPanel.append(summary);
-  platePanel.append(manualControls, plateHeader, plateUsage, platePlaceholder, fallback);
+  platePanel.append(manualControls, platePlaceholder, fallback);
   body.append(summaryPanel, platePanel);
   section.append(heading, body);
 
   return {
     section,
     summary,
-    plateUsage,
     manualToggle,
     manualFields,
     manualDunSelect,
@@ -970,7 +958,6 @@ function renderQimenSection(dateTimeText) {
     syncQimenManualControlsWithAuto(qimen);
     const effective = resolveQimenPlateLookupInput(qimen, qimenManualOverride);
     qimenElements.summary.replaceChildren(...createQimenSummaryRows(qimen));
-    renderQimenPlateUsage(qimen, effective);
     renderQimenManualControlState();
     qimenElements.fallback.className = "qimen-fallback";
 
@@ -990,7 +977,6 @@ function renderQimenSection(dateTimeText) {
   } catch (error) {
     console.error("奇門遁甲定局查詢失敗", error);
     qimenElements.summary.replaceChildren();
-    qimenElements.plateUsage.replaceChildren();
     qimenElements.fallback.className = "qimen-fallback qimen-fallback-error";
     qimenElements.fallback.textContent = QIMEN_FORMATTER_ERROR_MESSAGE;
   }
@@ -998,7 +984,6 @@ function renderQimenSection(dateTimeText) {
 
 function clearQimenSection() {
   qimenElements.summary.replaceChildren();
-  qimenElements.plateUsage.replaceChildren();
   qimenElements.fallback.className = "qimen-fallback";
   qimenElements.fallback.textContent = "";
   renderQimenManualControlState();
@@ -1084,50 +1069,10 @@ function isValidQimenManualOverride(manualOverride) {
   );
 }
 
-function renderQimenPlateUsage(qimen, effective) {
-  qimenElements.plateUsage.replaceChildren();
-  const autoText = `${qimen.dunName}${formatQimenJuLabel(qimen.ju)}`;
-
-  if (effective.source === "manual") {
-    const effectiveText = `${effective.dunName}${formatQimenJuLabel(effective.ju)}`;
-    qimenElements.plateUsage.append(
-      createQimenPlateUsageLine(`自動定局：${autoText}`),
-      createQimenPlateUsageLine(`盤面查表使用：${effectiveText}（手動）`)
-    );
-    return;
-  }
-
-  qimenElements.plateUsage.append(
-    createQimenPlateUsageLine(`目前使用：自動定局（${autoText}）`)
-  );
-}
-
-function createQimenPlateUsageLine(text) {
-  const line = document.createElement("div");
-  line.className = "qimen-plate-usage-line";
-  line.textContent = text;
-  return line;
-}
-
 function renderQimenPlatePlaceholder() {
   const section = document.createElement("section");
   section.className = "qimen-plate-section";
   section.setAttribute("aria-label", "奇門盤面");
-
-  const summary = document.createElement("div");
-  summary.className = "qimen-plate-summary";
-
-  const title = document.createElement("h3");
-  title.textContent = "奇門盤面";
-
-  const description = document.createElement("p");
-  description.textContent = "盤面顯示區已預留，下一階段接入正式 1080 盤資料。";
-
-  const note = document.createElement("p");
-  note.className = "qimen-palace-note";
-  note.textContent = "目前定局結果已可查到盤面資料，正式渲染將於後續包次接入。";
-
-  summary.append(title, description, note);
 
   const grid = document.createElement("div");
   grid.className = "qimen-plate-grid";
@@ -1139,7 +1084,7 @@ function renderQimenPlatePlaceholder() {
     }
   }
 
-  section.append(summary, grid);
+  section.append(grid);
   return section;
 }
 

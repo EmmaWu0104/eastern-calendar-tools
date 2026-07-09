@@ -967,61 +967,10 @@ dd {
   background: #fbfcfe;
 }
 
-.qimen-plate-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.qimen-plate-title {
-  color: #52616f;
-  font-size: 13px;
-  font-weight: 800;
-}
-
-.qimen-plate-usage {
-  display: grid;
-  gap: 4px;
-  margin-top: 8px;
-  color: #334e68;
-  font-size: 13px;
-  font-weight: 700;
-  line-height: 1.4;
-}
-
-.qimen-plate-usage-line {
-  min-width: 0;
-  overflow-wrap: anywhere;
-}
-
 .qimen-plate-section {
   display: grid;
-  gap: 10px;
-  margin-top: 12px;
-  padding-top: 12px;
-  border-top: 1px solid #d8dee6;
-}
-
-.qimen-plate-summary {
-  display: grid;
-  gap: 4px;
+  gap: 6px;
   min-width: 0;
-}
-
-.qimen-plate-summary h3 {
-  margin: 0;
-  color: #1f2933;
-  font-size: 15px;
-  line-height: 1.35;
-}
-
-.qimen-plate-summary p {
-  margin: 0;
-  color: #52616f;
-  font-size: 13px;
-  font-weight: 700;
-  line-height: 1.45;
-  overflow-wrap: anywhere;
 }
 
 .qimen-plate-grid {
@@ -1598,10 +1547,6 @@ dd {
 
   .pillar-extra-panel {
     grid-column: 1 / -1;
-  }
-
-  .qimen-plate-header {
-    align-items: start;
   }
 
   .qimen-manual-control-row {
