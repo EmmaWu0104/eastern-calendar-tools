@@ -60,6 +60,20 @@ export function findQimenTianRuiPalaceKey(plate) {
   return null;
 }
 
+export function findQimenDisplayZhiFuPalaceKey(plate) {
+  const fallbackPalaceKey = findQimenFlaggedPalaceKey(plate, "isZhiFuPalace");
+
+  if (plate?.zhiFuStar === "天禽" && isPlainObject(plate?.palaces)) {
+    for (const palaceKey of QIMEN_PALACE_KEYS) {
+      if (palaceKey !== "center" && plate.palaces[palaceKey]?.deity === "值符") {
+        return palaceKey;
+      }
+    }
+  }
+
+  return fallbackPalaceKey;
+}
+
 export function getQimenCenterStemPlacements(plate) {
   const diagnostics = [];
   const center = plate?.palaces?.center;
@@ -123,6 +137,20 @@ export function decorateQimenPlateMarkers(plate) {
 
 function isPlainObject(value) {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function findQimenFlaggedPalaceKey(plate, flagName) {
+  if (!isPlainObject(plate?.palaces)) {
+    return null;
+  }
+
+  for (const palaceKey of QIMEN_PALACE_KEYS) {
+    if (plate.palaces[palaceKey]?.[flagName] === true) {
+      return palaceKey;
+    }
+  }
+
+  return null;
 }
 
 function isNonEmptyString(value) {

@@ -104,6 +104,7 @@ const {
 const { getQimenPlate } = await import("../src/qimenPlateLookup.js");
 const {
   decorateQimenPlateMarkers,
+  findQimenDisplayZhiFuPalaceKey,
   findQimenTianRuiPalaceKey,
   getQimenCenterStemPlacements,
   getQimenDoorPoMarker,
@@ -5975,6 +5976,28 @@ function runQimenPlateMarkersTests() {
   assertEqual("qimen-plate-markers-decorate-placements-heaven", "palaceKey", "kun", markers.placements.centerHeavenStem?.palaceKey);
   assertEqual("qimen-plate-markers-decorate-diagnostics-array", "isArray", true, Array.isArray(markers.diagnostics));
   assertEqual("qimen-plate-markers-decorate-no-pollution", "json", decoratedBefore, JSON.stringify(decoratedPlate));
+
+  const generalZhiFuPlate = createQimenDisplayZhiFuFixturePlate({ zhiFuPalaceKey: "li" });
+  const generalZhiFuBefore = JSON.stringify(generalZhiFuPlate);
+  const tianQinZhiFuPlate = createQimenDisplayZhiFuFixturePlate({
+    zhiFuStar: "天禽",
+    zhiFuPalaceKey: "center",
+    deityZhiFuPalaceKey: "xun",
+  });
+  const tianQinZhiFuBefore = JSON.stringify(tianQinZhiFuPlate);
+  const tianQinMissingDeityPlate = createQimenDisplayZhiFuFixturePlate({
+    zhiFuStar: "天禽",
+    zhiFuPalaceKey: "center",
+  });
+  qimenPlateMarkersVerifiedCaseCount += 1;
+  assertEqual("qimen-plate-markers-display-zhi-fu-general", "palaceKey", "li", findQimenDisplayZhiFuPalaceKey(generalZhiFuPlate));
+  assertEqual("qimen-plate-markers-display-zhi-fu-tian-qin-outer-deity", "palaceKey", "xun", findQimenDisplayZhiFuPalaceKey(tianQinZhiFuPlate));
+  assertEqual("qimen-plate-markers-display-zhi-fu-tian-qin-not-center", "notCenter", true, findQimenDisplayZhiFuPalaceKey(tianQinZhiFuPlate) !== "center");
+  assertEqual("qimen-plate-markers-display-zhi-fu-tian-qin-fallback", "palaceKey", "center", findQimenDisplayZhiFuPalaceKey(tianQinMissingDeityPlate));
+  assertEqual("qimen-plate-markers-display-zhi-fu-no-flag", "palaceKey", null, findQimenDisplayZhiFuPalaceKey(createQimenDisplayZhiFuFixturePlate({ zhiFuPalaceKey: null })));
+  assertEqual("qimen-plate-markers-display-zhi-fu-invalid", "palaceKey", null, findQimenDisplayZhiFuPalaceKey(null));
+  assertEqual("qimen-plate-markers-display-zhi-fu-general-no-pollution", "json", generalZhiFuBefore, JSON.stringify(generalZhiFuPlate));
+  assertEqual("qimen-plate-markers-display-zhi-fu-tian-qin-no-pollution", "json", tianQinZhiFuBefore, JSON.stringify(tianQinZhiFuPlate));
 }
 
 function createQimenMarkerFixturePlate(options = {}) {
@@ -6017,6 +6040,31 @@ function createQimenMarkerFixturePlate(options = {}) {
     zhiShiDoor: "休",
     palaces,
   };
+}
+
+function createQimenDisplayZhiFuFixturePlate(options = {}) {
+  const {
+    zhiFuStar = "天任",
+    zhiFuPalaceKey = "kan",
+    deityZhiFuPalaceKey = null,
+  } = options;
+  const plate = createQimenMarkerFixturePlate();
+
+  plate.zhiFuStar = zhiFuStar;
+  for (const palaceKey of QIMEN_PALACE_KEYS) {
+    plate.palaces[palaceKey].isZhiFuPalace = false;
+    plate.palaces[palaceKey].deity = palaceKey === "center" ? null : "太陰";
+  }
+
+  if (zhiFuPalaceKey) {
+    plate.palaces[zhiFuPalaceKey].isZhiFuPalace = true;
+  }
+
+  if (deityZhiFuPalaceKey) {
+    plate.palaces[deityZhiFuPalaceKey].deity = "值符";
+  }
+
+  return plate;
 }
 
 async function runQimenPlateValidationTests() {

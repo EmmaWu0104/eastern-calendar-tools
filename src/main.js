@@ -22,7 +22,10 @@ import {
 import { getJinhanDunType } from "./jinhanDunType.js";
 import { getNaYinByPillar } from "./nayin.js";
 import { getQimenPlate } from "./qimenPlateLookup.js";
-import { decorateQimenPlateMarkers } from "./qimenPlateMarkers.js";
+import {
+  decorateQimenPlateMarkers,
+  findQimenDisplayZhiFuPalaceKey,
+} from "./qimenPlateMarkers.js";
 import { resolveQimenJuFromFullTermCycleDraft } from "./qimenResolver.js";
 import { loadSolarTerms } from "./solarTerms.js";
 
@@ -74,6 +77,10 @@ const QIMEN_PALACE_DISPLAY_LAYOUT = Object.freeze([
     Object.freeze({ key: "kan", name: "坎", direction: "北", number: 1 }),
     Object.freeze({ key: "qian", name: "乾", direction: "西北", number: 6 }),
   ]),
+]);
+
+const QIMEN_HIDDEN_PLATE_NOTES = new Set([
+  "天禽寄宮未推導，第一版以 center 標記值符",
 ]);
 
 const JINHAN_DEITY_CLASS_NAMES = Object.freeze({
@@ -1092,9 +1099,10 @@ function clearQimenPlateDisplay() {
 
 function renderQimenPlateResult(plateResult, effective) {
   const markers = decorateQimenPlateMarkers(plateResult.plate);
+  const displayZhiFuPalaceKey = findQimenDisplayZhiFuPalaceKey(plateResult.plate);
   qimenElements.plateSection.replaceChildren(
     renderQimenPlateSummary(plateResult, effective),
-    renderQimenPlateGrid(plateResult.plate, markers)
+    renderQimenPlateGrid(plateResult.plate, markers, displayZhiFuPalaceKey)
   );
 }
 
@@ -1129,7 +1137,7 @@ function renderQimenPlateSummary(plateResult, effective) {
   return summary;
 }
 
-function renderQimenPlateGrid(plate, markers) {
+function renderQimenPlateGrid(plate, markers, displayZhiFuPalaceKey) {
   const grid = document.createElement("div");
   grid.className = "qimen-plate-grid";
   grid.setAttribute("aria-label", "奇門盤面九宮");
@@ -1138,21 +1146,24 @@ function renderQimenPlateGrid(plate, markers) {
     grid.append(createQimenPalaceCell(
       plate?.palaces?.[palaceMeta.key],
       palaceMeta,
-      markers?.palaces?.[palaceMeta.key]
+      markers?.palaces?.[palaceMeta.key],
+      displayZhiFuPalaceKey
     ));
   }
 
   return grid;
 }
 
-function createQimenPalaceCell(palace, palaceMeta, palaceMarkers = {}) {
+function createQimenPalaceCell(palace, palaceMeta, palaceMarkers = {}, displayZhiFuPalaceKey = null) {
+  const isDisplayZhiFuPalace = palaceMeta.key === displayZhiFuPalaceKey;
+  const isZhiShiPalace = palace?.isZhiShiPalace === true;
   const cell = document.createElement("div");
   cell.className = [
     "qimen-palace-cell",
     palaceMeta.key === "center" ? "qimen-palace-center" : "",
-    palace?.isZhiFuPalace === true || palace?.isZhiShiPalace === true ? "qimen-palace-zhi-marker" : "",
-    palace?.isZhiFuPalace === true ? "qimen-palace-zhi-fu" : "",
-    palace?.isZhiShiPalace === true ? "qimen-palace-zhi-shi" : "",
+    isDisplayZhiFuPalace || isZhiShiPalace ? "qimen-palace-zhi-marker" : "",
+    isDisplayZhiFuPalace ? "qimen-palace-zhi-fu" : "",
+    isZhiShiPalace ? "qimen-palace-zhi-shi" : "",
   ].filter(Boolean).join(" ");
 
   const header = document.createElement("div");
@@ -1167,7 +1178,7 @@ function createQimenPalaceCell(palace, palaceMeta, palaceMarkers = {}) {
     return cell;
   }
 
-  const content = createQimenPalaceContent(palace, palaceMarkers);
+  const content = createQimenPalaceContent(palace, palaceMarkers, isDisplayZhiFuPalace);
 
   const note = createQimenPalaceNote(palace);
 
@@ -1179,7 +1190,7 @@ function createQimenPalaceCell(palace, palaceMeta, palaceMarkers = {}) {
   return cell;
 }
 
-function createQimenPalaceContent(palace, palaceMarkers = {}) {
+function createQimenPalaceContent(palace, palaceMarkers = {}, isDisplayZhiFuPalace = false) {
   const content = document.createElement("div");
   content.className = "qimen-palace-content";
 
@@ -1189,7 +1200,7 @@ function createQimenPalaceContent(palace, palaceMarkers = {}) {
   const deity = document.createElement("div");
   deity.className = [
     "qimen-palace-deity",
-    palace.isZhiFuPalace === true ? "qimen-palace-deity-zhi-fu" : "",
+    isDisplayZhiFuPalace ? "qimen-palace-deity-zhi-fu" : "",
   ].filter(Boolean).join(" ");
   deity.textContent = formatNullableQimenValue(palace.deity);
 
@@ -1247,7 +1258,9 @@ function createQimenInlineMarker(text, className) {
 }
 
 function createQimenPalaceNote(palace) {
-  const notes = Array.isArray(palace.notes) ? palace.notes.filter(Boolean) : [];
+  const notes = Array.isArray(palace.notes)
+    ? palace.notes.filter((note) => note && !QIMEN_HIDDEN_PLATE_NOTES.has(note))
+    : [];
   if (notes.length === 0) {
     return null;
   }
