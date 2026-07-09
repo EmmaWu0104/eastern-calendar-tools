@@ -57,7 +57,7 @@ const JINHAN_PALACE_META = Object.freeze({
   中: Object.freeze({ name: "中", number: 5, direction: "中" }),
 });
 
-const QIMEN_PLACEHOLDER_PALACE_LAYOUT = Object.freeze([
+const QIMEN_PALACE_DISPLAY_LAYOUT = Object.freeze([
   Object.freeze([
     Object.freeze({ key: "xun", name: "巽", direction: "東南", number: 4 }),
     Object.freeze({ key: "li", name: "離", direction: "南", number: 9 }),
@@ -927,16 +927,17 @@ function createQimenSection() {
   fallback.setAttribute("role", "status");
   fallback.setAttribute("aria-live", "polite");
 
-  const platePlaceholder = renderQimenPlatePlaceholder();
+  const plateSection = createQimenPlateSection();
 
   summaryPanel.append(summary);
-  platePanel.append(manualControls, platePlaceholder, fallback);
+  platePanel.append(manualControls, plateSection, fallback);
   body.append(summaryPanel, platePanel);
   section.append(heading, body);
 
   return {
     section,
     summary,
+    plateSection,
     manualToggle,
     manualFields,
     manualDunSelect,
@@ -968,15 +969,22 @@ function renderQimenSection(dateTimeText) {
         hourPillar: effective.hourPillar,
       });
 
-      qimenElements.fallback.textContent =
-        plate.status !== "found" ? plate.message || QIMEN_MISSING_PLATE_MESSAGE : "";
+      if (plate.status === "found") {
+        renderQimenPlateResult(plate, effective);
+        qimenElements.fallback.textContent = "";
+      } else {
+        clearQimenPlateDisplay();
+        qimenElements.fallback.textContent = plate.message || QIMEN_MISSING_PLATE_MESSAGE;
+      }
     } catch (error) {
       console.error("奇門遁甲盤面查詢失敗", error);
+      clearQimenPlateDisplay();
       qimenElements.fallback.textContent = QIMEN_PLATE_LOAD_ERROR_MESSAGE;
     }
   } catch (error) {
     console.error("奇門遁甲定局查詢失敗", error);
     qimenElements.summary.replaceChildren();
+    clearQimenPlateDisplay();
     qimenElements.fallback.className = "qimen-fallback qimen-fallback-error";
     qimenElements.fallback.textContent = QIMEN_FORMATTER_ERROR_MESSAGE;
   }
@@ -984,6 +992,7 @@ function renderQimenSection(dateTimeText) {
 
 function clearQimenSection() {
   qimenElements.summary.replaceChildren();
+  clearQimenPlateDisplay();
   qimenElements.fallback.className = "qimen-fallback";
   qimenElements.fallback.textContent = "";
   renderQimenManualControlState();
@@ -1069,45 +1078,164 @@ function isValidQimenManualOverride(manualOverride) {
   );
 }
 
-function renderQimenPlatePlaceholder() {
+function createQimenPlateSection() {
   const section = document.createElement("section");
   section.className = "qimen-plate-section";
   section.setAttribute("aria-label", "奇門盤面");
-
-  const grid = document.createElement("div");
-  grid.className = "qimen-plate-grid";
-  grid.setAttribute("aria-label", "奇門盤面九宮 placeholder");
-
-  for (const row of QIMEN_PLACEHOLDER_PALACE_LAYOUT) {
-    for (const palace of row) {
-      grid.append(createQimenPlaceholderPalaceCell(palace));
-    }
-  }
-
-  section.append(grid);
   return section;
 }
 
-function createQimenPlaceholderPalaceCell(palace) {
+function clearQimenPlateDisplay() {
+  qimenElements.plateSection.replaceChildren();
+}
+
+function renderQimenPlateResult(plateResult, effective) {
+  qimenElements.plateSection.replaceChildren(
+    renderQimenPlateSummary(plateResult, effective),
+    renderQimenPlateGrid(plateResult.plate)
+  );
+}
+
+function renderQimenPlateSummary(plateResult, effective) {
+  const summary = document.createElement("div");
+  summary.className = "qimen-plate-summary";
+
+  const items = [
+    ["遁別", effective.dunName || plateResult.meta?.dunName],
+    ["局數", formatQimenJuLabel(effective.ju || plateResult.meta?.ju)],
+    ["時柱", plateResult.plate?.hourPillar],
+    ["直符", plateResult.plate?.zhiFuStar],
+    ["直使", plateResult.plate?.zhiShiDoor],
+  ];
+
+  for (const [label, value] of items) {
+    const item = document.createElement("div");
+    item.className = "qimen-plate-summary-item";
+
+    const labelElement = document.createElement("span");
+    labelElement.className = "qimen-plate-summary-label";
+    labelElement.textContent = `${label}：`;
+
+    const valueElement = document.createElement("span");
+    valueElement.className = "qimen-plate-summary-value";
+    valueElement.textContent = formatNullableQimenValue(value);
+
+    item.append(labelElement, valueElement);
+    summary.append(item);
+  }
+
+  return summary;
+}
+
+function renderQimenPlateGrid(plate) {
+  const grid = document.createElement("div");
+  grid.className = "qimen-plate-grid";
+  grid.setAttribute("aria-label", "奇門盤面九宮");
+
+  for (const palaceMeta of getQimenPlateDisplayOrder()) {
+    grid.append(createQimenPalaceCell(plate?.palaces?.[palaceMeta.key], palaceMeta));
+  }
+
+  return grid;
+}
+
+function createQimenPalaceCell(palace, palaceMeta) {
   const cell = document.createElement("div");
   cell.className = [
     "qimen-palace-cell",
-    palace.key === "center" ? "qimen-palace-center" : "",
+    palaceMeta.key === "center" ? "qimen-palace-center" : "",
   ].filter(Boolean).join(" ");
 
   const header = document.createElement("div");
   header.className = "qimen-palace-header";
-  header.textContent = `${palace.name}｜${palace.direction}｜${palace.number}`;
+  header.textContent = formatQimenPalaceHeader(palace, palaceMeta);
 
   const lines = document.createElement("div");
   lines.className = "qimen-palace-lines";
-  lines.textContent = "待接入";
+
+  if (!palace) {
+    lines.textContent = "資料缺漏";
+    cell.append(header, lines);
+    return cell;
+  }
+
+  lines.append(
+    createQimenPalaceLine("天", palace.heavenStem),
+    createQimenPalaceLine("地", palace.earthStem),
+    createQimenPalaceLine("星", palace.star),
+    createQimenPalaceLine("門", palace.door),
+    createQimenPalaceLine("神", palace.deity)
+  );
 
   const badges = document.createElement("div");
   badges.className = "qimen-palace-badges";
 
+  if (palace.isZhiFuPalace === true) {
+    badges.append(createQimenPalaceBadge("直符", "qimen-badge-zhi-fu"));
+  }
+
+  if (palace.isZhiShiPalace === true) {
+    badges.append(createQimenPalaceBadge("直使", "qimen-badge-zhi-shi"));
+  }
+
+  const note = createQimenPalaceNote(palace);
+
   cell.append(header, lines, badges);
+  if (note) {
+    cell.append(note);
+  }
+
   return cell;
+}
+
+function createQimenPalaceLine(label, value) {
+  const line = document.createElement("div");
+  line.className = "qimen-palace-line";
+
+  const labelElement = document.createElement("span");
+  labelElement.className = "qimen-palace-line-label";
+  labelElement.textContent = label;
+
+  const valueElement = document.createElement("span");
+  valueElement.className = "qimen-palace-line-value";
+  valueElement.textContent = formatNullableQimenValue(value);
+
+  line.append(labelElement, valueElement);
+  return line;
+}
+
+function createQimenPalaceBadge(text, className) {
+  const badge = document.createElement("span");
+  badge.className = className;
+  badge.textContent = text;
+  return badge;
+}
+
+function createQimenPalaceNote(palace) {
+  const notes = Array.isArray(palace.notes) ? palace.notes.filter(Boolean) : [];
+  if (notes.length === 0) {
+    return null;
+  }
+
+  const note = document.createElement("div");
+  note.className = "qimen-palace-note";
+  note.textContent = notes.join("；");
+  return note;
+}
+
+function formatQimenPalaceHeader(palace, palaceMeta) {
+  const name = formatNullableQimenValue(palace?.palaceName || palaceMeta.name);
+  const direction = formatNullableQimenValue(palace?.direction || palaceMeta.direction);
+  const number = formatNullableQimenValue(palace?.luoshuNumber || palaceMeta.number);
+  return `${name}｜${direction}｜${number}`;
+}
+
+function formatNullableQimenValue(value) {
+  return value === null || value === undefined || value === "" ? "—" : String(value);
+}
+
+function getQimenPlateDisplayOrder() {
+  return QIMEN_PALACE_DISPLAY_LAYOUT.flat();
 }
 
 function createQimenSummaryRows(qimen) {
