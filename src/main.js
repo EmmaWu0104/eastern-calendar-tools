@@ -57,6 +57,24 @@ const JINHAN_PALACE_META = Object.freeze({
   中: Object.freeze({ name: "中", number: 5, direction: "中" }),
 });
 
+const QIMEN_PLACEHOLDER_PALACE_LAYOUT = Object.freeze([
+  Object.freeze([
+    Object.freeze({ key: "xun", name: "巽", direction: "東南", number: 4 }),
+    Object.freeze({ key: "li", name: "離", direction: "南", number: 9 }),
+    Object.freeze({ key: "kun", name: "坤", direction: "西南", number: 2 }),
+  ]),
+  Object.freeze([
+    Object.freeze({ key: "zhen", name: "震", direction: "東", number: 3 }),
+    Object.freeze({ key: "center", name: "中", direction: "中", number: 5 }),
+    Object.freeze({ key: "dui", name: "兌", direction: "西", number: 7 }),
+  ]),
+  Object.freeze([
+    Object.freeze({ key: "gen", name: "艮", direction: "東北", number: 8 }),
+    Object.freeze({ key: "kan", name: "坎", direction: "北", number: 1 }),
+    Object.freeze({ key: "qian", name: "乾", direction: "西北", number: 6 }),
+  ]),
+]);
+
 const JINHAN_DEITY_CLASS_NAMES = Object.freeze({
   xishen: "jinhan-deity-xishen",
   caishen: "jinhan-deity-caishen",
@@ -920,8 +938,10 @@ function createQimenSection() {
   fallback.setAttribute("role", "status");
   fallback.setAttribute("aria-live", "polite");
 
+  const platePlaceholder = renderQimenPlatePlaceholder();
+
   summaryPanel.append(summary);
-  platePanel.append(manualControls, plateHeader, plateUsage, fallback);
+  platePanel.append(manualControls, plateHeader, plateUsage, platePlaceholder, fallback);
   body.append(summaryPanel, platePanel);
   section.append(heading, body);
 
@@ -1087,6 +1107,62 @@ function createQimenPlateUsageLine(text) {
   line.className = "qimen-plate-usage-line";
   line.textContent = text;
   return line;
+}
+
+function renderQimenPlatePlaceholder() {
+  const section = document.createElement("section");
+  section.className = "qimen-plate-section";
+  section.setAttribute("aria-label", "奇門盤面");
+
+  const summary = document.createElement("div");
+  summary.className = "qimen-plate-summary";
+
+  const title = document.createElement("h3");
+  title.textContent = "奇門盤面";
+
+  const description = document.createElement("p");
+  description.textContent = "盤面顯示區已預留，下一階段接入正式 1080 盤資料。";
+
+  const note = document.createElement("p");
+  note.className = "qimen-palace-note";
+  note.textContent = "目前定局結果已可查到盤面資料，正式渲染將於後續包次接入。";
+
+  summary.append(title, description, note);
+
+  const grid = document.createElement("div");
+  grid.className = "qimen-plate-grid";
+  grid.setAttribute("aria-label", "奇門盤面九宮 placeholder");
+
+  for (const row of QIMEN_PLACEHOLDER_PALACE_LAYOUT) {
+    for (const palace of row) {
+      grid.append(createQimenPlaceholderPalaceCell(palace));
+    }
+  }
+
+  section.append(summary, grid);
+  return section;
+}
+
+function createQimenPlaceholderPalaceCell(palace) {
+  const cell = document.createElement("div");
+  cell.className = [
+    "qimen-palace-cell",
+    palace.key === "center" ? "qimen-palace-center" : "",
+  ].filter(Boolean).join(" ");
+
+  const header = document.createElement("div");
+  header.className = "qimen-palace-header";
+  header.textContent = `${palace.name}｜${palace.direction}｜${palace.number}`;
+
+  const lines = document.createElement("div");
+  lines.className = "qimen-palace-lines";
+  lines.textContent = "待接入";
+
+  const badges = document.createElement("div");
+  badges.className = "qimen-palace-badges";
+
+  cell.append(header, lines, badges);
+  return cell;
 }
 
 function createQimenSummaryRows(qimen) {
