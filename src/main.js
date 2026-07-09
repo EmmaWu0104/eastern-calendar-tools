@@ -1150,22 +1150,15 @@ function createQimenPalaceCell(palace, palaceMeta) {
   header.className = "qimen-palace-header";
   header.textContent = formatQimenPalaceHeader(palace, palaceMeta);
 
-  const lines = document.createElement("div");
-  lines.className = "qimen-palace-lines";
-
   if (!palace) {
+    const lines = document.createElement("div");
+    lines.className = "qimen-palace-lines";
     lines.textContent = "資料缺漏";
     cell.append(header, lines);
     return cell;
   }
 
-  lines.append(
-    createQimenPalaceLine("天", palace.heavenStem),
-    createQimenPalaceLine("地", palace.earthStem),
-    createQimenPalaceLine("星", palace.star),
-    createQimenPalaceLine("門", palace.door),
-    createQimenPalaceLine("神", palace.deity)
-  );
+  const content = createQimenPalaceContent(palace);
 
   const badges = document.createElement("div");
   badges.className = "qimen-palace-badges";
@@ -1180,7 +1173,7 @@ function createQimenPalaceCell(palace, palaceMeta) {
 
   const note = createQimenPalaceNote(palace);
 
-  cell.append(header, lines, badges);
+  cell.append(header, content, badges);
   if (note) {
     cell.append(note);
   }
@@ -1188,20 +1181,46 @@ function createQimenPalaceCell(palace, palaceMeta) {
   return cell;
 }
 
-function createQimenPalaceLine(label, value) {
-  const line = document.createElement("div");
-  line.className = "qimen-palace-line";
+function createQimenPalaceContent(palace) {
+  const content = document.createElement("div");
+  content.className = "qimen-palace-content";
 
-  const labelElement = document.createElement("span");
-  labelElement.className = "qimen-palace-line-label";
-  labelElement.textContent = label;
+  const left = document.createElement("div");
+  left.className = "qimen-palace-left";
 
-  const valueElement = document.createElement("span");
-  valueElement.className = "qimen-palace-line-value";
-  valueElement.textContent = formatNullableQimenValue(value);
+  const deity = document.createElement("div");
+  deity.className = "qimen-palace-deity";
+  deity.textContent = formatNullableQimenValue(palace.deity);
 
-  line.append(labelElement, valueElement);
-  return line;
+  const star = document.createElement("div");
+  star.className = "qimen-palace-star";
+  star.textContent = formatNullableQimenValue(palace.star);
+
+  left.append(deity, star);
+
+  const center = document.createElement("div");
+  center.className = "qimen-palace-center-main";
+
+  const door = document.createElement("div");
+  door.className = "qimen-palace-door";
+  door.textContent = formatNullableQimenValue(palace.door);
+
+  center.append(door);
+
+  const right = document.createElement("div");
+  right.className = "qimen-palace-right";
+
+  const heavenStem = document.createElement("div");
+  heavenStem.className = "qimen-palace-heaven-stem";
+  heavenStem.textContent = formatNullableQimenValue(palace.heavenStem);
+
+  const earthStem = document.createElement("div");
+  earthStem.className = "qimen-palace-earth-stem";
+  earthStem.textContent = formatNullableQimenValue(palace.earthStem);
+
+  right.append(heavenStem, earthStem);
+  content.append(left, center, right);
+  return content;
 }
 
 function createQimenPalaceBadge(text, className) {

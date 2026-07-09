@@ -1008,10 +1008,11 @@ dd {
 
 .qimen-palace-cell {
   display: grid;
-  gap: 5px;
+  gap: 3px;
+  align-content: start;
   min-width: 0;
-  min-height: 128px;
-  padding: 8px;
+  min-height: 104px;
+  padding: 6px 7px 7px;
   border: 1px solid #d8dee6;
   border-radius: 6px;
   background: #ffffff;
@@ -1026,7 +1027,7 @@ dd {
   color: #334e68;
   font-size: 12px;
   font-weight: 850;
-  line-height: 1.35;
+  line-height: 1.2;
   overflow-wrap: anywhere;
 }
 
@@ -1039,23 +1040,82 @@ dd {
   line-height: 1.4;
 }
 
-.qimen-palace-line {
+.qimen-palace-content {
   display: grid;
-  grid-template-columns: 1.6em minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) minmax(34px, 0.72fr) minmax(26px, 0.56fr);
   gap: 4px;
+  align-items: start;
+  min-width: 0;
+  min-height: 48px;
+}
+
+.qimen-palace-left,
+.qimen-palace-center-main,
+.qimen-palace-right {
+  display: grid;
   min-width: 0;
 }
 
-.qimen-palace-line-label {
-  color: #52616f;
-  font-weight: 850;
+.qimen-palace-left {
+  gap: 2px;
+  align-content: start;
 }
 
-.qimen-palace-line-value {
+.qimen-palace-center-main {
+  justify-items: start;
+  align-content: start;
+  padding-top: 6px;
+  transform: translateX(-3px);
+}
+
+.qimen-palace-right {
+  gap: 2px;
+  justify-items: center;
+  align-content: start;
+  padding-top: 1px;
+}
+
+.qimen-palace-deity,
+.qimen-palace-star,
+.qimen-palace-door,
+.qimen-palace-heaven-stem,
+.qimen-palace-earth-stem {
   min-width: 0;
   color: #1f2933;
   font-weight: 800;
   overflow-wrap: anywhere;
+}
+
+.qimen-palace-deity {
+  font-size: 15px;
+  line-height: 1.25;
+}
+
+.qimen-palace-star {
+  color: #52616f;
+  font-size: 12px;
+  line-height: 1.25;
+}
+
+.qimen-palace-door {
+  display: inline-grid;
+  place-items: center;
+  min-width: 34px;
+  min-height: 34px;
+  padding: 4px 6px;
+  border: 1px solid #b8c2cc;
+  border-radius: 999px;
+  background: #fbfcfe;
+  font-size: 16px;
+  line-height: 1;
+  text-align: center;
+}
+
+.qimen-palace-heaven-stem,
+.qimen-palace-earth-stem {
+  font-size: 15px;
+  line-height: 1.2;
+  text-align: center;
 }
 
 .qimen-palace-badges {
@@ -1617,8 +1677,8 @@ dd {
   }
 
   .qimen-palace-cell {
-    min-height: 118px;
-    padding: 6px;
+    min-height: 96px;
+    padding: 5px;
   }
 
   .qimen-plate-summary,
@@ -1628,9 +1688,32 @@ dd {
     font-size: 11px;
   }
 
-  .qimen-palace-line {
-    grid-template-columns: 1.4em minmax(0, 1fr);
+  .qimen-palace-content {
+    grid-template-columns: minmax(0, 1fr) minmax(29px, 0.7fr) minmax(21px, 0.52fr);
     gap: 3px;
+    min-height: 44px;
+  }
+
+  .qimen-palace-center-main {
+    padding-top: 5px;
+    transform: translateX(-2px);
+  }
+
+  .qimen-palace-deity,
+  .qimen-palace-heaven-stem,
+  .qimen-palace-earth-stem {
+    font-size: 13px;
+  }
+
+  .qimen-palace-star {
+    font-size: 11px;
+  }
+
+  .qimen-palace-door {
+    min-width: 30px;
+    min-height: 30px;
+    padding: 3px 5px;
+    font-size: 14px;
   }
 
   .jinhan-palace {
