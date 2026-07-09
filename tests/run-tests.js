@@ -168,6 +168,7 @@ let jinhanDunTypeVerifiedCaseCount = 0;
 let qimenYuanJuTermCount = 0;
 let qimenPlateFileCount = 0;
 let qimenPlateNullCount = 0;
+let qimenPlateObjectCount = 0;
 let qimenHelperVerifiedCaseCount = 0;
 let qimenFuTouScanVerifiedCaseCount = 0;
 let qimenTermAssignmentVerifiedCaseCount = 0;
@@ -490,6 +491,7 @@ const qimenStats = await validateQimenData(qimenYuanJuTableData);
 qimenYuanJuTermCount = qimenStats.termCount;
 qimenPlateFileCount = qimenStats.plateFiles;
 qimenPlateNullCount = qimenStats.nullPlates;
+qimenPlateObjectCount = qimenStats.plateObjects;
 
 runJinhanYujingLookupTests();
 runJinhanDunTypeV1Tests();
@@ -565,7 +567,7 @@ if (failures.length > 0) {
   console.log(`金函玉鏡查表測試通過：${jinhanLookupVerifiedCaseCount} cases`);
   console.log(`金函玉鏡超神接氣 v1 測試通過：${jinhanDunTypeVerifiedCaseCount} cases`);
   console.log(
-    `奇門遁甲資料檢查通過：${qimenYuanJuTermCount} terms, ${qimenPlateFileCount} plate files, ${qimenPlateNullCount} null plates`
+    `奇門遁甲資料檢查通過：${qimenYuanJuTermCount} terms, ${qimenPlateFileCount} plate files, ${qimenPlateObjectCount} plate objects, ${qimenPlateNullCount} null plates`
   );
   console.log(`奇門置閏法 helper 測試通過：${qimenHelperVerifiedCaseCount} cases`);
   console.log(`奇門符頭掃描測試通過：${qimenFuTouScanVerifiedCaseCount} cases`);
@@ -702,6 +704,7 @@ async function validateQimenData(yuanJuTable) {
   const termNames = terms && typeof terms === "object" ? Object.keys(terms) : [];
   let plateFiles = 0;
   let nullPlates = 0;
+  let plateObjects = 0;
 
   if (!yuanJuTable.meta?.schemaVersion) {
     failures.push({
@@ -823,7 +826,9 @@ async function validateQimenData(yuanJuTable) {
       }
 
       plateFiles += 1;
-      nullPlates += validateQimenPlateFile(dunType, ju, plateData, expectedPillarSet);
+      const plateStats = validateQimenPlateFile(dunType, ju, plateData, expectedPillarSet);
+      nullPlates += plateStats.nullPlates;
+      plateObjects += plateStats.plateObjects;
     }
   }
 
@@ -831,6 +836,7 @@ async function validateQimenData(yuanJuTable) {
     termCount: termNames.length,
     plateFiles,
     nullPlates,
+    plateObjects,
   };
 }
 
@@ -840,6 +846,7 @@ function validateQimenPlateFile(dunType, ju, plateData, expectedPillarSet) {
   const meta = plateData.meta;
   const plates = plateData.plates;
   let nullCount = 0;
+  let objectCount = 0;
 
   if (!meta?.schemaVersion) {
     failures.push({
@@ -893,7 +900,10 @@ function validateQimenPlateFile(dunType, ju, plateData, expectedPillarSet) {
       expected: "object",
       actual: Array.isArray(plates) ? "array" : typeof plates,
     });
-    return nullCount;
+    return {
+      nullPlates: nullCount,
+      plateObjects: objectCount,
+    };
   }
 
   const plateKeys = Object.keys(plates);
@@ -932,15 +942,33 @@ function validateQimenPlateFile(dunType, ju, plateData, expectedPillarSet) {
       continue;
     }
 
+    if (typeof plates[pillar] === "object" && !Array.isArray(plates[pillar])) {
+      objectCount += 1;
+      continue;
+    }
+
     failures.push({
       id,
       key: `plates.${pillar}`,
-      expected: null,
-      actual: typeof plates[pillar],
+      expected: "null or object",
+      actual: Array.isArray(plates[pillar]) ? "array" : typeof plates[pillar],
     });
   }
 
-  return nullCount;
+  const schemaResult = validateQimenPlateSchemaFile(plateData, createQimenPlateValidationContext(dunType, ju));
+  if (!schemaResult.ok) {
+    failures.push({
+      id,
+      key: "schemaValidation",
+      expected: "ok",
+      actual: schemaResult.errors.map((error) => error.code).join(","),
+    });
+  }
+
+  return {
+    nullPlates: nullCount,
+    plateObjects: objectCount,
+  };
 }
 
 function validateJinhanYujingData(data) {
@@ -5724,7 +5752,6 @@ function runQimenFullTermCycleDraftResolverFormatterCacheReplacementTests() {
 }
 
 function runQimenPlateLookupTests() {
-  const missingDataMessage = "盤面資料尚未建立，目前僅顯示定局結果。";
   const invalidInputMessage = "奇門盤面查詢參數不完整，暫時無法顯示盤面。";
 
   const yangJu1Jiazi = getQimenPlate({
@@ -5733,16 +5760,17 @@ function runQimenPlateLookupTests() {
     hourPillar: "甲子",
   });
   qimenPlateLookupVerifiedCaseCount += 1;
-  assertEqual("qimen-plate-lookup-yang-ju-1-jiazi", "found", false, yangJu1Jiazi.found);
-  assertEqual("qimen-plate-lookup-yang-ju-1-jiazi", "status", "nullPlate", yangJu1Jiazi.status);
-  assertEqual("qimen-plate-lookup-yang-ju-1-jiazi", "message", missingDataMessage, yangJu1Jiazi.message);
+  assertFoundQimenPlate("qimen-plate-lookup-yang-ju-1-jiazi", yangJu1Jiazi, {
+    dunType: "yang",
+    dunName: "陽遁",
+    ju: 1,
+    hourPillar: "甲子",
+    filePath: "data/qimen/plates/yang/ju-1.json",
+  });
   assertEqual("qimen-plate-lookup-yang-ju-1-jiazi", "meta.dunType", "yang", yangJu1Jiazi.meta?.dunType);
   assertEqual("qimen-plate-lookup-yang-ju-1-jiazi", "meta.dunName", "陽遁", yangJu1Jiazi.meta?.dunName);
   assertEqual("qimen-plate-lookup-yang-ju-1-jiazi", "meta.ju", 1, yangJu1Jiazi.meta?.ju);
   assertEqual("qimen-plate-lookup-yang-ju-1-jiazi", "meta.plateCount", 60, yangJu1Jiazi.meta?.plateCount);
-  assertEqual("qimen-plate-lookup-yang-ju-1-jiazi", "lookup.filePath", "data/qimen/plates/yang/ju-1.json", yangJu1Jiazi.lookup?.filePath);
-  assertEqual("qimen-plate-lookup-yang-ju-1-jiazi", "lookup.hourPillar", "甲子", yangJu1Jiazi.lookup?.hourPillar);
-  assertEqual("qimen-plate-lookup-yang-ju-1-jiazi", "plate", null, yangJu1Jiazi.plate);
 
   const yinJu9Guihai = getQimenPlate({
     dunType: "yin",
@@ -5750,14 +5778,16 @@ function runQimenPlateLookupTests() {
     hourPillar: "癸亥",
   });
   qimenPlateLookupVerifiedCaseCount += 1;
-  assertEqual("qimen-plate-lookup-yin-ju-9-guihai", "found", false, yinJu9Guihai.found);
-  assertEqual("qimen-plate-lookup-yin-ju-9-guihai", "status", "nullPlate", yinJu9Guihai.status);
-  assertEqual("qimen-plate-lookup-yin-ju-9-guihai", "message", missingDataMessage, yinJu9Guihai.message);
+  assertFoundQimenPlate("qimen-plate-lookup-yin-ju-9-guihai", yinJu9Guihai, {
+    dunType: "yin",
+    dunName: "陰遁",
+    ju: 9,
+    hourPillar: "癸亥",
+    filePath: "data/qimen/plates/yin/ju-9.json",
+  });
   assertEqual("qimen-plate-lookup-yin-ju-9-guihai", "meta.dunType", "yin", yinJu9Guihai.meta?.dunType);
   assertEqual("qimen-plate-lookup-yin-ju-9-guihai", "meta.dunName", "陰遁", yinJu9Guihai.meta?.dunName);
   assertEqual("qimen-plate-lookup-yin-ju-9-guihai", "meta.ju", 9, yinJu9Guihai.meta?.ju);
-  assertEqual("qimen-plate-lookup-yin-ju-9-guihai", "lookup.filePath", "data/qimen/plates/yin/ju-9.json", yinJu9Guihai.lookup?.filePath);
-  assertEqual("qimen-plate-lookup-yin-ju-9-guihai", "lookup.hourPillar", "癸亥", yinJu9Guihai.lookup?.hourPillar);
 
   const invalidDunType = getQimenPlate({
     dunType: "invalid",
@@ -5801,10 +5831,12 @@ function runQimenPlateLookupTests() {
 
   const firstLookup = getQimenPlate({ dunType: "yang", ju: 1, hourPillar: "甲子" });
   firstLookup.meta.dunType = "污染";
+  firstLookup.plate.palaces.kan.star = "污染";
   const secondLookup = getQimenPlate({ dunType: "yang", ju: 1, hourPillar: "甲子" });
   qimenPlateLookupVerifiedCaseCount += 1;
   assertEqual("qimen-plate-lookup-clone-safety", "second.meta.dunType", "yang", secondLookup.meta?.dunType);
   assertEqual("qimen-plate-lookup-clone-safety", "second.meta.ju", 1, secondLookup.meta?.ju);
+  assertEqual("qimen-plate-lookup-clone-safety", "second.plate.palaces.kan.star", "天蓬", secondLookup.plate?.palaces?.kan?.star);
 
   const qimen = resolveQimenJuFromFullTermCycleDraft("2027-12-26T12:00:00+08:00");
   const plate = getQimenPlate({
@@ -5816,28 +5848,48 @@ function runQimenPlateLookupTests() {
   assertEqual("qimen-plate-lookup-formatter-integration", "qimen.dunType", "yang", qimen.dunType);
   assertEqual("qimen-plate-lookup-formatter-integration", "qimen.ju", 1, qimen.ju);
   assertEqual("qimen-plate-lookup-formatter-integration", "qimen.hourPillar.string", true, typeof qimen.hourPillar === "string");
-  assertEqual("qimen-plate-lookup-formatter-integration", "plate.status", "nullPlate", plate.status);
-  assertEqual("qimen-plate-lookup-formatter-integration", "plate.found", false, plate.found);
-  assertEqual("qimen-plate-lookup-formatter-integration", "plate.message", missingDataMessage, plate.message);
+  assertEqual("qimen-plate-lookup-formatter-integration", "plate.status", "found", plate.status);
+  assertEqual("qimen-plate-lookup-formatter-integration", "plate.found", true, plate.found);
+  assertEqual("qimen-plate-lookup-formatter-integration", "plate.hourPillar", qimen.hourPillar, plate.plate?.hourPillar);
 
   qimenPlateLookupVerifiedCaseCount += 1;
   for (const dunType of ["yang", "yin"]) {
     for (let ju = 1; ju <= 9; ju += 1) {
       const actual = getQimenPlate({ dunType, ju, hourPillar: "甲子" });
       const id = `qimen-plate-lookup-18-file-smoke-${dunType}-ju-${ju}`;
-      assertEqual(id, "status", "nullPlate", actual.status);
+      assertEqual(id, "found", true, actual.found);
+      assertEqual(id, "status", "found", actual.status);
       assertEqual(id, "meta.dunType", dunType, actual.meta?.dunType);
       assertEqual(id, "meta.ju", ju, actual.meta?.ju);
       assertEqual(id, "lookup.filePath", `data/qimen/plates/${dunType}/ju-${ju}.json`, actual.lookup?.filePath);
+      assertEqual(id, "plate.hourPillar", "甲子", actual.plate?.hourPillar);
     }
   }
 
   qimenPlateLookupVerifiedCaseCount += 1;
   for (const pillar of SEXAGENARY_CYCLE) {
     const actual = getQimenPlate({ dunType: "yang", ju: 1, hourPillar: pillar });
-    assertEqual(`qimen-plate-lookup-60-hour-pillars-${pillar}`, "status", "nullPlate", actual.status);
+    assertEqual(`qimen-plate-lookup-60-hour-pillars-${pillar}`, "found", true, actual.found);
+    assertEqual(`qimen-plate-lookup-60-hour-pillars-${pillar}`, "status", "found", actual.status);
     assertEqual(`qimen-plate-lookup-60-hour-pillars-${pillar}`, "lookup.hourPillar", pillar, actual.lookup?.hourPillar);
+    assertEqual(`qimen-plate-lookup-60-hour-pillars-${pillar}`, "plate.hourPillar", pillar, actual.plate?.hourPillar);
   }
+}
+
+function assertFoundQimenPlate(id, actual, expected) {
+  assertEqual(id, "found", true, actual.found);
+  assertEqual(id, "status", "found", actual.status);
+  assertEqual(id, "message", "", actual.message);
+  assertEqual(id, "lookup.filePath", expected.filePath, actual.lookup?.filePath);
+  assertEqual(id, "lookup.hourPillar", expected.hourPillar, actual.lookup?.hourPillar);
+  assertEqual(id, "meta.dunType", expected.dunType, actual.meta?.dunType);
+  assertEqual(id, "meta.dunName", expected.dunName, actual.meta?.dunName);
+  assertEqual(id, "meta.ju", expected.ju, actual.meta?.ju);
+  assertEqual(id, "plate.hourPillar", expected.hourPillar, actual.plate?.hourPillar);
+  assertEqual(id, "plate.zhiFuStar.exists", true, typeof actual.plate?.zhiFuStar === "string" && actual.plate.zhiFuStar.length > 0);
+  assertEqual(id, "plate.zhiShiDoor.exists", true, typeof actual.plate?.zhiShiDoor === "string" && actual.plate.zhiShiDoor.length > 0);
+  assertEqual(id, "plate.palaces.center.exists", true, Boolean(actual.plate?.palaces?.center));
+  assertEqual(id, "plate.palaces.center.star", "天禽", actual.plate?.palaces?.center?.star);
 }
 
 async function runQimenPlateValidationTests() {
@@ -6069,11 +6121,6 @@ async function runQimen1080PreviewWriterTests() {
     assertEqual("qimen-1080-preview-writer-validation", "allParserOk", true, [...previewFiles.values()].every((file) => file.diagnostics?.parserOk === true));
     assertEqual("qimen-1080-preview-writer-validation", "allDryRunOk", true, [...previewFiles.values()].every((file) => file.diagnostics?.dryRunOk === true));
 
-    const lookupWhilePreviewExists = getQimenPlate({ dunType: "yang", ju: 1, hourPillar: "甲子" });
-    qimen1080PreviewWriterVerifiedCaseCount += 1;
-    assertEqual("qimen-1080-preview-writer-lookup-ignores-preview", "found", false, lookupWhilePreviewExists.found);
-    assertEqual("qimen-1080-preview-writer-lookup-ignores-preview", "status", "nullPlate", lookupWhilePreviewExists.status);
-    assertEqual("qimen-1080-preview-writer-lookup-ignores-preview", "plate", null, lookupWhilePreviewExists.plate);
   } finally {
     await clearQimen1080PreviewOutput();
   }
@@ -6161,11 +6208,6 @@ async function runQimen1080FormalPlateAdapterTests() {
     plateFilesSnapshotAfter
   );
 
-  const lookupAfterAdapter = getQimenPlate({ dunType: "yang", ju: 1, hourPillar: "甲子" });
-  qimen1080FormalPlateAdapterVerifiedCaseCount += 1;
-  assertEqual("qimen-1080-formal-adapter-lookup-unchanged", "found", false, lookupAfterAdapter.found);
-  assertEqual("qimen-1080-formal-adapter-lookup-unchanged", "status", "nullPlate", lookupAfterAdapter.status);
-  assertEqual("qimen-1080-formal-adapter-lookup-unchanged", "plate", null, lookupAfterAdapter.plate);
 }
 
 async function runQimen1080FormalCandidateWriterTests() {
@@ -6225,11 +6267,6 @@ async function runQimen1080FormalCandidateWriterTests() {
     assertFormalAdapterSamplePlate("qimen-1080-formal-candidate-writer-sample-yin-ju-1-jiazi", candidateFiles.get("yin/ju-1.json")?.plates?.["甲子"], "甲子");
     assertFormalAdapterSamplePlate("qimen-1080-formal-candidate-writer-sample-yin-ju-9-guihai", candidateFiles.get("yin/ju-9.json")?.plates?.["癸亥"], "癸亥");
 
-    const lookupWhileCandidateExists = getQimenPlate({ dunType: "yang", ju: 1, hourPillar: "甲子" });
-    qimen1080FormalCandidateWriterVerifiedCaseCount += 1;
-    assertEqual("qimen-1080-formal-candidate-writer-lookup-ignores-candidate", "found", false, lookupWhileCandidateExists.found);
-    assertEqual("qimen-1080-formal-candidate-writer-lookup-ignores-candidate", "status", "nullPlate", lookupWhileCandidateExists.status);
-    assertEqual("qimen-1080-formal-candidate-writer-lookup-ignores-candidate", "plate", null, lookupWhileCandidateExists.plate);
   } finally {
     await clearQimen1080FormalCandidateOutput();
   }
