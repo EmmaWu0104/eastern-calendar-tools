@@ -1098,6 +1098,7 @@ dd {
 }
 
 .qimen-palace-door {
+  position: relative;
   display: inline-grid;
   place-items: center;
   min-width: 34px;
@@ -1109,6 +1110,50 @@ dd {
   font-size: 16px;
   line-height: 1;
   text-align: center;
+}
+
+.qimen-stem-wrap {
+  display: inline-flex;
+  gap: 2px;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+}
+
+.qimen-heaven-stem-marker,
+.qimen-door-po-marker,
+.qimen-center-stem-marker {
+  display: inline-grid;
+  place-items: center;
+  min-width: 14px;
+  min-height: 14px;
+  padding: 0 2px;
+  border: 1px solid #c7d1dc;
+  border-radius: 3px;
+  background: #ffffff;
+  color: #334e68;
+  font-size: 10px;
+  font-weight: 850;
+  line-height: 1;
+}
+
+.qimen-heaven-stem-marker {
+  border-color: #d1a36f;
+  color: #8a5a00;
+}
+
+.qimen-door-po-marker {
+  position: absolute;
+  right: -5px;
+  bottom: -5px;
+  border-color: #b8c2cc;
+  color: #475569;
+}
+
+.qimen-center-stem-marker {
+  border-color: #93c5fd;
+  background: #f8fbff;
+  color: #1d4ed8;
 }
 
 .qimen-palace-heaven-stem,
@@ -1714,6 +1759,14 @@ dd {
     min-height: 30px;
     padding: 3px 5px;
     font-size: 14px;
+  }
+
+  .qimen-heaven-stem-marker,
+  .qimen-door-po-marker,
+  .qimen-center-stem-marker {
+    min-width: 12px;
+    min-height: 12px;
+    font-size: 9px;
   }
 
   .jinhan-palace {

@@ -22,6 +22,7 @@ import {
 import { getJinhanDunType } from "./jinhanDunType.js";
 import { getNaYinByPillar } from "./nayin.js";
 import { getQimenPlate } from "./qimenPlateLookup.js";
+import { decorateQimenPlateMarkers } from "./qimenPlateMarkers.js";
 import { resolveQimenJuFromFullTermCycleDraft } from "./qimenResolver.js";
 import { loadSolarTerms } from "./solarTerms.js";
 
@@ -1090,9 +1091,10 @@ function clearQimenPlateDisplay() {
 }
 
 function renderQimenPlateResult(plateResult, effective) {
+  const markers = decorateQimenPlateMarkers(plateResult.plate);
   qimenElements.plateSection.replaceChildren(
     renderQimenPlateSummary(plateResult, effective),
-    renderQimenPlateGrid(plateResult.plate)
+    renderQimenPlateGrid(plateResult.plate, markers)
   );
 }
 
@@ -1127,19 +1129,23 @@ function renderQimenPlateSummary(plateResult, effective) {
   return summary;
 }
 
-function renderQimenPlateGrid(plate) {
+function renderQimenPlateGrid(plate, markers) {
   const grid = document.createElement("div");
   grid.className = "qimen-plate-grid";
   grid.setAttribute("aria-label", "奇門盤面九宮");
 
   for (const palaceMeta of getQimenPlateDisplayOrder()) {
-    grid.append(createQimenPalaceCell(plate?.palaces?.[palaceMeta.key], palaceMeta));
+    grid.append(createQimenPalaceCell(
+      plate?.palaces?.[palaceMeta.key],
+      palaceMeta,
+      markers?.palaces?.[palaceMeta.key]
+    ));
   }
 
   return grid;
 }
 
-function createQimenPalaceCell(palace, palaceMeta) {
+function createQimenPalaceCell(palace, palaceMeta, palaceMarkers = {}) {
   const cell = document.createElement("div");
   cell.className = [
     "qimen-palace-cell",
@@ -1158,7 +1164,7 @@ function createQimenPalaceCell(palace, palaceMeta) {
     return cell;
   }
 
-  const content = createQimenPalaceContent(palace);
+  const content = createQimenPalaceContent(palace, palaceMarkers);
 
   const badges = document.createElement("div");
   badges.className = "qimen-palace-badges";
@@ -1181,7 +1187,7 @@ function createQimenPalaceCell(palace, palaceMeta) {
   return cell;
 }
 
-function createQimenPalaceContent(palace) {
+function createQimenPalaceContent(palace, palaceMarkers = {}) {
   const content = document.createElement("div");
   content.className = "qimen-palace-content";
 
@@ -1203,7 +1209,10 @@ function createQimenPalaceContent(palace) {
 
   const door = document.createElement("div");
   door.className = "qimen-palace-door";
-  door.textContent = formatNullableQimenValue(palace.door);
+  door.append(document.createTextNode(formatNullableQimenValue(palace.door)));
+  if (palaceMarkers.doorPo) {
+    door.append(createQimenInlineMarker(palaceMarkers.doorPo, "qimen-door-po-marker"));
+  }
 
   center.append(door);
 
@@ -1211,16 +1220,32 @@ function createQimenPalaceContent(palace) {
   right.className = "qimen-palace-right";
 
   const heavenStem = document.createElement("div");
-  heavenStem.className = "qimen-palace-heaven-stem";
-  heavenStem.textContent = formatNullableQimenValue(palace.heavenStem);
+  heavenStem.className = "qimen-stem-wrap qimen-palace-heaven-stem";
+  heavenStem.append(document.createTextNode(formatNullableQimenValue(palace.heavenStem)));
+  if (palaceMarkers.heavenStemMarker) {
+    heavenStem.append(createQimenInlineMarker(palaceMarkers.heavenStemMarker, "qimen-heaven-stem-marker"));
+  }
+  if (palaceMarkers.centerHeavenStem) {
+    heavenStem.append(createQimenInlineMarker(palaceMarkers.centerHeavenStem, "qimen-center-stem-marker qimen-center-heaven-stem-marker"));
+  }
 
   const earthStem = document.createElement("div");
-  earthStem.className = "qimen-palace-earth-stem";
-  earthStem.textContent = formatNullableQimenValue(palace.earthStem);
+  earthStem.className = "qimen-stem-wrap qimen-palace-earth-stem";
+  earthStem.append(document.createTextNode(formatNullableQimenValue(palace.earthStem)));
+  if (palaceMarkers.centerEarthStem) {
+    earthStem.append(createQimenInlineMarker(palaceMarkers.centerEarthStem, "qimen-center-stem-marker qimen-center-earth-stem-marker"));
+  }
 
   right.append(heavenStem, earthStem);
   content.append(left, center, right);
   return content;
+}
+
+function createQimenInlineMarker(text, className) {
+  const marker = document.createElement("span");
+  marker.className = className;
+  marker.textContent = text;
+  return marker;
 }
 
 function createQimenPalaceBadge(text, className) {
