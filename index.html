@@ -11,6 +11,15 @@
     <main class="app">
       <h1>干支曆核心查詢</h1>
 
+      <section class="panel query-panel" aria-labelledby="query-title">
+        <h2 id="query-title">查詢</h2>
+        <label for="datetime">本地日期時間</label>
+        <div class="query-row">
+          <input id="datetime" type="datetime-local" step="1">
+          <button id="use-now" type="button">現在時間</button>
+        </div>
+      </section>
+
       <div class="tabs" role="tablist" aria-label="首頁功能頁籤">
         <button id="tab-bazi" class="tab-button is-active" type="button" role="tab" aria-selected="true" aria-controls="panel-bazi">四柱節氣</button>
         <button id="tab-jinhan" class="tab-button" type="button" role="tab" aria-selected="false" aria-controls="panel-jinhan">金函玉鏡</button>
@@ -19,13 +28,7 @@
       </div>
 
       <div id="panel-bazi" class="tab-panel" role="tabpanel" aria-labelledby="tab-bazi">
-        <section class="panel" aria-labelledby="query-title">
-          <h2 id="query-title">查詢</h2>
-          <label for="datetime">本地日期時間</label>
-          <div class="query-row">
-            <input id="datetime" type="datetime-local" step="1">
-            <button id="use-now" type="button">現在時間</button>
-          </div>
+        <section class="panel weekday-panel" aria-label="星期與每日資訊">
           <p id="weekday-label" class="weekday-label" aria-live="polite">--</p>
         </section>
 

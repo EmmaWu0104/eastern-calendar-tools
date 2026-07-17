@@ -91,6 +91,15 @@ label {
   font-weight: 700;
 }
 
+.weekday-panel {
+  padding-top: 12px;
+  padding-bottom: 12px;
+}
+
+.weekday-panel .weekday-label {
+  margin-top: 0;
+}
+
 .weekday-line,
 .daily-clothing,
 .daily-clothing-title,
@@ -946,8 +955,16 @@ dd {
 .qimen-body {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: 12px;
+  gap: 16px;
   align-items: stretch;
+}
+
+.qimen-section {
+  margin-bottom: 16px;
+}
+
+.qimen-info-card {
+  margin: 0;
 }
 
 .qimen-summary-panel {
@@ -1677,12 +1694,12 @@ dd {
 
 .jinhan-hours-table th:nth-child(1),
 .jinhan-hours-table td:nth-child(1) {
-  width: 30%;
+  width: 40%;
 }
 
 .jinhan-hours-table th:nth-child(2),
 .jinhan-hours-table td:nth-child(2) {
-  width: 30%;
+  width: 20%;
   overflow-wrap: anywhere;
   word-break: break-word;
 }
@@ -1937,14 +1954,14 @@ dd {
 }
 
 @media (min-width: 390px) and (max-width: 430px) {
-  .qimen-section {
-    margin-inline: -12px;
-    padding: 8px;
-  }
-
   .qimen-plate-panel {
     --qimen-grid-min-width: 100%;
     padding: 3px;
+  }
+
+  .qimen-manual-controls,
+  .qimen-plate-summary {
+    padding-inline: 4px;
   }
 
   .qimen-plate-grid-wrap {

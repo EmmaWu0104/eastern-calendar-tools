@@ -859,7 +859,7 @@ function clearJinhanYujing(message = "") {
 
 function createQimenSection() {
   const section = document.createElement("section");
-  section.className = "panel qimen-section";
+  section.className = "qimen-section";
   section.setAttribute("aria-labelledby", "qimen-title");
 
   const heading = document.createElement("div");
@@ -880,6 +880,9 @@ function createQimenSection() {
 
   const summaryPanel = document.createElement("div");
   summaryPanel.className = "qimen-summary-panel";
+
+  const infoCard = document.createElement("section");
+  infoCard.className = "panel qimen-info-card";
 
   const summary = document.createElement("div");
   summary.className = "qimen-summary";
@@ -947,9 +950,10 @@ function createQimenSection() {
   const plateSection = createQimenPlateSection();
 
   summaryPanel.append(summary);
+  infoCard.append(heading, summaryPanel);
   platePanel.append(manualControls, plateSection, fallback);
-  body.append(summaryPanel, platePanel);
-  section.append(heading, body);
+  body.append(infoCard, platePanel);
+  section.append(body);
 
   return {
     section,
