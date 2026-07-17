@@ -24,6 +24,30 @@ export const QIMEN_DOOR_PO_MARKERS = Object.freeze({
   center: Object.freeze([]),
 });
 
+export const QIMEN_PALACE_OVER_DOOR_MARKERS = Object.freeze({
+  kan: Object.freeze(["景"]),
+  gen: Object.freeze(["休"]),
+  zhen: Object.freeze(["生", "死"]),
+  xun: Object.freeze(["生", "死"]),
+  li: Object.freeze(["驚", "開"]),
+  kun: Object.freeze(["休"]),
+  dui: Object.freeze(["杜", "傷"]),
+  qian: Object.freeze(["杜", "傷"]),
+  center: Object.freeze([]),
+});
+
+export const QIMEN_ORIGINAL_STARS_BY_PALACE = Object.freeze({
+  kan: "天蓬",
+  gen: "天任",
+  zhen: "天沖",
+  xun: "天輔",
+  li: "天英",
+  kun: "天芮",
+  dui: "天柱",
+  qian: "天心",
+  center: "天禽",
+});
+
 const TIAN_RUI_PALACE_NOT_FOUND_DIAGNOSTIC = Object.freeze({
   level: "warning",
   code: "TIAN_RUI_PALACE_NOT_FOUND",
@@ -44,6 +68,22 @@ export function getQimenDoorPoMarker(palaceKey, door) {
   }
 
   return QIMEN_DOOR_PO_MARKERS[palaceKey]?.includes(door) ? "迫" : null;
+}
+
+export function getQimenPalaceOverDoorMarker(palaceKey, door) {
+  if (typeof palaceKey !== "string" || typeof door !== "string") {
+    return null;
+  }
+
+  return QIMEN_PALACE_OVER_DOOR_MARKERS[palaceKey]?.includes(door) ? "剋" : null;
+}
+
+export function getQimenOriginalStarByPalace(palaceKey) {
+  if (typeof palaceKey !== "string") {
+    return null;
+  }
+
+  return QIMEN_ORIGINAL_STARS_BY_PALACE[palaceKey] ?? null;
 }
 
 export function findQimenTianRuiPalaceKey(plate) {
@@ -72,6 +112,30 @@ export function findQimenDisplayZhiFuPalaceKey(plate) {
   }
 
   return fallbackPalaceKey;
+}
+
+export function findQimenTianYiStarPalaceKey(plate) {
+  if (!isPlainObject(plate?.palaces)) {
+    return null;
+  }
+
+  const displayZhiFuPalaceKey = findQimenDisplayZhiFuPalaceKey(plate);
+  if (!displayZhiFuPalaceKey) {
+    return null;
+  }
+
+  const originalStar = getQimenOriginalStarByPalace(displayZhiFuPalaceKey);
+  if (!originalStar) {
+    return null;
+  }
+
+  for (const palaceKey of QIMEN_PALACE_KEYS) {
+    if (plate.palaces[palaceKey]?.star === originalStar) {
+      return palaceKey;
+    }
+  }
+
+  return null;
 }
 
 export function getQimenCenterStemPlacements(plate) {
@@ -109,6 +173,7 @@ export function getQimenCenterStemPlacements(plate) {
 
 export function decorateQimenPlateMarkers(plate) {
   const placements = getQimenCenterStemPlacements(plate);
+  const tianYiStarPalaceKey = findQimenTianYiStarPalaceKey(plate);
   const palaces = {};
 
   for (const palaceKey of QIMEN_PALACE_KEYS) {
@@ -116,12 +181,14 @@ export function decorateQimenPlateMarkers(plate) {
     palaces[palaceKey] = {
       heavenStemMarker: getQimenHeavenStemMarker(palaceKey, palace?.heavenStem),
       doorPo: getQimenDoorPoMarker(palaceKey, palace?.door),
+      palaceOverDoor: getQimenPalaceOverDoorMarker(palaceKey, palace?.door),
       centerHeavenStem: placements.centerHeavenStem?.palaceKey === palaceKey
         ? placements.centerHeavenStem.value
         : null,
       centerEarthStem: placements.centerEarthStem?.palaceKey === palaceKey
         ? placements.centerEarthStem.value
         : null,
+      isTianYiStarPalace: palaceKey === tianYiStarPalaceKey,
     };
   }
 
