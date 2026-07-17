@@ -11,88 +11,97 @@
     <main class="app">
       <h1>干支曆核心查詢</h1>
 
-      <section class="panel" aria-labelledby="query-title">
-        <h2 id="query-title">查詢</h2>
-        <label for="datetime">本地日期時間</label>
-        <div class="query-row">
-          <input id="datetime" type="datetime-local" step="1">
-          <button id="use-now" type="button">現在時間</button>
-        </div>
-        <p id="weekday-label" class="weekday-label" aria-live="polite">--</p>
-      </section>
+      <div class="tabs" role="tablist" aria-label="首頁功能頁籤">
+        <button id="tab-bazi" class="tab-button is-active" type="button" role="tab" aria-selected="true" aria-controls="panel-bazi">四柱節氣</button>
+        <button id="tab-jinhan" class="tab-button" type="button" role="tab" aria-selected="false" aria-controls="panel-jinhan">金函玉鏡</button>
+        <button id="tab-flying-stars" class="tab-button" type="button" role="tab" aria-selected="false" aria-controls="panel-flying-stars">九宮飛星</button>
+        <button id="tab-qimen" class="tab-button" type="button" role="tab" aria-selected="false" aria-controls="panel-qimen">奇門遁甲</button>
+      </div>
 
-      <section class="panel pillar-season-panel" aria-labelledby="result-title">
-        <div class="pillar-season-layout">
-          <div class="pillar-column">
-            <h2 id="result-title">四柱</h2>
-            <dl class="pillars">
-              <div class="pillar-card"><dt>年柱</dt><dd id="year-pillar">--</dd></div>
-              <div class="pillar-card"><dt>月柱</dt><dd id="month-pillar">--</dd></div>
-              <div class="pillar-card"><dt>日柱</dt><dd id="day-pillar">--</dd></div>
-              <div class="pillar-card"><dt>時柱</dt><dd id="hour-pillar">--</dd></div>
-            </dl>
+      <div id="panel-bazi" class="tab-panel" role="tabpanel" aria-labelledby="tab-bazi">
+        <section class="panel" aria-labelledby="query-title">
+          <h2 id="query-title">查詢</h2>
+          <label for="datetime">本地日期時間</label>
+          <div class="query-row">
+            <input id="datetime" type="datetime-local" step="1">
+            <button id="use-now" type="button">現在時間</button>
           </div>
-          <aside class="season-column" aria-labelledby="terms-title">
-            <h2 id="terms-title">節氣資訊</h2>
-            <div id="season-info" class="season-info">--</div>
-          </aside>
-        </div>
-      </section>
+          <p id="weekday-label" class="weekday-label" aria-live="polite">--</p>
+        </section>
 
-      <section class="panel dong-gong-section" aria-labelledby="dong-gong-title" hidden>
-        <h2 id="dong-gong-title">董公擇日</h2>
-        <div id="dong-gong-card" class="dong-gong-card">董公擇日：資料待補</div>
-      </section>
-
-      <section class="panel" aria-labelledby="flying-stars-title">
-        <h2 id="flying-stars-title">九宮飛星</h2>
-        <p id="flying-stars-message" class="section-message" role="status" aria-live="polite"></p>
-        <div id="flying-stars" class="flying-stars-grid"></div>
-      </section>
-
-      <section class="panel jinhan-section" aria-labelledby="jinhan-title">
-        <div class="section-heading-row">
-          <h2 id="jinhan-title">金函玉鏡</h2>
-          <label class="jinhan-dun-selector" for="jinhan-dun-type">
-            <span>陰陽遁</span>
-            <select id="jinhan-dun-type">
-              <option value="陽遁" selected>陽遁</option>
-              <option value="陰遁">陰遁</option>
-            </select>
-          </label>
-        </div>
-        <p id="jinhan-message" class="section-message" role="status" aria-live="polite"></p>
-        <div class="jinhan-content-layout">
-          <div class="jinhan-pan-wrap">
-            <div id="jinhan-summary" class="jinhan-summary"></div>
-            <div id="jinhan-grid" class="jinhan-grid" aria-label="金函玉鏡日盤九宮格"></div>
+        <section class="panel pillar-season-panel" aria-labelledby="result-title">
+          <div class="pillar-season-layout">
+            <div class="pillar-column">
+              <h2 id="result-title">四柱</h2>
+              <dl class="pillars">
+                <div class="pillar-card"><dt>年柱</dt><dd id="year-pillar">--</dd></div>
+                <div class="pillar-card"><dt>月柱</dt><dd id="month-pillar">--</dd></div>
+                <div class="pillar-card"><dt>日柱</dt><dd id="day-pillar">--</dd></div>
+                <div class="pillar-card"><dt>時柱</dt><dd id="hour-pillar">--</dd></div>
+              </dl>
+            </div>
+            <aside class="season-column" aria-labelledby="terms-title">
+              <h2 id="terms-title">節氣資訊</h2>
+              <div id="season-info" class="season-info">--</div>
+            </aside>
           </div>
-          <div class="jinhan-hours-table-wrap">
-            <h3>青龍黑黃道</h3>
-            <p id="jinhan-current-hour-label" class="jinhan-current-hour-label">目前時辰：--</p>
-            <table class="jinhan-hours-table">
-              <thead>
-                <tr>
-                  <th scope="col">時柱時段</th>
-                  <th scope="col">黑黃吉凶</th>
-                  <th scope="col">附註</th>
-                </tr>
-              </thead>
-              <tbody id="jinhan-hours-body"></tbody>
-            </table>
-          </div>
-        </div>
-      </section>
+        </section>
 
-      <section class="panel" aria-labelledby="rules-title">
-        <h2 id="rules-title">規格說明</h2>
-        <ul id="rule-notes">
-          <li>立春換年</li>
-          <li>12 節換月</li>
-          <li>23:00 起換日</li>
-          <li>目前使用輸入的手錶時間／瀏覽器本機時間，未套用真太陽時</li>
-        </ul>
-      </section>
+        <section class="panel dong-gong-section" aria-labelledby="dong-gong-title" hidden>
+          <h2 id="dong-gong-title">董公擇日</h2>
+          <div id="dong-gong-card" class="dong-gong-card">董公擇日：資料待補</div>
+        </section>
+
+        <section class="panel" aria-labelledby="rules-title">
+          <h2 id="rules-title">規格說明</h2>
+          <ul id="rule-notes">
+            <li>立春換年</li>
+            <li>12 節換月</li>
+            <li>23:00 起換日</li>
+            <li>目前使用輸入的手錶時間／瀏覽器本機時間，未套用真太陽時</li>
+          </ul>
+        </section>
+      </div>
+
+      <div id="panel-jinhan" class="tab-panel" role="tabpanel" aria-labelledby="tab-jinhan" hidden>
+        <section class="panel jinhan-section" aria-labelledby="jinhan-title">
+          <div class="section-heading-row">
+            <h2 id="jinhan-title">金函玉鏡</h2>
+            <label class="jinhan-dun-selector" for="jinhan-dun-type">
+              <span>陰陽遁</span>
+              <select id="jinhan-dun-type">
+                <option value="陽遁" selected>陽遁</option>
+                <option value="陰遁">陰遁</option>
+              </select>
+            </label>
+          </div>
+          <p id="jinhan-message" class="section-message" role="status" aria-live="polite"></p>
+          <div class="jinhan-content-layout">
+            <div class="jinhan-pan-wrap">
+              <div id="jinhan-summary" class="jinhan-summary"></div>
+              <div id="jinhan-grid" class="jinhan-grid" aria-label="金函玉鏡日盤九宮格"></div>
+            </div>
+            <div class="jinhan-hours-table-wrap">
+              <h3>青龍黑黃道</h3>
+              <p id="jinhan-current-hour-label" class="jinhan-current-hour-label">目前時辰：--</p>
+              <table class="jinhan-hours-table">
+                <thead><tr><th scope="col">時柱時段</th><th scope="col">黑黃吉凶</th><th scope="col">附註</th></tr></thead>
+                <tbody id="jinhan-hours-body"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <div id="panel-flying-stars" class="tab-panel" role="tabpanel" aria-labelledby="tab-flying-stars" hidden>
+        <section class="panel" aria-labelledby="flying-stars-title">
+          <h2 id="flying-stars-title">九宮飛星</h2>
+          <p id="flying-stars-message" class="section-message" role="status" aria-live="polite"></p>
+          <div id="flying-stars" class="flying-stars-grid"></div>
+        </section>
+      </div>
+
+      <div id="panel-qimen" class="tab-panel" role="tabpanel" aria-labelledby="tab-qimen" hidden></div>
 
       <p id="message" class="message" role="status" aria-live="polite"></p>
       <p class="site-credit">Emma 製作 @ 2026，版權沒有，歡迎使用</p>

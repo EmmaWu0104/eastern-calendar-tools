@@ -138,6 +138,9 @@ const QIMEN_FORMATTER_ERROR_MESSAGE = "奇門遁甲資料目前無法查詢此�
 const QIMEN_PLATE_LOAD_ERROR_MESSAGE = "奇門盤面資料讀取失敗，暫時無法顯示盤面。";
 
 const elements = {
+  tabButtons: Array.from(document.querySelectorAll(".tab-button")),
+  tabPanels: Array.from(document.querySelectorAll(".tab-panel")),
+  qimenTabPanel: getElement("#panel-qimen"),
   datetime: getElement("#datetime"),
   useNow: getElement("#use-now"),
   weekdayLabel: getElement("#weekday-label"),
@@ -178,6 +181,12 @@ const qimenElements = createQimenSection();
 
 elements.pillars.append(pillarExtraPanel);
 insertQimenSection(qimenElements.section);
+
+elements.tabButtons.forEach((button) => {
+  button.addEventListener("click", () => {
+    setActiveTab(button.getAttribute("aria-controls"));
+  });
+});
 
 elements.useNow.addEventListener("click", () => {
   startAutoNowMode();
@@ -957,8 +966,19 @@ function createQimenSection() {
 }
 
 function insertQimenSection(section) {
-  const jinhanSection = getElement(".jinhan-section");
-  jinhanSection.after(section);
+  elements.qimenTabPanel.append(section);
+}
+
+function setActiveTab(panelId) {
+  elements.tabButtons.forEach((button) => {
+    const isActive = button.getAttribute("aria-controls") === panelId;
+    button.classList.toggle("is-active", isActive);
+    button.setAttribute("aria-selected", String(isActive));
+  });
+
+  elements.tabPanels.forEach((panel) => {
+    panel.hidden = panel.id !== panelId;
+  });
 }
 
 function renderQimenSection(dateTimeText) {
@@ -1100,9 +1120,12 @@ function clearQimenPlateDisplay() {
 function renderQimenPlateResult(plateResult, effective) {
   const markers = decorateQimenPlateMarkers(plateResult.plate);
   const displayZhiFuPalaceKey = findQimenDisplayZhiFuPalaceKey(plateResult.plate);
+  const gridWrap = document.createElement("div");
+  gridWrap.className = "qimen-plate-grid-wrap";
+  gridWrap.append(renderQimenPlateGrid(plateResult.plate, markers, displayZhiFuPalaceKey));
   qimenElements.plateSection.replaceChildren(
     renderQimenPlateSummary(plateResult, effective),
-    renderQimenPlateGrid(plateResult.plate, markers, displayZhiFuPalaceKey)
+    gridWrap
   );
 }
 
@@ -1234,18 +1257,24 @@ function createQimenPalaceContent(palace, palaceMarkers = {}, isDisplayZhiFuPala
   if (palaceMarkers.heavenStemMarker) {
     heavenStem.append(createQimenInlineMarker(palaceMarkers.heavenStemMarker, "qimen-heaven-stem-marker"));
   }
-  if (palaceMarkers.centerHeavenStem) {
-    heavenStem.append(createQimenInlineMarker(palaceMarkers.centerHeavenStem, "qimen-center-stem-marker qimen-center-heaven-stem-marker"));
-  }
 
   const earthStem = document.createElement("div");
   earthStem.className = "qimen-stem-wrap qimen-palace-earth-stem";
   earthStem.append(document.createTextNode(formatNullableQimenValue(palace.earthStem)));
-  if (palaceMarkers.centerEarthStem) {
-    earthStem.append(createQimenInlineMarker(palaceMarkers.centerEarthStem, "qimen-center-stem-marker qimen-center-earth-stem-marker"));
-  }
 
   right.append(heavenStem, earthStem);
+  if (palaceMarkers.centerHeavenStem) {
+    right.append(createQimenInlineMarker(
+      `寄${palaceMarkers.centerHeavenStem}`,
+      "qimen-center-stem-marker qimen-center-heaven-stem-marker"
+    ));
+  }
+  if (palaceMarkers.centerEarthStem) {
+    right.append(createQimenInlineMarker(
+      `寄${palaceMarkers.centerEarthStem}`,
+      "qimen-center-stem-marker qimen-center-earth-stem-marker"
+    ));
+  }
   content.append(left, center, right);
   return content;
 }

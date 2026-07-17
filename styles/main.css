@@ -25,6 +25,35 @@ h2 {
   font-size: 18px;
 }
 
+.tabs {
+  display: flex;
+  gap: 8px;
+  margin: 0 0 16px;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.tab-button {
+  flex: 0 0 auto;
+  min-height: 40px;
+  padding: 8px 14px;
+  border-color: #b8c2cc;
+  background: #ffffff;
+  color: #52616f;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.tab-button.is-active {
+  border-color: #1f6feb;
+  background: #1f6feb;
+  color: #ffffff;
+}
+
+.tab-panel[hidden] {
+  display: none;
+}
+
 .panel {
   margin: 0 0 16px;
   padding: 20px;
@@ -916,8 +945,8 @@ dd {
 
 .qimen-body {
   display: grid;
-  grid-template-columns: minmax(180px, 1fr) minmax(0, 2fr);
-  gap: 16px;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
   align-items: stretch;
 }
 
@@ -961,7 +990,7 @@ dd {
   display: grid;
   align-content: start;
   min-width: 0;
-  padding: 10px 12px;
+  padding: 8px;
   border: 1px solid #d8dee6;
   border-radius: 6px;
   background: #fbfcfe;
@@ -1004,6 +1033,14 @@ dd {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 6px;
+}
+
+.qimen-plate-grid-wrap {
+  min-width: 0;
+  padding: 4px 6px 7px;
+  overflow-x: auto;
+  overflow-y: visible;
+  overscroll-behavior-x: contain;
 }
 
 .qimen-palace-cell {
@@ -1079,7 +1116,7 @@ dd {
 }
 
 .qimen-palace-right {
-  gap: 2px;
+  gap: 3px;
   justify-items: center;
   align-content: start;
   padding-top: 1px;
@@ -1145,6 +1182,7 @@ dd {
   align-items: center;
   justify-content: center;
   min-width: 0;
+  white-space: nowrap;
 }
 
 .qimen-heaven-stem-marker,
@@ -1181,6 +1219,14 @@ dd {
   border-color: #93c5fd;
   background: #f8fbff;
   color: #1d4ed8;
+}
+
+.qimen-center-heaven-stem-marker,
+.qimen-center-earth-stem-marker {
+  justify-self: end;
+  min-width: 28px;
+  padding: 1px 3px;
+  font-size: 9px;
 }
 
 .qimen-palace-heaven-stem,
@@ -1669,6 +1715,14 @@ dd {
   .qimen-body {
     grid-template-columns: 1fr;
   }
+
+  .qimen-plate-panel {
+    padding: 6px;
+  }
+
+  .qimen-plate-grid {
+    min-width: 520px;
+  }
 }
 
 @media (max-width: 680px) {
@@ -1725,6 +1779,10 @@ dd {
     white-space: normal;
   }
 
+  .qimen-plate-grid-wrap {
+    padding: 4px 5px 7px;
+  }
+
   .qimen-plate-grid {
     gap: 4px;
   }
@@ -1746,7 +1804,7 @@ dd {
   }
 
   .qimen-palace-content {
-    grid-template-columns: minmax(0, 1fr) minmax(29px, 0.7fr) minmax(21px, 0.52fr);
+    grid-template-columns: minmax(0, 1fr) minmax(29px, 0.7fr) minmax(34px, 0.64fr);
     gap: 3px;
     min-height: 44px;
   }
