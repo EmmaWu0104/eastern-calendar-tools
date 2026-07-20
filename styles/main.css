@@ -1112,11 +1112,19 @@ dd {
 }
 
 .qimen-palace-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
   color: #334e68;
   font-size: var(--qimen-header-font-size);
   font-weight: 850;
   line-height: 1.2;
   overflow-wrap: anywhere;
+}
+
+.qimen-palace-header-label {
+  min-width: 0;
 }
 
 .qimen-palace-lines {
@@ -1239,8 +1247,7 @@ dd {
 }
 
 .qimen-heaven-stem-marker,
-.qimen-door-po-marker,
-.qimen-center-stem-marker {
+.qimen-door-po-marker {
   display: inline-grid;
   place-items: center;
   min-width: 14px;
@@ -1268,18 +1275,21 @@ dd {
   color: #475569;
 }
 
-.qimen-center-stem-marker {
-  border-color: #93c5fd;
-  background: #f8fbff;
-  color: #1d4ed8;
-}
-
 .qimen-center-heaven-stem-marker,
 .qimen-center-earth-stem-marker {
-  justify-self: end;
-  min-width: var(--qimen-center-marker-min-width);
-  padding: 1px 3px;
+  color: #1d4ed8;
   font-size: var(--qimen-marker-font-size);
+  font-weight: 850;
+  line-height: 1;
+}
+
+.qimen-center-heaven-stem-marker {
+  flex: 0 0 auto;
+  margin-left: auto;
+}
+
+.qimen-center-earth-stem-marker {
+  margin-left: 2px;
 }
 
 .qimen-palace-gua-corner {
@@ -1842,7 +1852,6 @@ dd {
 
   .qimen-heaven-stem-marker,
   .qimen-door-po-marker,
-  .qimen-center-stem-marker,
   .qimen-palace-over-door-marker {
     min-width: 12px;
     min-height: 12px;

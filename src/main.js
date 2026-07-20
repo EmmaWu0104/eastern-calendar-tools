@@ -1163,7 +1163,17 @@ function createQimenPalaceCell(palace, palaceMeta, palaceMarkers = {}, displayZh
 
   const header = document.createElement("div");
   header.className = "qimen-palace-header";
-  header.textContent = formatQimenPalaceHeader(palace, palaceMeta);
+  const headerLabel = document.createElement("span");
+  headerLabel.className = "qimen-palace-header-label";
+  headerLabel.textContent = formatQimenPalaceHeader(palace, palaceMeta);
+  header.append(headerLabel);
+
+  if (palaceMarkers.centerHeavenStem) {
+    header.append(createQimenInlineMarker(
+      palaceMarkers.centerHeavenStem,
+      "qimen-center-heaven-stem-marker"
+    ));
+  }
 
   if (!palace) {
     const lines = document.createElement("div");
@@ -1236,20 +1246,13 @@ function createQimenPalaceContent(palace, palaceMarkers = {}, isDisplayZhiFuPala
   const earthStem = document.createElement("div");
   earthStem.className = "qimen-stem-wrap qimen-palace-earth-stem";
   earthStem.append(document.createTextNode(formatNullableQimenValue(palace.earthStem)));
-
-  if (palaceMarkers.centerHeavenStem) {
-    right.append(createQimenInlineMarker(
-      palaceMarkers.centerHeavenStem,
-      "qimen-center-stem-marker qimen-center-heaven-stem-marker"
+  if (palaceMarkers.centerEarthStem) {
+    earthStem.append(createQimenInlineMarker(
+      palaceMarkers.centerEarthStem,
+      "qimen-center-earth-stem-marker"
     ));
   }
   right.append(heavenStem, earthStem);
-  if (palaceMarkers.centerEarthStem) {
-    right.append(createQimenInlineMarker(
-      palaceMarkers.centerEarthStem,
-      "qimen-center-stem-marker qimen-center-earth-stem-marker"
-    ));
-  }
   content.append(left, center, right);
   return content;
 }
