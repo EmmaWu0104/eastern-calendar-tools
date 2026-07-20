@@ -1002,7 +1002,8 @@ function renderQimenSection(dateTimeText) {
       });
 
       if (plate.status === "found") {
-        renderQimenPlateResult(plate, effective);
+        qimenElements.summary.replaceChildren(...createQimenSummaryRows(qimen, plate.plate));
+        renderQimenPlateResult(plate);
         qimenElements.fallback.textContent = "";
       } else {
         clearQimenPlateDisplay();
@@ -1121,47 +1122,13 @@ function clearQimenPlateDisplay() {
   qimenElements.plateSection.replaceChildren();
 }
 
-function renderQimenPlateResult(plateResult, effective) {
+function renderQimenPlateResult(plateResult) {
   const markers = decorateQimenPlateMarkers(plateResult.plate);
   const displayZhiFuPalaceKey = findQimenDisplayZhiFuPalaceKey(plateResult.plate);
   const gridWrap = document.createElement("div");
   gridWrap.className = "qimen-plate-grid-wrap";
   gridWrap.append(renderQimenPlateGrid(plateResult.plate, markers, displayZhiFuPalaceKey));
-  qimenElements.plateSection.replaceChildren(
-    renderQimenPlateSummary(plateResult, effective),
-    gridWrap
-  );
-}
-
-function renderQimenPlateSummary(plateResult, effective) {
-  const summary = document.createElement("div");
-  summary.className = "qimen-plate-summary";
-
-  const items = [
-    ["遁別", effective.dunName || plateResult.meta?.dunName],
-    ["局數", formatQimenJuLabel(effective.ju || plateResult.meta?.ju)],
-    ["時柱", plateResult.plate?.hourPillar],
-    ["直符", plateResult.plate?.zhiFuStar],
-    ["直使", plateResult.plate?.zhiShiDoor],
-  ];
-
-  for (const [label, value] of items) {
-    const item = document.createElement("div");
-    item.className = "qimen-plate-summary-item";
-
-    const labelElement = document.createElement("span");
-    labelElement.className = "qimen-plate-summary-label";
-    labelElement.textContent = `${label}：`;
-
-    const valueElement = document.createElement("span");
-    valueElement.className = "qimen-plate-summary-value";
-    valueElement.textContent = formatNullableQimenValue(value);
-
-    item.append(labelElement, valueElement);
-    summary.append(item);
-  }
-
-  return summary;
+  qimenElements.plateSection.replaceChildren(gridWrap);
 }
 
 function renderQimenPlateGrid(plate, markers, displayZhiFuPalaceKey) {
@@ -1338,21 +1305,23 @@ function getQimenPlateDisplayOrder() {
   return QIMEN_PALACE_DISPLAY_LAYOUT.flat();
 }
 
-function createQimenSummaryRows(qimen) {
-  const rows = [];
+function createQimenSummaryRows(qimen, plate = null) {
+  const markers = plate ? decorateQimenPlateMarkers(plate) : null;
+  const zhiFuPalaceKey = plate ? findQimenDisplayZhiFuPalaceKey(plate) : null;
+  const zhiShiPalaceKey = findQimenZhiShiPalaceKey(plate);
+  const tianYiPalaceKey = findQimenTianYiPalaceKey(markers);
 
-  if (qimen.actualSolarTerm && qimen.actualSolarTerm !== qimen.qimenSolarTerm) {
-    rows.push(createQimenSummaryRow("實際節氣", qimen.actualSolarTerm));
-  }
-
-  rows.push(
-    createQimenSummaryRow("奇門節氣", formatQimenSolarTermLabel(qimen)),
-    createQimenSummaryRow("元別", qimen.yuan),
-    createQimenSummaryRow("遁別", qimen.dunName),
-    createQimenSummaryRow("局數", formatQimenJuLabel(qimen.ju)),
-    createQimenSummaryRow("時柱", qimen.hourPillar),
-    createQimenSummaryRow("狀態", qimen.status)
-  );
+  const rows = [
+    createQimenSummaryRow("節氣", qimen.actualSolarTerm),
+    createQimenSummaryRow("起局", formatQimenJuSummary(qimen)),
+    createQimenSummaryRow("時辰", formatQimenTimeSummary(qimen)),
+    createQimenSummaryRow("值符星", formatQimenStarPalace(plate?.zhiFuStar, zhiFuPalaceKey)),
+    createQimenSummaryRow("值使門", formatQimenDoorPalace(plate?.zhiShiDoor, zhiShiPalaceKey)),
+    createQimenSummaryRow(
+      "天乙星",
+      formatQimenStarPalace(plate?.palaces?.[tianYiPalaceKey]?.star, tianYiPalaceKey)
+    ),
+  ];
 
   const notes = formatQimenNotes(qimen.notes);
   if (notes) {
@@ -1360,6 +1329,55 @@ function createQimenSummaryRows(qimen) {
   }
 
   return rows;
+}
+
+function formatQimenJuSummary(qimen) {
+  const term = qimen?.qimenSolarTerm || "—";
+  const yuan = qimen?.yuan || "";
+  const dunName = qimen?.dunName || "";
+  const ju = Number.isInteger(qimen?.ju) ? formatQimenJuLabel(qimen.ju) : "";
+  const status = qimen?.status ? ` (${qimen.status})` : "";
+  return `${term}${yuan} ${dunName}${ju}${status}`.trim();
+}
+
+function formatQimenTimeSummary(qimen) {
+  const dayPillar = currentCalendarResult?.dayPillar;
+  const hourPillar = qimen?.hourPillar;
+
+  if (!dayPillar || !hourPillar) {
+    return "—";
+  }
+
+  return `${dayPillar}日 ${hourPillar}時`;
+}
+
+function findQimenZhiShiPalaceKey(plate) {
+  return getQimenPlateDisplayOrder().find(({ key }) => plate?.palaces?.[key]?.isZhiShiPalace === true)?.key ?? null;
+}
+
+function findQimenTianYiPalaceKey(markers) {
+  return getQimenPlateDisplayOrder().find(({ key }) => markers?.palaces?.[key]?.isTianYiStarPalace === true)?.key ?? null;
+}
+
+function formatQimenStarPalace(star, palaceKey) {
+  if (typeof star !== "string" || !star || !palaceKey) {
+    return "—";
+  }
+
+  return `${star.endsWith("星") ? star : `${star}星`} ${formatQimenPalaceName(palaceKey)}`;
+}
+
+function formatQimenDoorPalace(door, palaceKey) {
+  if (!door || !palaceKey) {
+    return "—";
+  }
+
+  return `${door}門 ${formatQimenPalaceName(palaceKey)}`;
+}
+
+function formatQimenPalaceName(palaceKey) {
+  const palace = getQimenPlateDisplayOrder().find(({ key }) => key === palaceKey);
+  return palace ? `${palace.name}宮` : "—";
 }
 
 function createQimenSummaryRow(label, value, className = "") {
