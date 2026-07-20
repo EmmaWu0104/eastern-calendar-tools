@@ -106,7 +106,7 @@ resolver 測試至少要檢查：
 - `dunName`: 陽遁
 - `ju`: 3
 - `isIntercalary`: `false`
-- `status`: 正常或超神
+- `status`: 正授或超神
 
 狀態說明：
 
@@ -149,7 +149,7 @@ resolver 測試至少要檢查：
 
 - `actualSolarTerm`: 夏至
 - `qimenSolarTerm`: 夏至
-- `status`: 正常或依實際 timeline 判定
+- `status`: 正授或依實際 timeline 判定
 - `dunType`: `yin`
 - `dunName`: 陰遁
 
@@ -204,7 +204,7 @@ resolver 測試至少要檢查：
 - `dunName`: 陰遁
 - `ju`: 1
 - `isIntercalary`: `false`
-- `status`: 正常或超神
+- `status`: 正授或超神
 
 狀態說明：
 
@@ -300,7 +300,7 @@ resolver 測試至少要檢查：
 - `dunName`: 陽遁
 - `ju`: 1
 - `isIntercalary`: `false`
-- `status`: 正常或接氣
+- `status`: 正授或接氣
 
 狀態說明：
 
@@ -313,27 +313,27 @@ resolver 測試至少要檢查：
 - 2027/12/26 才進入奇門冬至上元。
 - 進入奇門冬至上元後才開始陽遁。
 
-## 十、一般正常案例
+## 十、一般正授案例
 
-一般正常案例應挑選實際節氣與奇門節氣一致，且不在置閏區間的日期。
+一般正授案例應挑選交節當天奇門有效日為甲子、甲午、己卯或己酉，且不在置閏區間的日期；實際節氣與奇門節氣相同不是充分條件。
 
 預期：
 
-- `actualSolarTerm` 與 `qimenSolarTerm` 相同。
+- 交節當天的奇門有效日為符頭，且 `actualSolarTerm` 與 `qimenSolarTerm` 相同。
 - `isIntercalary`: `false`
-- `status`: 正常
+- `status`: 正授
 - `dunType` 與 `ju` 由 `qimenSolarTerm + yuan` 查表取得。
 
 建議後續補充：
 
 ```json
 {
-  "name": "一般正常案例",
+  "name": "一般正授案例",
   "query": "待補",
   "expected": {
     "actualSolarTerm": "待補",
     "qimenSolarTerm": "待補",
-    "status": "正常",
+    "status": "正授",
     "isIntercalary": false
   }
 }
