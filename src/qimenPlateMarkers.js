@@ -39,7 +39,7 @@ export const QIMEN_PALACE_OVER_DOOR_MARKERS = Object.freeze({
 export const QIMEN_ORIGINAL_STARS_BY_PALACE = Object.freeze({
   kan: "天蓬",
   gen: "天任",
-  zhen: "天沖",
+  zhen: "天衝",
   xun: "天輔",
   li: "天英",
   kun: "天芮",
@@ -86,6 +86,14 @@ export function getQimenOriginalStarByPalace(palaceKey) {
   return QIMEN_ORIGINAL_STARS_BY_PALACE[palaceKey] ?? null;
 }
 
+export function normalizeQimenStarName(star) {
+  if (typeof star !== "string") {
+    return star;
+  }
+
+  return star === "天沖" ? "天衝" : star;
+}
+
 export function findQimenTianRuiPalaceKey(plate) {
   if (!isPlainObject(plate?.palaces)) {
     return null;
@@ -130,7 +138,7 @@ export function findQimenTianYiStarPalaceKey(plate) {
   }
 
   for (const palaceKey of QIMEN_PALACE_KEYS) {
-    if (plate.palaces[palaceKey]?.star === originalStar) {
+    if (normalizeQimenStarName(plate.palaces[palaceKey]?.star) === normalizeQimenStarName(originalStar)) {
       return palaceKey;
     }
   }

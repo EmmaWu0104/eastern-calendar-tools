@@ -40,6 +40,7 @@ const YUAN_BRANCHES = Object.freeze({
   中元: new Set(["寅", "申", "巳", "亥"]),
   下元: new Set(["辰", "戌", "丑", "未"]),
 });
+const QIMEN_FU_TOU_DAY_PILLARS = new Set(["甲子", "甲午", "己卯", "己酉"]);
 const INTERCALATION_WINDOW_TERM_NAMES = Object.freeze(["芒種", "大雪"]);
 const INTERCALATION_WINDOW_TERMS = new Set(INTERCALATION_WINDOW_TERM_NAMES);
 const TAIPEI_OFFSET_MS = 8 * 60 * 60 * 1000;
@@ -122,15 +123,11 @@ export function findQimenTimelineEntry(dateTimeText) {
 }
 
 export function isQimenFuTou(dayPillar) {
-  if (typeof dayPillar !== "string" || dayPillar.length !== 2) {
-    return false;
-  }
-
-  return dayPillar[0] === "甲" || dayPillar[0] === "己";
+  return typeof dayPillar === "string" && QIMEN_FU_TOU_DAY_PILLARS.has(dayPillar);
 }
 
 export function getQimenYuanByFuTou(dayPillar) {
-  if (!isQimenFuTou(dayPillar)) {
+  if (!isQimenYuanStart(dayPillar)) {
     return null;
   }
 
@@ -161,7 +158,7 @@ export function scanQimenFuTouDays(startEffectiveDayText, endEffectiveDayText) {
 
   while (toTimeMs(current) < endMs) {
     const dayPillar = getDayPillarForEffectiveDay(current);
-    if (isQimenFuTou(dayPillar)) {
+    if (isQimenYuanStart(dayPillar)) {
       result.push({
         effectiveDayStart: current,
         dayPillar,
@@ -1175,15 +1172,56 @@ function resolveQimenStatus(actualSolarTerm, timelineEntry) {
     return "置閏";
   }
 
-  if (actualSolarTerm === timelineEntry.qimenSolarTerm) {
-    return "正常";
+  const qimenTermStart = getQimenTermEffectiveStart(timelineEntry);
+  const actualTermStart = getQimenEffectiveDayStart(
+    findActualSolarTermTimeNearestQimenTerm(timelineEntry.qimenSolarTerm, qimenTermStart)
+  );
+  const qimenTermStartMs = toTimeMs(qimenTermStart);
+  const actualTermStartMs = toTimeMs(actualTermStart);
+
+  if (
+    qimenTermStartMs === actualTermStartMs
+    && isQimenFuTou(getDayPillarForEffectiveDay(qimenTermStart))
+  ) {
+    return "正授";
   }
 
-  if (isQimenTermAhead(actualSolarTerm, timelineEntry.qimenSolarTerm)) {
+  if (qimenTermStartMs < actualTermStartMs) {
     return "超神";
   }
 
   return "接氣";
+}
+
+function isQimenYuanStart(dayPillar) {
+  return typeof dayPillar === "string" && dayPillar.length === 2
+    && (dayPillar[0] === "甲" || dayPillar[0] === "己");
+}
+
+function getQimenTermEffectiveStart(timelineEntry) {
+  const yuanIndex = YUAN_SEQUENCE.indexOf(timelineEntry?.yuan);
+  if (yuanIndex < 0) {
+    throw new RangeError(`未知奇門元別：${timelineEntry?.yuan}`);
+  }
+
+  return addQimenEffectiveDays(timelineEntry.start, -yuanIndex * 5);
+}
+
+function findActualSolarTermTimeNearestQimenTerm(termName, qimenTermStart) {
+  const qimenTermStartMs = toTimeMs(qimenTermStart);
+  const candidates = solarTerms.filter((term) => term.name === termName);
+  const nearest = candidates.reduce((closest, candidate) => {
+    if (!closest || Math.abs(candidate.timeMs - qimenTermStartMs) < Math.abs(closest.timeMs - qimenTermStartMs)) {
+      return candidate;
+    }
+    return closest;
+  }, null);
+
+  if (!nearest) {
+    throw new RangeError(`找不到奇門${termName}對應的實際節氣資料`);
+  }
+
+  return nearest.asia_taipei;
 }
 
 function isQimenTermAhead(actualSolarTerm, qimenSolarTerm) {

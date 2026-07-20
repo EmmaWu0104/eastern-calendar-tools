@@ -112,6 +112,7 @@ const {
   getQimenOriginalStarByPalace,
   getQimenPalaceOverDoorMarker,
   findQimenTianYiStarPalaceKey,
+  normalizeQimenStarName,
 } = await import("../src/qimenPlateMarkers.js");
 const {
   getCurrentHouBySolarTermRange,
@@ -1585,8 +1586,12 @@ function createJinhanDunTypeMockTerm(year, name, localDateTime) {
 function runQimenHelperTests() {
   const fuTouCases = [
     { id: "qimen-futou-jiazi", dayPillar: "甲子", expected: true },
+    { id: "qimen-futou-jiawu", dayPillar: "甲午", expected: true },
     { id: "qimen-futou-jimao", dayPillar: "己卯", expected: true },
-    { id: "qimen-futou-jihai", dayPillar: "己亥", expected: true },
+    { id: "qimen-futou-jiyou", dayPillar: "己酉", expected: true },
+    { id: "qimen-futou-jiayin", dayPillar: "甲寅", expected: false },
+    { id: "qimen-futou-jichou", dayPillar: "己丑", expected: false },
+    { id: "qimen-futou-jihai", dayPillar: "己亥", expected: false },
     { id: "qimen-futou-yichou", dayPillar: "乙丑", expected: false },
     { id: "qimen-futou-gengwu", dayPillar: "庚午", expected: false },
     { id: "qimen-futou-empty", dayPillar: "", expected: false },
@@ -1763,7 +1768,7 @@ function runQimenFuTouScanTests() {
     qimenFuTouScanVerifiedCaseCount += 1;
     assertEqual(testCase.id, "dayPillar", testCase.expected, dayPillar);
     assertEqual(testCase.id, "dayPillar.length", 2, dayPillar.length);
-    assertEqual(testCase.id, "isQimenFuTou", true, isQimenFuTou(dayPillar));
+    assertEqual(testCase.id, "yuan", true, getQimenYuanByFuTou(dayPillar) !== null);
   }
 
   const mangzhongFuTouDays = scanQimenFuTouDays(
@@ -1820,10 +1825,10 @@ function assertScannedFuTouEntries(id, entries) {
       });
     }
 
-    if (!isQimenFuTou(entry.dayPillar)) {
+    if (getQimenYuanByFuTou(entry.dayPillar) === null) {
       failures.push({
         id,
-        key: `${entry.effectiveDayStart}.isQimenFuTou`,
+        key: `${entry.effectiveDayStart}.yuan`,
         expected: true,
         actual: false,
       });
@@ -4492,6 +4497,47 @@ function runQimenFullTermCycleDraftResolverFormatterTests() {
   assertThrowsRangeError("qimen-full-term-cycle-draft-resolver-formatter-missing-data", () => {
     resolveQimenJuFromFullTermCycleDraft("1800-01-01T12:00:00+08:00");
   });
+
+  const statusCases = [
+    {
+      id: "qimen-status-zhengshou-effective-futou",
+      input: "2028-08-07T12:00:00+08:00",
+      expected: "正授",
+    },
+    {
+      id: "qimen-status-matching-term-not-zhengshou-chaoshen",
+      input: "2027-06-06T12:00:00+08:00",
+      expected: "超神",
+    },
+    {
+      id: "qimen-status-matching-term-not-zhengshou-jieqi",
+      input: "2027-12-26T12:00:00+08:00",
+      expected: "接氣",
+    },
+    {
+      id: "qimen-status-intercalary-priority",
+      input: "2027-12-11T12:00:00+08:00",
+      expected: "置閏",
+    },
+  ];
+
+  for (const testCase of statusCases) {
+    const actual = resolveQimenJuFromFullTermCycleDraft(testCase.input);
+    qimenFullTermCycleDraftResolverFormatterVerifiedCaseCount += 1;
+    assertEqual(testCase.id, "status", testCase.expected, actual.status);
+  }
+
+  const beforeEffectiveDaySwitch = resolveQimenJuFromFullTermCycleDraft("2028-08-06T22:59:00+08:00");
+  const afterEffectiveDaySwitch = resolveQimenJuFromFullTermCycleDraft("2028-08-06T23:00:00+08:00");
+  qimenFullTermCycleDraftResolverFormatterVerifiedCaseCount += 1;
+  assertEqual("qimen-status-2300-before-effective-day", "status", "接氣", beforeEffectiveDaySwitch.status);
+  assertEqual("qimen-status-2300-after-effective-day", "status", "正授", afterEffectiveDaySwitch.status);
+  assertEqual(
+    "qimen-status-2300-effective-day-switch",
+    "queryEffectiveDayStart.changed",
+    true,
+    beforeEffectiveDaySwitch.lookup?.queryEffectiveDayStart !== afterEffectiveDaySwitch.lookup?.queryEffectiveDayStart
+  );
 }
 
 function runQimenFullTermCycleDraftResolverFormatterRegressionTests() {
@@ -5944,7 +5990,7 @@ function runQimenPlateMarkersTests() {
 
   qimenPlateMarkersVerifiedCaseCount += 1;
   const originalStarCases = [
-    ["kan", "天蓬"], ["gen", "天任"], ["zhen", "天沖"], ["xun", "天輔"], ["li", "天英"],
+    ["kan", "天蓬"], ["gen", "天任"], ["zhen", "天衝"], ["xun", "天輔"], ["li", "天英"],
     ["kun", "天芮"], ["dui", "天柱"], ["qian", "天心"], ["center", "天禽"],
     ["unknown", null], [null, null],
   ];
@@ -6040,13 +6086,22 @@ function runQimenPlateMarkersTests() {
   tianQinTianYiPlate.palaces.kun.star = "天任";
   tianQinTianYiPlate.palaces.gen.star = "天芮";
   const missingTianYiStarPlate = createQimenDisplayZhiFuFixturePlate({ zhiFuPalaceKey: "qian" });
+  const zhenTianYiPlate = createQimenDisplayZhiFuFixturePlate({ zhiFuPalaceKey: "zhen" });
+  zhenTianYiPlate.palaces.li.star = "天衝";
+  const zhenTianYiAliasPlate = createQimenDisplayZhiFuFixturePlate({ zhiFuPalaceKey: "zhen" });
+  zhenTianYiAliasPlate.palaces.li.star = "天沖";
   qimenPlateMarkersVerifiedCaseCount += 1;
   assertEqual("qimen-plate-markers-tian-yi-qian", "palaceKey", "dui", findQimenTianYiStarPalaceKey(qianTianYiPlate));
   assertEqual("qimen-plate-markers-tian-yi-kan", "palaceKey", "li", findQimenTianYiStarPalaceKey(kanTianYiPlate));
   assertEqual("qimen-plate-markers-tian-yi-tian-qin", "palaceKey", "gen", findQimenTianYiStarPalaceKey(tianQinTianYiPlate));
+  assertEqual("qimen-plate-markers-tian-yi-zhen-canonical", "palaceKey", "li", findQimenTianYiStarPalaceKey(zhenTianYiPlate));
+  assertEqual("qimen-plate-markers-tian-yi-zhen-alias", "palaceKey", "li", findQimenTianYiStarPalaceKey(zhenTianYiAliasPlate));
   assertEqual("qimen-plate-markers-tian-yi-no-display-zhi-fu", "palaceKey", null, findQimenTianYiStarPalaceKey(createQimenDisplayZhiFuFixturePlate({ zhiFuPalaceKey: null })));
   assertEqual("qimen-plate-markers-tian-yi-star-not-found", "palaceKey", null, findQimenTianYiStarPalaceKey(missingTianYiStarPlate));
   assertEqual("qimen-plate-markers-tian-yi-invalid", "palaceKey", null, findQimenTianYiStarPalaceKey(null));
+  assertEqual("qimen-plate-markers-normalize-tian-chong", "star", "天衝", normalizeQimenStarName("天沖"));
+  assertEqual("qimen-plate-markers-normalize-tian-chong-canonical", "star", "天衝", normalizeQimenStarName("天衝"));
+  assertEqual("qimen-plate-markers-normalize-non-string", "star", null, normalizeQimenStarName(null));
 
   const decoratedTianYiPlate = createQimenDisplayZhiFuFixturePlate({ zhiFuPalaceKey: "qian" });
   decoratedTianYiPlate.palaces.kan.door = "景";

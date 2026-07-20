@@ -1411,7 +1411,13 @@ function formatQimenJuLabel(ju) {
 }
 
 function formatQimenNotes(notes) {
-  return Array.isArray(notes) && notes.length > 0 ? notes.join("；") : "";
+  if (!Array.isArray(notes)) {
+    return "";
+  }
+
+  return notes
+    .filter((note) => typeof note === "string" && !note.includes("full cycle draft 置閏 timeline"))
+    .join("；");
 }
 
 function createJinhanSummaryItems(dayPillar, pan, guiDeng = null) {
