@@ -13,10 +13,30 @@
 
       <section class="panel query-panel" aria-labelledby="query-title">
         <h2 id="query-title">查詢</h2>
-        <label for="datetime">本地日期時間</label>
-        <div class="query-row">
-          <input id="datetime" type="datetime-local" step="1">
-          <button id="use-now" type="button">現在時間</button>
+        <label class="visually-hidden" for="datetime">本地日期時間</label>
+        <input id="datetime" class="query-datetime-state" type="datetime-local" step="1" aria-label="本地日期時間">
+        <div class="query-picker">
+          <section class="query-calendar" aria-label="日期月曆">
+            <div class="query-calendar-header">
+              <button id="calendar-previous" class="query-picker-icon-button" type="button" aria-label="上一月">‹</button>
+              <div class="query-calendar-title">
+                <select id="calendar-year" aria-label="年份"></select>
+                <span id="calendar-month" aria-live="polite"></span>
+              </div>
+              <button id="calendar-next" class="query-picker-icon-button" type="button" aria-label="下一月">›</button>
+            </div>
+            <div class="query-calendar-weekdays" aria-hidden="true">
+              <span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span><span>日</span>
+            </div>
+            <div id="calendar-days" class="query-calendar-days" role="grid" aria-label="日期"></div>
+          </section>
+          <section class="query-chinese-hours" aria-labelledby="chinese-hour-title">
+            <div class="query-chinese-hours-header">
+              <h3 id="chinese-hour-title">時辰</h3>
+              <button id="use-now" type="button">現在時間</button>
+            </div>
+            <div id="chinese-hour-buttons" class="chinese-hour-buttons" role="group" aria-label="十二時辰"></div>
+          </section>
         </div>
       </section>
 

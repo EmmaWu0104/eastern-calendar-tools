@@ -68,19 +68,191 @@ label {
   font-weight: 600;
 }
 
-.query-row {
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.query-datetime-state {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.query-picker {
+  display: grid;
+  grid-template-columns: minmax(250px, 1fr) minmax(230px, 0.88fr);
+  gap: 14px;
+}
+
+.query-calendar,
+.query-chinese-hours {
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid #d8dee6;
+  border-radius: 8px;
+  background: #fbfcfe;
+}
+
+.query-calendar-header,
+.query-chinese-hours-header {
   display: flex;
-  gap: 12px;
   align-items: center;
-  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
 }
 
-.query-row input {
-  flex: 1 1 280px;
+.query-calendar-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #334e68;
+  font-weight: 800;
 }
 
-.query-row button {
-  flex: 0 0 auto;
+.query-calendar-title select {
+  min-height: 32px;
+  padding: 3px 5px;
+  border: 1px solid #b8c2cc;
+  border-radius: 5px;
+  background: #ffffff;
+  color: inherit;
+  font: inherit;
+}
+
+.query-picker-icon-button {
+  display: inline-grid;
+  width: 34px;
+  min-width: 34px;
+  min-height: 34px;
+  padding: 0;
+  place-items: center;
+  border-color: #b8c2cc;
+  background: #ffffff;
+  color: #334e68;
+  font-size: 24px;
+  line-height: 1;
+}
+
+.query-picker-icon-button:disabled {
+  cursor: not-allowed;
+}
+
+.query-calendar-weekdays,
+.query-calendar-days {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 3px;
+}
+
+.query-calendar-weekdays {
+  margin-bottom: 4px;
+  color: #7b8794;
+  font-size: 12px;
+  font-weight: 800;
+  text-align: center;
+}
+
+.query-calendar-day {
+  display: inline-grid;
+  min-width: 0;
+  min-height: 36px;
+  padding: 2px;
+  place-items: center;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: #334e68;
+  font-size: 14px;
+  font-weight: 750;
+}
+
+button.query-calendar-day {
+  cursor: pointer;
+}
+
+.query-calendar-day:hover {
+  border-color: #93c5fd;
+  background: #eff6ff;
+}
+
+.query-calendar-day.is-today {
+  box-shadow: inset 0 0 0 1px #f59e0b;
+  color: #9a6700;
+}
+
+.query-calendar-day.is-selected {
+  border-color: #1f6feb;
+  background: #1f6feb;
+  color: #ffffff;
+  box-shadow: none;
+}
+
+.query-calendar-day.is-blank {
+  pointer-events: none;
+}
+
+.query-chinese-hours-header h3 {
+  margin: 0;
+  color: #334e68;
+  font-size: 15px;
+}
+
+.query-chinese-hours-header button {
+  min-height: 32px;
+  padding: 5px 9px;
+  font-size: 13px;
+}
+
+.chinese-hour-buttons {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 5px;
+}
+
+.chinese-hour-button {
+  position: relative;
+  display: grid;
+  min-width: 0;
+  min-height: 54px;
+  padding: 5px 2px;
+  place-items: center;
+  border-color: #b8c2cc;
+  background: #ffffff;
+  color: #334e68;
+  line-height: 1.1;
+}
+
+.chinese-hour-button.is-current {
+  border-color: #f59e0b;
+}
+
+.chinese-hour-button.is-selected {
+  border-color: #1f6feb;
+  background: #1f6feb;
+  color: #ffffff;
+}
+
+.chinese-hour-branch {
+  font-size: 16px;
+  font-weight: 850;
+}
+
+.chinese-hour-range {
+  margin-top: 3px;
+  font-size: 10px;
+  font-weight: 700;
+  white-space: nowrap;
 }
 
 .weekday-label {
@@ -1882,13 +2054,22 @@ dd {
 }
 
 @media (max-width: 460px) {
-  .query-row {
-    align-items: stretch;
+  .query-picker {
+    grid-template-columns: 1fr;
+    gap: 10px;
   }
 
-  .query-row input,
-  .query-row button {
-    width: 100%;
+  .query-calendar,
+  .query-chinese-hours {
+    padding: 8px;
+  }
+
+  .query-calendar-day {
+    min-height: 38px;
+  }
+
+  .chinese-hour-buttons {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   .pillars {

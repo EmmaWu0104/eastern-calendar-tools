@@ -91,19 +91,21 @@ const JINHAN_DEITY_CLASS_NAMES = Object.freeze({
 });
 
 const WEEKDAY_LABELS = Object.freeze(["星期日", "星期一", "星期二", "星期三", "星期四", "星期五", "星期六"]);
+const QUERY_YEAR_MIN = 1900;
+const QUERY_YEAR_MAX = 2100;
 const CHINESE_HOUR_LABELS = Object.freeze([
-  Object.freeze({ index: 1, branch: "子", timeRange: "23 ~ 01" }),
-  Object.freeze({ index: 2, branch: "丑", timeRange: "01 ~ 03" }),
-  Object.freeze({ index: 3, branch: "寅", timeRange: "03 ~ 05" }),
-  Object.freeze({ index: 4, branch: "卯", timeRange: "05 ~ 07" }),
-  Object.freeze({ index: 5, branch: "辰", timeRange: "07 ~ 09" }),
-  Object.freeze({ index: 6, branch: "巳", timeRange: "09 ~ 11" }),
-  Object.freeze({ index: 7, branch: "午", timeRange: "11 ~ 13" }),
-  Object.freeze({ index: 8, branch: "未", timeRange: "13 ~ 15" }),
-  Object.freeze({ index: 9, branch: "申", timeRange: "15 ~ 17" }),
-  Object.freeze({ index: 10, branch: "酉", timeRange: "17 ~ 19" }),
-  Object.freeze({ index: 11, branch: "戌", timeRange: "19 ~ 21" }),
-  Object.freeze({ index: 12, branch: "亥", timeRange: "21 ~ 23" }),
+  Object.freeze({ index: 1, branch: "子", timeRange: "23 ~ 01", startHour: 23 }),
+  Object.freeze({ index: 2, branch: "丑", timeRange: "01 ~ 03", startHour: 1 }),
+  Object.freeze({ index: 3, branch: "寅", timeRange: "03 ~ 05", startHour: 3 }),
+  Object.freeze({ index: 4, branch: "卯", timeRange: "05 ~ 07", startHour: 5 }),
+  Object.freeze({ index: 5, branch: "辰", timeRange: "07 ~ 09", startHour: 7 }),
+  Object.freeze({ index: 6, branch: "巳", timeRange: "09 ~ 11", startHour: 9 }),
+  Object.freeze({ index: 7, branch: "午", timeRange: "11 ~ 13", startHour: 11 }),
+  Object.freeze({ index: 8, branch: "未", timeRange: "13 ~ 15", startHour: 13 }),
+  Object.freeze({ index: 9, branch: "申", timeRange: "15 ~ 17", startHour: 15 }),
+  Object.freeze({ index: 10, branch: "酉", timeRange: "17 ~ 19", startHour: 17 }),
+  Object.freeze({ index: 11, branch: "戌", timeRange: "19 ~ 21", startHour: 19 }),
+  Object.freeze({ index: 12, branch: "亥", timeRange: "21 ~ 23", startHour: 21 }),
 ]);
 
 const BRANCH_MONTH_LABELS = Object.freeze({
@@ -143,6 +145,12 @@ const elements = {
   qimenTabPanel: getElement("#panel-qimen"),
   datetime: getElement("#datetime"),
   useNow: getElement("#use-now"),
+  calendarPrevious: getElement("#calendar-previous"),
+  calendarNext: getElement("#calendar-next"),
+  calendarYear: getElement("#calendar-year"),
+  calendarMonth: getElement("#calendar-month"),
+  calendarDays: getElement("#calendar-days"),
+  chineseHourButtons: getElement("#chinese-hour-buttons"),
   weekdayLabel: getElement("#weekday-label"),
   pillars: getElement(".pillars"),
   yearPillar: getElement("#year-pillar"),
@@ -171,6 +179,8 @@ let autoNowTimerId = null;
 let isCalculating = false;
 let pendingDateTimeValue = null;
 let currentDateTimeValue = null;
+let visibleCalendarYear = new Date().getFullYear();
+let visibleCalendarMonth = new Date().getMonth();
 let qimenManualOverride = {
   enabled: false,
   dunType: "",
@@ -191,6 +201,9 @@ elements.tabButtons.forEach((button) => {
 elements.useNow.addEventListener("click", () => {
   startAutoNowMode();
 });
+elements.calendarPrevious.addEventListener("click", () => shiftVisibleCalendarMonth(-1));
+elements.calendarNext.addEventListener("click", () => shiftVisibleCalendarMonth(1));
+elements.calendarYear.addEventListener("change", handleCalendarYearChange);
 elements.datetime.addEventListener("input", handleManualDateTimeInput);
 elements.datetime.addEventListener("change", handleManualDateTimeChange);
 elements.datetime.addEventListener("keydown", (event) => {
@@ -209,6 +222,7 @@ qimenElements.manualDunSelect.addEventListener("change", handleQimenManualDunCha
 qimenElements.manualJuSelect.addEventListener("change", handleQimenManualJuChange);
 qimenElements.manualRestore.addEventListener("click", restoreQimenAutoPlateLookup);
 
+initializeQueryPicker();
 startAutoNowMode();
 
 function startAutoNowMode() {
@@ -240,6 +254,7 @@ function refreshFromCurrentTime() {
   }
 
   elements.datetime.value = toLocalDatetimeValue(new Date());
+  syncQueryPickerFromDateTime(elements.datetime.value, { syncVisibleMonth: true });
   requestRenderDateTime(elements.datetime.value);
 }
 
@@ -250,6 +265,7 @@ function handleManualDateTimeInput() {
     return;
   }
 
+  syncQueryPickerFromDateTime(elements.datetime.value, { syncVisibleMonth: true });
   requestRenderDateTime(elements.datetime.value);
 }
 
@@ -260,11 +276,189 @@ function handleManualDateTimeChange() {
     return;
   }
 
+  syncQueryPickerFromDateTime(elements.datetime.value, { syncVisibleMonth: true });
   requestRenderDateTime(elements.datetime.value);
 }
 
 function readDateTimeInput() {
   return parseDateTimeLocalValue(elements.datetime.value);
+}
+
+function initializeQueryPicker() {
+  const yearOptions = [];
+  for (let year = QUERY_YEAR_MIN; year <= QUERY_YEAR_MAX; year += 1) {
+    yearOptions.push(createOption(String(year), `${year}年`));
+  }
+  elements.calendarYear.replaceChildren(...yearOptions);
+  visibleCalendarYear = clampQueryYear(visibleCalendarYear);
+  renderQueryPicker();
+}
+
+function syncQueryPickerFromDateTime(dateTimeValue, { syncVisibleMonth = false } = {}) {
+  const date = parseDateTimeLocalValue(dateTimeValue);
+  if (!date) {
+    renderQueryPicker();
+    return;
+  }
+
+  if (syncVisibleMonth) {
+    visibleCalendarYear = clampQueryYear(date.getFullYear());
+    visibleCalendarMonth = date.getMonth();
+  }
+
+  renderQueryPicker();
+}
+
+function renderQueryPicker() {
+  visibleCalendarYear = clampQueryYear(visibleCalendarYear);
+  visibleCalendarMonth = Math.min(11, Math.max(0, visibleCalendarMonth));
+  elements.calendarYear.value = String(visibleCalendarYear);
+  elements.calendarMonth.textContent = `${visibleCalendarMonth + 1}月`;
+  elements.calendarPrevious.disabled = visibleCalendarYear === QUERY_YEAR_MIN && visibleCalendarMonth === 0;
+  elements.calendarNext.disabled = visibleCalendarYear === QUERY_YEAR_MAX && visibleCalendarMonth === 11;
+  renderMonthCalendarDays();
+  renderChineseHourButtons();
+}
+
+function renderMonthCalendarDays() {
+  const selectedDate = readDateTimeInput();
+  const today = new Date();
+  const firstWeekday = (new Date(visibleCalendarYear, visibleCalendarMonth, 1).getDay() + 6) % 7;
+  const daysInMonth = new Date(visibleCalendarYear, visibleCalendarMonth + 1, 0).getDate();
+  const cells = [];
+
+  for (let index = 0; index < firstWeekday; index += 1) {
+    const blank = document.createElement("span");
+    blank.className = "query-calendar-day is-blank";
+    blank.setAttribute("aria-hidden", "true");
+    cells.push(blank);
+  }
+
+  for (let day = 1; day <= daysInMonth; day += 1) {
+    const button = document.createElement("button");
+    const isToday = isSameCalendarDate(today, visibleCalendarYear, visibleCalendarMonth, day);
+    const isSelected = selectedDate && isSameCalendarDate(selectedDate, visibleCalendarYear, visibleCalendarMonth, day);
+    button.type = "button";
+    button.className = [
+      "query-calendar-day",
+      isToday ? "is-today" : "",
+      isSelected ? "is-selected" : "",
+    ].filter(Boolean).join(" ");
+    button.textContent = String(day);
+    button.setAttribute("role", "gridcell");
+    button.setAttribute("aria-selected", String(Boolean(isSelected)));
+    button.setAttribute("aria-label", `${visibleCalendarYear}年${visibleCalendarMonth + 1}月${day}日`);
+    button.addEventListener("click", () => selectQueryCalendarDate(visibleCalendarYear, visibleCalendarMonth, day));
+    cells.push(button);
+  }
+
+  elements.calendarDays.replaceChildren(...cells);
+}
+
+function renderChineseHourButtons() {
+  const selectedIndex = getChineseHourIndex(elements.datetime.value);
+  const currentIndex = getChineseHourIndex(toLocalDatetimeValue(new Date()));
+  const buttons = CHINESE_HOUR_LABELS.map((hour) => {
+    const button = document.createElement("button");
+    const isSelected = hour.index === selectedIndex;
+    const isCurrent = hour.index === currentIndex;
+    button.type = "button";
+    button.className = [
+      "chinese-hour-button",
+      isSelected ? "is-selected" : "",
+      isCurrent ? "is-current" : "",
+    ].filter(Boolean).join(" ");
+    button.setAttribute("aria-pressed", String(isSelected));
+    button.setAttribute("aria-label", `${hour.branch}時 ${hour.timeRange}`);
+    button.append(
+      createBlockSpan(hour.branch, "chinese-hour-branch"),
+      createBlockSpan(hour.timeRange, "chinese-hour-range")
+    );
+    button.addEventListener("click", () => selectChineseHour(hour.index));
+    return button;
+  });
+
+  elements.chineseHourButtons.replaceChildren(...buttons);
+}
+
+function shiftVisibleCalendarMonth(delta) {
+  const next = new Date(visibleCalendarYear, visibleCalendarMonth + delta, 1);
+  if (next.getFullYear() < QUERY_YEAR_MIN || next.getFullYear() > QUERY_YEAR_MAX) {
+    return;
+  }
+
+  visibleCalendarYear = next.getFullYear();
+  visibleCalendarMonth = next.getMonth();
+  renderQueryPicker();
+}
+
+function handleCalendarYearChange() {
+  visibleCalendarYear = clampQueryYear(Number(elements.calendarYear.value));
+  renderQueryPicker();
+}
+
+function selectQueryCalendarDate(year, month, day) {
+  const hourIndex = getChineseHourIndex(elements.datetime.value)
+    ?? getChineseHourIndex(toLocalDatetimeValue(new Date()))
+    ?? 1;
+  const dateTimeValue = buildDateTimeValueFromDateAndChineseHour(year, month, day, hourIndex);
+  if (!dateTimeValue) {
+    return;
+  }
+
+  pauseAutoNowMode();
+  elements.datetime.value = dateTimeValue;
+  syncQueryPickerFromDateTime(dateTimeValue);
+  requestRenderDateTime(dateTimeValue);
+}
+
+function selectChineseHour(hourIndex) {
+  const selectedDate = readDateTimeInput() ?? new Date();
+  const dateTimeValue = buildDateTimeValueFromDateAndChineseHour(
+    selectedDate.getFullYear(),
+    selectedDate.getMonth(),
+    selectedDate.getDate(),
+    hourIndex
+  );
+  if (!dateTimeValue) {
+    return;
+  }
+
+  pauseAutoNowMode();
+  elements.datetime.value = dateTimeValue;
+  syncQueryPickerFromDateTime(dateTimeValue);
+  requestRenderDateTime(dateTimeValue);
+}
+
+function buildDateTimeValueFromDateAndChineseHour(year, month, day, hourIndex) {
+  const startHour = getChineseHourStartHour(hourIndex);
+  const clampedYear = clampQueryYear(year);
+  if (!Number.isInteger(startHour) || clampedYear !== year) {
+    return null;
+  }
+
+  const date = new Date(year, month, day, startHour, 0, 0);
+  if (date.getFullYear() !== year || date.getMonth() !== month || date.getDate() !== day) {
+    return null;
+  }
+
+  return toLocalDatetimeValue(date);
+}
+
+function getChineseHourStartHour(hourIndex) {
+  return CHINESE_HOUR_LABELS.find((hour) => hour.index === hourIndex)?.startHour ?? null;
+}
+
+function clampQueryYear(year) {
+  if (!Number.isFinite(year)) {
+    return QUERY_YEAR_MIN;
+  }
+
+  return Math.min(QUERY_YEAR_MAX, Math.max(QUERY_YEAR_MIN, Math.trunc(year)));
+}
+
+function isSameCalendarDate(date, year, month, day) {
+  return date.getFullYear() === year && date.getMonth() === month && date.getDate() === day;
 }
 
 function requestRenderDateTime(dateTimeValue) {
