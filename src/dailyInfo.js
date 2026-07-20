@@ -13,6 +13,19 @@ export const BRANCH_ELEMENTS = Object.freeze({
   "亥": "水",
 });
 
+const STEM_ELEMENTS = Object.freeze({
+  "甲": "木",
+  "乙": "木",
+  "丙": "火",
+  "丁": "火",
+  "戊": "土",
+  "己": "土",
+  "庚": "金",
+  "辛": "金",
+  "壬": "水",
+  "癸": "水",
+});
+
 export const ELEMENT_COLORS = Object.freeze({
   "土": Object.freeze(["黃色", "咖啡色"]),
   "金": Object.freeze(["金色", "銀色", "白色", "淺灰色"]),
@@ -27,6 +40,14 @@ export const ELEMENT_GENERATES = Object.freeze({
   "土": "金",
   "金": "水",
   "水": "木",
+});
+
+const ELEMENT_CONTROLS = Object.freeze({
+  "木": "土",
+  "土": "水",
+  "水": "火",
+  "火": "金",
+  "金": "木",
 });
 
 export const CLASH_BRANCHES = Object.freeze({
@@ -394,16 +415,74 @@ export function isGengDay(dayPillar) {
   return normalizedDayPillar[0] === "庚";
 }
 
+export function getBaoYiHeZhiFaByDayPillar(dayPillar) {
+  const normalizedDayPillar = normalizeText(dayPillar);
+  const stem = normalizedDayPillar[0] ?? "";
+  const branch = normalizedDayPillar[1] ?? "";
+  const stemElement = STEM_ELEMENTS[stem];
+  const branchElement = BRANCH_ELEMENTS[branch];
+
+  if (!stemElement || !branchElement) {
+    return null;
+  }
+
+  const type = stemElement === branchElement
+    ? "和日"
+    : ELEMENT_CONTROLS[stemElement] === branchElement
+      ? "制日"
+      : ELEMENT_CONTROLS[branchElement] === stemElement
+        ? "伐日"
+        : ELEMENT_GENERATES[stemElement] === branchElement
+          ? "寶日"
+          : ELEMENT_GENERATES[branchElement] === stemElement
+            ? "義日"
+            : "";
+
+  const symbol = {
+    "寶日": "⭕",
+    "義日": "⭕",
+    "和日": "⭕",
+    "制日": "‼️",
+    "伐日": "❌",
+  }[type];
+
+  if (!symbol) {
+    return null;
+  }
+
+  return {
+    type,
+    label: `${symbol} ${type}`,
+    stem,
+    branch,
+    stemElement,
+    branchElement,
+  };
+}
+
 export function getSanfuByDateKey(dateKey, sanfuDateKeys) {
   const normalizedDateKey = normalizeText(dateKey);
   if (!normalizedDateKey || typeof sanfuDateKeys !== "object" || sanfuDateKeys === null) {
     return null;
   }
 
-  for (const sanfuType of ["初伏", "中伏", "末伏"]) {
-    if (normalizedDateKey === normalizeText(sanfuDateKeys[sanfuType])) {
-      return { ...SANFU_INFO[sanfuType] };
-    }
+  const initialStart = normalizeText(sanfuDateKeys["初伏"]);
+  const middleStart = normalizeText(sanfuDateKeys["中伏"]);
+  const finalStart = normalizeText(sanfuDateKeys["末伏"]);
+  const finalEnd = addDaysToDateKey(finalStart, 10);
+
+  if (
+    isDateKeyInRange(normalizedDateKey, initialStart, middleStart)
+  ) {
+    return { ...SANFU_INFO["初伏"] };
+  }
+
+  if (isDateKeyInRange(normalizedDateKey, middleStart, finalStart)) {
+    return { ...SANFU_INFO["中伏"] };
+  }
+
+  if (isDateKeyInRange(normalizedDateKey, finalStart, finalEnd)) {
+    return { ...SANFU_INFO["末伏"] };
   }
 
   return null;
@@ -427,6 +506,7 @@ export function getDailyInfoByBranches({
     suiPo: getSuiPoByBranches(yearBranch, dayBranch),
     seasonalMarker: getSeasonalMarkerByUpcomingTerm(upcomingTermName, isPreviousEffectiveDay),
     tianShe: getTianSheBySeasonAndDayPillar(season, normalizedDayPillar),
+    baoYiHeZhiFa: getBaoYiHeZhiFaByDayPillar(normalizedDayPillar),
     sanfu: getSanfuByDateKey(dateKey, sanfuDateKeys),
   };
 }
@@ -441,6 +521,33 @@ function createClothingItem(label, element) {
 
 function findGeneratingElement(targetElement) {
   return Object.entries(ELEMENT_GENERATES).find(([, generated]) => generated === targetElement)?.[0] ?? "";
+}
+
+function isDateKeyInRange(dateKey, startDateKey, endDateKey) {
+  return isDateKey(dateKey)
+    && isDateKey(startDateKey)
+    && isDateKey(endDateKey)
+    && dateKey >= startDateKey
+    && dateKey < endDateKey;
+}
+
+function addDaysToDateKey(dateKey, dayOffset) {
+  if (!isDateKey(dateKey) || !Number.isInteger(dayOffset)) {
+    return "";
+  }
+
+  const [year, month, day] = dateKey.split("-").map(Number);
+  const date = new Date(year, month - 1, day);
+  date.setDate(date.getDate() + dayOffset);
+  return [
+    String(date.getFullYear()).padStart(4, "0"),
+    String(date.getMonth() + 1).padStart(2, "0"),
+    String(date.getDate()).padStart(2, "0"),
+  ].join("-");
+}
+
+function isDateKey(value) {
+  return /^\d{4}-\d{2}-\d{2}$/.test(value);
 }
 
 function normalizeText(value) {

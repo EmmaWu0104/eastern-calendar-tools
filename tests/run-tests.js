@@ -10,6 +10,7 @@ const { calculateBaziFromSolarTerms } = await import("../src/bazi.js");
 const { getDailyGodsByStem } = await import("../src/dailyGods.js");
 const {
   getClothingAdviceByDayBranch,
+  getBaoYiHeZhiFaByDayPillar,
   getDaHuangDaoFortune,
   getDailyDaHuangDao,
   getDailyClashByDayBranch,
@@ -7655,6 +7656,22 @@ function runDailyInfoTests() {
   dailyInfoVerifiedCaseCount += 1;
   assertEqual("daily-info-geng-day-false", "isGengDay", false, isGengDay("辛未"));
 
+  const baoYiHeZhiFaCases = [
+    { id: "daily-info-bao-yi-he-zhi-fa-zhi", pillar: "乙未", expected: "‼️制日" },
+    { id: "daily-info-bao-yi-he-zhi-fa-he", pillar: "甲寅", expected: "⭕和日" },
+    { id: "daily-info-bao-yi-he-zhi-fa-bao", pillar: "甲午", expected: "⭕寶日" },
+    { id: "daily-info-bao-yi-he-zhi-fa-yi", pillar: "癸酉", expected: "⭕義日" },
+    { id: "daily-info-bao-yi-he-zhi-fa-fa", pillar: "己卯", expected: "❌伐日" },
+  ];
+
+  for (const testCase of baoYiHeZhiFaCases) {
+    dailyInfoVerifiedCaseCount += 1;
+    assertEqual(testCase.id, "label", testCase.expected, getBaoYiHeZhiFaByDayPillar(testCase.pillar)?.label);
+  }
+
+  dailyInfoVerifiedCaseCount += 1;
+  assertEqual("daily-info-bao-yi-he-zhi-fa-invalid", "result", null, getBaoYiHeZhiFaByDayPillar("甲無"));
+
   const sanfuDateKeys = {
     "初伏": "2026-07-15",
     "中伏": "2026-07-25",
@@ -7662,8 +7679,14 @@ function runDailyInfoTests() {
   };
   const sanfuCases = [
     { id: "daily-info-sanfu-chufu", dateKey: "2026-07-15", expectedType: "初伏" },
+    { id: "daily-info-sanfu-chufu-range-start", dateKey: "2026-07-16", expectedType: "初伏" },
+    { id: "daily-info-sanfu-chufu-range-end", dateKey: "2026-07-24", expectedType: "初伏" },
     { id: "daily-info-sanfu-zhongfu", dateKey: "2026-07-25", expectedType: "中伏" },
+    { id: "daily-info-sanfu-zhongfu-range-start", dateKey: "2026-07-26", expectedType: "中伏" },
+    { id: "daily-info-sanfu-zhongfu-range-end", dateKey: "2026-08-13", expectedType: "中伏" },
     { id: "daily-info-sanfu-mofu", dateKey: "2026-08-14", expectedType: "末伏" },
+    { id: "daily-info-sanfu-mofu-range-start", dateKey: "2026-08-15", expectedType: "末伏" },
+    { id: "daily-info-sanfu-mofu-range-end", dateKey: "2026-08-23", expectedType: "末伏" },
   ];
 
   for (const testCase of sanfuCases) {
@@ -7673,7 +7696,7 @@ function runDailyInfoTests() {
   }
 
   dailyInfoVerifiedCaseCount += 1;
-  assertEqual("daily-info-sanfu-none", "result", null, getSanfuByDateKey("2026-07-16", sanfuDateKeys));
+  assertEqual("daily-info-sanfu-none", "result", null, getSanfuByDateKey("2026-08-24", sanfuDateKeys));
 
   const dailyInfo = getDailyInfoByBranches({
     yearBranch: "子",
@@ -7689,6 +7712,8 @@ function runDailyInfoTests() {
   assertEqual("daily-info-summary-clash", "label", "衝煞：鼠", dailyInfo.clash?.label);
   assertEqual("daily-info-summary-suipo", "isSuiPo", true, dailyInfo.suiPo?.isSuiPo);
   assertEqual("daily-info-summary-sanfu", "type", "初伏", dailyInfo.sanfu?.type);
+  dailyInfoVerifiedCaseCount += 1;
+  assertEqual("daily-info-summary-bao-yi-he-zhi-fa", "label", "⭕和日", dailyInfo.baoYiHeZhiFa?.label);
 
   const dailyInfoTianShe = getDailyInfoByBranches({
     yearBranch: "午",

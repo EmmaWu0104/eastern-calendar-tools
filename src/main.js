@@ -866,6 +866,10 @@ function createPillarPart(text, className) {
 function createDailyInfoPillarParts(dailyInfo) {
   const lines = [];
 
+  if (dailyInfo?.baoYiHeZhiFa?.label) {
+    lines.push(createPillarPart(dailyInfo.baoYiHeZhiFa.label, "pillar-extra daily-info-line"));
+  }
+
   if (dailyInfo?.clash?.label) {
     lines.push(createPillarPart(`❌ ${dailyInfo.clash.label}`, "pillar-extra daily-info-line"));
   }
@@ -891,6 +895,10 @@ function createDailyInfoPillarParts(dailyInfo) {
 
 function createDailyInfoPanelLines(dailyInfo) {
   const lines = [];
+
+  if (dailyInfo?.baoYiHeZhiFa?.label) {
+    lines.push(createPillarExtraPanelLine(dailyInfo.baoYiHeZhiFa.label, "daily-info-line"));
+  }
 
   if (dailyInfo?.suiPo?.isSuiPo) {
     lines.push(createPillarExtraPanelLine(`☠️ ${dailyInfo.suiPo.label}`, "daily-info-line"));
