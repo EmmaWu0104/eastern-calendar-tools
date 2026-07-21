@@ -1263,13 +1263,13 @@ dd {
   position: absolute;
   z-index: 2;
   display: grid;
-  width: 22px;
-  height: 22px;
+  width: 18px;
+  height: 18px;
   place-items: center;
   box-sizing: border-box;
   border: 1px solid #1f2933;
   border-radius: 50%;
-  font-size: 12px;
+  font-size: 10px;
   font-weight: 850;
   line-height: 1;
 }
