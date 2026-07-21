@@ -11,6 +11,13 @@ import {
 import { getDongGongDaySelection } from "./dongGongDaySelection.js";
 import { calculateAllFlyingStarCharts } from "./flyingStars.js";
 import {
+  formatHexagramLabel,
+  getHexagramByTrigrams,
+  getTrigramByQimenDoor,
+  getTrigramByQimenPalaceKey,
+  getTrigramByQimenStar,
+} from "./hexagrams.js";
+import {
   calculateGuiDengForDate,
   getMonthGeneralBySolarTermName,
 } from "./guideng.js";
@@ -1605,7 +1612,8 @@ function formatQimenStarPalace(star, palaceKey) {
     return "—";
   }
 
-  return `${star.endsWith("星") ? star : `${star}星`} ${formatQimenPalaceName(palaceKey)}`;
+  const value = `${star.endsWith("星") ? star : `${star}星`} ${formatQimenPalaceName(palaceKey)}`;
+  return appendQimenHexagramLabel(value, getTrigramByQimenStar(star), palaceKey);
 }
 
 function formatQimenDoorPalace(door, palaceKey) {
@@ -1613,7 +1621,15 @@ function formatQimenDoorPalace(door, palaceKey) {
     return "—";
   }
 
-  return `${door}門 ${formatQimenPalaceName(palaceKey)}`;
+  const value = `${door}門 ${formatQimenPalaceName(palaceKey)}`;
+  return appendQimenHexagramLabel(value, getTrigramByQimenDoor(door), palaceKey);
+}
+
+function appendQimenHexagramLabel(value, upperTrigram, palaceKey) {
+  const lowerTrigram = getTrigramByQimenPalaceKey(palaceKey);
+  const hexagram = getHexagramByTrigrams(upperTrigram?.key, lowerTrigram?.key);
+  const label = formatHexagramLabel(hexagram);
+  return label ? `${value} （${label}）` : value;
 }
 
 function formatQimenPalaceName(palaceKey) {

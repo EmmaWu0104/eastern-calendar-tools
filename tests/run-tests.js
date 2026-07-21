@@ -24,6 +24,13 @@ const {
 const { getDongGongDaySelection } = await import("../src/dongGongDaySelection.js");
 const { SEXAGENARY_CYCLE } = await import("../src/ganzhi.js");
 const {
+  formatHexagramLabel,
+  getHexagramByTrigrams,
+  getTrigramByQimenDoor,
+  getTrigramByQimenPalaceKey,
+  getTrigramByQimenStar,
+} = await import("../src/hexagrams.js");
+const {
   getEarthlyBranchIndex,
   getJianchuByBranches,
   getJianchuSequence,
@@ -237,6 +244,7 @@ let guiDengVerifiedCaseCount = 0;
 let annualAfflictionsVerifiedCaseCount = 0;
 let dongGongVerifiedCaseCount = 0;
 let queryPickerVerifiedCaseCount = 0;
+let hexagramVerifiedCaseCount = 0;
 const queryPickerHelpers = loadQueryPickerHelpersForTest(mainModuleRaw);
 
 const parsedLocalDateTime = parseLocalDateTime("2026-06-05T09:08:07.123");
@@ -549,6 +557,7 @@ runQimenFullTermCycleDraftCachedResolverFormatterFullRangeDiagnosticsTests();
 runQimenFullTermCycleDraftResolverFormatterCacheReplacementTests();
 runQimenPlateLookupTests();
 runQimenPlateMarkersTests();
+runHexagramTests();
 await runQimenPlateValidationTests();
 runQimen1080MarkdownParserTests();
 await runQimen1080ConverterDryRunTests();
@@ -641,6 +650,7 @@ if (failures.length > 0) {
   console.log(`貴人登天門測試通過：${guiDengVerifiedCaseCount} cases`);
   console.log(`流年方位煞測試通過：${annualAfflictionsVerifiedCaseCount} cases`);
   console.log(`董公擇日測試通過：${dongGongVerifiedCaseCount} cases`);
+  console.log(`六十四卦測試通過：${hexagramVerifiedCaseCount} cases`);
   console.log(`月曆十二時辰選取測試通過：${queryPickerVerifiedCaseCount} cases`);
   if (pendingCases.length > 0) {
     console.log(`待人工驗證案例略過：${pendingCases.length} cases`);
@@ -5959,6 +5969,47 @@ function assertFoundQimenPlate(id, actual, expected) {
   assertEqual(id, "plate.zhiShiDoor.exists", true, typeof actual.plate?.zhiShiDoor === "string" && actual.plate.zhiShiDoor.length > 0);
   assertEqual(id, "plate.palaces.center.exists", true, Boolean(actual.plate?.palaces?.center));
   assertEqual(id, "plate.palaces.center.star", "天禽", actual.plate?.palaces?.center?.star);
+}
+
+function runHexagramTests() {
+  const hexagramCases = [
+    ["kun-kun", "kun", "kun", "坤為地", "䷁"],
+    ["xun-gen", "xun", "gen", "風山漸", "䷴"],
+    ["xun-zhen", "xun", "zhen", "風雷益", "䷩"],
+    ["qian-qian", "qian", "qian", "乾為天", "䷀"],
+    ["kan-kan", "kan", "kan", "坎為水", "䷜"],
+    ["li-li", "li", "li", "離為火", "䷝"],
+  ];
+
+  for (const [id, upper, lower, expectedName, expectedSymbol] of hexagramCases) {
+    const hexagram = getHexagramByTrigrams(upper, lower);
+    hexagramVerifiedCaseCount += 1;
+    assertEqual(`hexagrams-${id}`, "name", expectedName, hexagram?.name);
+    assertEqual(`hexagrams-${id}`, "symbol", expectedSymbol, hexagram?.symbol);
+  }
+
+  const trigramCases = [
+    ["star-tian-qin", getTrigramByQimenStar("天禽"), "kun"],
+    ["star-tian-rui", getTrigramByQimenStar("天芮"), "kun"],
+    ["star-tian-fu", getTrigramByQimenStar("天輔"), "xun"],
+    ["door-si", getTrigramByQimenDoor("死門"), "kun"],
+    ["door-du", getTrigramByQimenDoor("杜門"), "xun"],
+    ["door-kai", getTrigramByQimenDoor("開門"), "qian"],
+  ];
+
+  for (const [id, trigram, expectedKey] of trigramCases) {
+    hexagramVerifiedCaseCount += 1;
+    assertEqual(`hexagrams-${id}`, "key", expectedKey, trigram?.key);
+  }
+
+  hexagramVerifiedCaseCount += 1;
+  assertEqual("hexagrams-format-label", "label", "䷁ 坤為地", formatHexagramLabel(getHexagramByTrigrams("kun", "kun")));
+  assertEqual("hexagrams-invalid-upper", "result", null, getHexagramByTrigrams("invalid", "kun"));
+  assertEqual("hexagrams-invalid-lower", "result", null, getHexagramByTrigrams("kun", "invalid"));
+  assertEqual("hexagrams-invalid-star", "result", null, getTrigramByQimenStar("無效"));
+  assertEqual("hexagrams-invalid-door", "result", null, getTrigramByQimenDoor("無效"));
+  assertEqual("hexagrams-center-palace", "result", null, getTrigramByQimenPalaceKey("center"));
+  assertEqual("hexagrams-invalid-palace", "result", null, getTrigramByQimenPalaceKey("invalid"));
 }
 
 function runQimenPlateMarkersTests() {
