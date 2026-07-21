@@ -1125,7 +1125,7 @@ function createQimenSection() {
 
   const subtitle = document.createElement("p");
   subtitle.className = "qimen-subtitle";
-  subtitle.textContent = "傳統置閏法定局";
+  subtitle.textContent = "置閏法定局";
 
   heading.append(title, subtitle);
 
