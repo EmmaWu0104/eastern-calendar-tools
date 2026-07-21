@@ -149,6 +149,7 @@ const [
   qimen1080MarkdownRaw,
   dongGongDataRaw,
   dongGongModuleRaw,
+  mainModuleRaw,
 ] = await Promise.all([
   readFile(new URL("../data/solar_terms_1899_2101.json", import.meta.url), "utf8"),
   readFile(new URL("./testcases.json", import.meta.url), "utf8"),
@@ -158,6 +159,7 @@ const [
   readFile(new URL("../data/1080.md", import.meta.url), "utf8"),
   readFile(new URL("../data/dong_gong_day_selection.json", import.meta.url), "utf8"),
   readFile(new URL("../src/dongGongDaySelection.js", import.meta.url), "utf8"),
+  readFile(new URL("../src/main.js", import.meta.url), "utf8"),
 ]);
 
 const solarTerms = normalizeSolarTerms(JSON.parse(termsRaw));
@@ -232,6 +234,8 @@ let baziDailyInfoVerifiedCaseCount = 0;
 let guiDengVerifiedCaseCount = 0;
 let annualAfflictionsVerifiedCaseCount = 0;
 let dongGongVerifiedCaseCount = 0;
+let queryPickerVerifiedCaseCount = 0;
+const queryPickerHelpers = loadQueryPickerHelpersForTest(mainModuleRaw);
 
 const parsedLocalDateTime = parseLocalDateTime("2026-06-05T09:08:07.123");
 const localDateTimeExpected = {
@@ -553,6 +557,7 @@ runQimenYearSeedRecommendationTests();
 runQimenTimelineFromYearSeedRecommendationTests();
 runQimenResolverTests();
 runDailyInfoTests();
+runQueryPickerTests(solarTerms);
 runBaziCurrentHouTests(solarTerms);
 runBaziJianchuTests(solarTerms);
 runBaziDailyInfoTests(solarTerms);
@@ -634,6 +639,7 @@ if (failures.length > 0) {
   console.log(`貴人登天門測試通過：${guiDengVerifiedCaseCount} cases`);
   console.log(`流年方位煞測試通過：${annualAfflictionsVerifiedCaseCount} cases`);
   console.log(`董公擇日測試通過：${dongGongVerifiedCaseCount} cases`);
+  console.log(`月曆十二時辰選取測試通過：${queryPickerVerifiedCaseCount} cases`);
   if (pendingCases.length > 0) {
     console.log(`待人工驗證案例略過：${pendingCases.length} cases`);
     for (const testCase of pendingCases) {
@@ -7724,6 +7730,75 @@ function runDailyInfoTests() {
   assertEqual("daily-info-summary-tianshe", "isTianShe", true, dailyInfoTianShe.tianShe?.isTianShe);
 }
 
+function runQueryPickerTests(solarTerms) {
+  const dateTimeCases = [
+    { id: "query-picker-zi", year: 2026, month: 6, day: 21, hourIndex: 1, expected: "2026-07-20T23:00" },
+    { id: "query-picker-chou", year: 2026, month: 6, day: 21, hourIndex: 2, expected: "2026-07-21T01:00" },
+    { id: "query-picker-si", year: 2026, month: 6, day: 21, hourIndex: 6, expected: "2026-07-21T09:00" },
+    { id: "query-picker-zi-cross-year", year: 2026, month: 0, day: 1, hourIndex: 1, expected: "2025-12-31T23:00" },
+  ];
+
+  for (const testCase of dateTimeCases) {
+    queryPickerVerifiedCaseCount += 1;
+    assertEqual(
+      testCase.id,
+      "datetime",
+      testCase.expected,
+      queryPickerHelpers.buildDateTimeValueFromDateAndChineseHour(
+        testCase.year,
+        testCase.month,
+        testCase.day,
+        testCase.hourIndex
+      )
+    );
+  }
+
+  const selectedDateCases = [
+    { id: "query-picker-auto-before-2300", input: "2026-07-20T22:59", expected: "2026-07-20" },
+    { id: "query-picker-auto-at-2300", input: "2026-07-20T23:00", expected: "2026-07-21" },
+    { id: "query-picker-auto-after-midnight", input: "2026-07-21T00:30", expected: "2026-07-21" },
+    { id: "query-picker-auto-before-next-2300", input: "2026-07-21T22:59", expected: "2026-07-21" },
+  ];
+
+  for (const testCase of selectedDateCases) {
+    const selectedDate = queryPickerHelpers.getSelectedCalendarDateFromDateTime(testCase.input);
+    const actual = selectedDate
+      ? `${selectedDate.year}-${String(selectedDate.month + 1).padStart(2, "0")}-${String(selectedDate.day).padStart(2, "0")}`
+      : null;
+    queryPickerVerifiedCaseCount += 1;
+    assertEqual(testCase.id, "selectedCalendarDate", testCase.expected, actual);
+  }
+
+  const integrationCases = [
+    {
+      id: "query-picker-zi-bazi",
+      hourIndex: 1,
+      expectedDateTime: "2026-07-20T23:00",
+      expected: { dayPillar: "丙申", hourPillar: "戊子" },
+    },
+    {
+      id: "query-picker-chou-bazi",
+      hourIndex: 2,
+      expectedDateTime: "2026-07-21T01:00",
+      expected: { dayPillar: "丙申", hourPillar: "己丑" },
+    },
+  ];
+
+  for (const testCase of integrationCases) {
+    const dateTimeValue = queryPickerHelpers.buildDateTimeValueFromDateAndChineseHour(
+      2026,
+      6,
+      21,
+      testCase.hourIndex
+    );
+    const result = calculateBaziFromSolarTerms(dateTimeValue, solarTerms);
+    queryPickerVerifiedCaseCount += 1;
+    assertEqual(testCase.id, "datetime", testCase.expectedDateTime, dateTimeValue);
+    assertEqual(testCase.id, "dayPillar", testCase.expected.dayPillar, result.dayPillar);
+    assertEqual(testCase.id, "hourPillar", testCase.expected.hourPillar, result.hourPillar);
+  }
+}
+
 function runBaziCurrentHouTests(solarTerms) {
   const dahan = findSolarTermForTest(solarTerms, "大寒", 2026);
   const lichun = findSolarTermForTest(solarTerms, "立春", 2026);
@@ -8611,6 +8686,62 @@ function runDongGongDaySelectionTests() {
 
 function formatAnnualAfflictionBadgeLabels(badges) {
   return Array.isArray(badges) ? badges.map((badge) => badge.label).join("") : "";
+}
+
+function loadQueryPickerHelpersForTest(mainModuleRaw) {
+  const functionNames = [
+    "buildDateTimeValueFromDateAndChineseHour",
+    "getChineseHourStartHour",
+    "clampQueryYear",
+    "getSelectedCalendarDateFromDateTime",
+    "parseDateTimeLocalValue",
+    "toLocalDatetimeValue",
+  ];
+  const definitions = functionNames.map((name) => extractNamedFunctionSource(mainModuleRaw, name)).join("\n\n");
+
+  return Function(`
+    const QUERY_YEAR_MIN = 1900;
+    const QUERY_YEAR_MAX = 2100;
+    const CHINESE_HOUR_LABELS = Object.freeze([
+      Object.freeze({ index: 1, startHour: 23 }),
+      Object.freeze({ index: 2, startHour: 1 }),
+      Object.freeze({ index: 3, startHour: 3 }),
+      Object.freeze({ index: 4, startHour: 5 }),
+      Object.freeze({ index: 5, startHour: 7 }),
+      Object.freeze({ index: 6, startHour: 9 }),
+      Object.freeze({ index: 7, startHour: 11 }),
+      Object.freeze({ index: 8, startHour: 13 }),
+      Object.freeze({ index: 9, startHour: 15 }),
+      Object.freeze({ index: 10, startHour: 17 }),
+      Object.freeze({ index: 11, startHour: 19 }),
+      Object.freeze({ index: 12, startHour: 21 }),
+    ]);
+    ${definitions}
+    return { buildDateTimeValueFromDateAndChineseHour, getSelectedCalendarDateFromDateTime };
+  `)();
+}
+
+function extractNamedFunctionSource(source, name) {
+  const declaration = `function ${name}(`;
+  const start = source.indexOf(declaration);
+  if (start === -1) {
+    throw new Error(`Cannot find ${declaration} in src/main.js`);
+  }
+
+  const bodyStart = source.indexOf("{", start);
+  let depth = 0;
+  for (let index = bodyStart; index < source.length; index += 1) {
+    if (source[index] === "{") {
+      depth += 1;
+    } else if (source[index] === "}") {
+      depth -= 1;
+      if (depth === 0) {
+        return source.slice(start, index + 1);
+      }
+    }
+  }
+
+  throw new Error(`Cannot find the end of ${declaration} in src/main.js`);
 }
 
 function findSolarTermForTest(solarTerms, name, year) {

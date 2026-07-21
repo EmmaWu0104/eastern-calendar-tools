@@ -179,6 +179,7 @@ let autoNowTimerId = null;
 let isCalculating = false;
 let pendingDateTimeValue = null;
 let currentDateTimeValue = null;
+let selectedCalendarDate = null;
 let visibleCalendarYear = new Date().getFullYear();
 let visibleCalendarMonth = new Date().getMonth();
 let qimenManualOverride = {
@@ -294,16 +295,23 @@ function initializeQueryPicker() {
   renderQueryPicker();
 }
 
-function syncQueryPickerFromDateTime(dateTimeValue, { syncVisibleMonth = false } = {}) {
-  const date = parseDateTimeLocalValue(dateTimeValue);
-  if (!date) {
+function syncQueryPickerFromDateTime(
+  dateTimeValue,
+  { syncVisibleMonth = false, syncSelectedCalendarDate = true } = {}
+) {
+  const calendarDate = getSelectedCalendarDateFromDateTime(dateTimeValue);
+  if (!calendarDate) {
     renderQueryPicker();
     return;
   }
 
+  if (syncSelectedCalendarDate) {
+    selectedCalendarDate = calendarDate;
+  }
+
   if (syncVisibleMonth) {
-    visibleCalendarYear = clampQueryYear(date.getFullYear());
-    visibleCalendarMonth = date.getMonth();
+    visibleCalendarYear = clampQueryYear(calendarDate.year);
+    visibleCalendarMonth = calendarDate.month;
   }
 
   renderQueryPicker();
@@ -321,7 +329,7 @@ function renderQueryPicker() {
 }
 
 function renderMonthCalendarDays() {
-  const selectedDate = readDateTimeInput();
+  const selectedDate = selectedCalendarDate;
   const today = new Date();
   const firstWeekday = (new Date(visibleCalendarYear, visibleCalendarMonth, 1).getDay() + 6) % 7;
   const daysInMonth = new Date(visibleCalendarYear, visibleCalendarMonth + 1, 0).getDate();
@@ -337,7 +345,8 @@ function renderMonthCalendarDays() {
   for (let day = 1; day <= daysInMonth; day += 1) {
     const button = document.createElement("button");
     const isToday = isSameCalendarDate(today, visibleCalendarYear, visibleCalendarMonth, day);
-    const isSelected = selectedDate && isSameCalendarDate(selectedDate, visibleCalendarYear, visibleCalendarMonth, day);
+    const isSelected = selectedDate
+      && isSameCalendarDate(selectedDate, visibleCalendarYear, visibleCalendarMonth, day);
     button.type = "button";
     button.className = [
       "query-calendar-day",
@@ -407,17 +416,24 @@ function selectQueryCalendarDate(year, month, day) {
   }
 
   pauseAutoNowMode();
+  selectedCalendarDate = { year, month, day };
   elements.datetime.value = dateTimeValue;
-  syncQueryPickerFromDateTime(dateTimeValue);
+  syncQueryPickerFromDateTime(dateTimeValue, { syncSelectedCalendarDate: false });
   requestRenderDateTime(dateTimeValue);
 }
 
 function selectChineseHour(hourIndex) {
-  const selectedDate = readDateTimeInput() ?? new Date();
+  const selectedDate = selectedCalendarDate
+    ?? getSelectedCalendarDateFromDateTime(elements.datetime.value)
+    ?? getSelectedCalendarDateFromDateTime(toLocalDatetimeValue(new Date()));
+  if (!selectedDate) {
+    return;
+  }
+
   const dateTimeValue = buildDateTimeValueFromDateAndChineseHour(
-    selectedDate.getFullYear(),
-    selectedDate.getMonth(),
-    selectedDate.getDate(),
+    selectedDate.year,
+    selectedDate.month,
+    selectedDate.day,
     hourIndex
   );
   if (!dateTimeValue) {
@@ -426,7 +442,7 @@ function selectChineseHour(hourIndex) {
 
   pauseAutoNowMode();
   elements.datetime.value = dateTimeValue;
-  syncQueryPickerFromDateTime(dateTimeValue);
+  syncQueryPickerFromDateTime(dateTimeValue, { syncSelectedCalendarDate: false });
   requestRenderDateTime(dateTimeValue);
 }
 
@@ -437,9 +453,18 @@ function buildDateTimeValueFromDateAndChineseHour(year, month, day, hourIndex) {
     return null;
   }
 
-  const date = new Date(year, month, day, startHour, 0, 0);
-  if (date.getFullYear() !== year || date.getMonth() !== month || date.getDate() !== day) {
+  const calendarDate = new Date(year, month, day);
+  if (
+    calendarDate.getFullYear() !== year
+    || calendarDate.getMonth() !== month
+    || calendarDate.getDate() !== day
+  ) {
     return null;
+  }
+
+  const date = new Date(year, month, day, startHour, 0, 0);
+  if (hourIndex === 1) {
+    date.setDate(date.getDate() - 1);
   }
 
   return toLocalDatetimeValue(date);
@@ -458,7 +483,11 @@ function clampQueryYear(year) {
 }
 
 function isSameCalendarDate(date, year, month, day) {
-  return date.getFullYear() === year && date.getMonth() === month && date.getDate() === day;
+  if (date instanceof Date) {
+    return date.getFullYear() === year && date.getMonth() === month && date.getDate() === day;
+  }
+
+  return date?.year === year && date?.month === month && date?.day === day;
 }
 
 function requestRenderDateTime(dateTimeValue) {
@@ -2367,6 +2396,23 @@ function getCurrentChineseHourInfo(dateTimeValue) {
   }
 
   return CHINESE_HOUR_LABELS.find((item) => item.index === index) ?? null;
+}
+
+function getSelectedCalendarDateFromDateTime(dateTimeValue) {
+  const date = parseDateTimeLocalValue(dateTimeValue);
+  if (!date) {
+    return null;
+  }
+
+  if (date.getHours() >= 23) {
+    date.setDate(date.getDate() + 1);
+  }
+
+  return {
+    year: date.getFullYear(),
+    month: date.getMonth(),
+    day: date.getDate(),
+  };
 }
 
 function parseDateTimeLocalValue(dateTimeValue) {
