@@ -36,6 +36,37 @@ export const QIMEN_PALACE_OVER_DOOR_MARKERS = Object.freeze({
   center: Object.freeze([]),
 });
 
+export const QIMEN_PALACE_ELEMENTS = Object.freeze({
+  kan: "水",
+  gen: "土",
+  zhen: "木",
+  xun: "木",
+  li: "火",
+  kun: "土",
+  dui: "金",
+  qian: "金",
+  center: null,
+});
+
+export const QIMEN_DOOR_ELEMENTS = Object.freeze({
+  休: "水",
+  生: "土",
+  傷: "木",
+  杜: "木",
+  景: "火",
+  死: "土",
+  驚: "金",
+  開: "金",
+});
+
+export const QIMEN_ELEMENT_GENERATES = Object.freeze({
+  木: "火",
+  火: "土",
+  土: "金",
+  金: "水",
+  水: "木",
+});
+
 export const QIMEN_ORIGINAL_STARS_BY_PALACE = Object.freeze({
   kan: "天蓬",
   gen: "天任",
@@ -76,6 +107,18 @@ export function getQimenPalaceOverDoorMarker(palaceKey, door) {
   }
 
   return QIMEN_PALACE_OVER_DOOR_MARKERS[palaceKey]?.includes(door) ? "剋" : null;
+}
+
+export function getQimenPalaceOverDoorGenerateMarker(palaceKey, door) {
+  const palaceElement = getQimenPalaceElement(palaceKey);
+  const doorElement = getQimenDoorElement(door);
+  return QIMEN_ELEMENT_GENERATES[palaceElement] === doorElement ? "生" : null;
+}
+
+export function getQimenDoorOverPalaceGenerateMarker(palaceKey, door) {
+  const palaceElement = getQimenPalaceElement(palaceKey);
+  const doorElement = getQimenDoorElement(door);
+  return QIMEN_ELEMENT_GENERATES[doorElement] === palaceElement ? "生" : null;
 }
 
 export function getQimenOriginalStarByPalace(palaceKey) {
@@ -190,6 +233,8 @@ export function decorateQimenPlateMarkers(plate) {
       heavenStemMarker: getQimenHeavenStemMarker(palaceKey, palace?.heavenStem),
       doorPo: getQimenDoorPoMarker(palaceKey, palace?.door),
       palaceOverDoor: getQimenPalaceOverDoorMarker(palaceKey, palace?.door),
+      palaceGenerateDoor: getQimenPalaceOverDoorGenerateMarker(palaceKey, palace?.door),
+      doorGeneratePalace: getQimenDoorOverPalaceGenerateMarker(palaceKey, palace?.door),
       centerHeavenStem: placements.centerHeavenStem?.palaceKey === palaceKey
         ? placements.centerHeavenStem.value
         : null,
@@ -208,6 +253,22 @@ export function decorateQimenPlateMarkers(plate) {
     },
     diagnostics: placements.diagnostics,
   };
+}
+
+function getQimenPalaceElement(palaceKey) {
+  if (typeof palaceKey !== "string") {
+    return null;
+  }
+
+  return QIMEN_PALACE_ELEMENTS[palaceKey] ?? null;
+}
+
+function getQimenDoorElement(door) {
+  if (typeof door !== "string") {
+    return null;
+  }
+
+  return QIMEN_DOOR_ELEMENTS[door] ?? null;
 }
 
 function isPlainObject(value) {

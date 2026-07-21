@@ -1460,6 +1460,11 @@ function createQimenPalaceContent(palace, palaceMarkers = {}, isDisplayZhiFuPala
   door.append(document.createTextNode(formatNullableQimenValue(palace.door)));
   if (palaceMarkers.doorPo) {
     door.append(createQimenInlineMarker(palaceMarkers.doorPo, "qimen-door-po-marker"));
+  } else if (palaceMarkers.doorGeneratePalace) {
+    door.append(createQimenInlineMarker(
+      palaceMarkers.doorGeneratePalace,
+      "qimen-door-generate-palace-marker"
+    ));
   }
 
   center.append(door);
@@ -1499,6 +1504,8 @@ function createQimenPalaceGuaCorner(palace, palaceMeta, palaceMarkers = {}) {
 
   if (palaceMarkers.palaceOverDoor === "剋") {
     corner.append(createQimenInlineMarker("剋", "qimen-palace-over-door-marker"));
+  } else if (palaceMarkers.palaceGenerateDoor === "生") {
+    corner.append(createQimenInlineMarker("生", "qimen-palace-generate-door-marker"));
   }
 
   return corner;

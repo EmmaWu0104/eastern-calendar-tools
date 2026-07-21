@@ -109,8 +109,10 @@ const {
   findQimenTianRuiPalaceKey,
   getQimenCenterStemPlacements,
   getQimenDoorPoMarker,
+  getQimenDoorOverPalaceGenerateMarker,
   getQimenHeavenStemMarker,
   getQimenOriginalStarByPalace,
+  getQimenPalaceOverDoorGenerateMarker,
   getQimenPalaceOverDoorMarker,
   findQimenTianYiStarPalaceKey,
   normalizeQimenStarName,
@@ -5996,6 +5998,42 @@ function runQimenPlateMarkersTests() {
   }
 
   qimenPlateMarkersVerifiedCaseCount += 1;
+  const palaceGenerateDoorCases = [
+    ["li-sheng", "li", "生", "生"],
+    ["kan-shang", "kan", "傷", "生"],
+    ["gen-kai", "gen", "開", "生"],
+    ["center-sheng", "center", "生", null],
+    ["invalid-palace", null, "生", null],
+    ["invalid-door", "li", null, null],
+  ];
+  for (const [id, palaceKey, door, expected] of palaceGenerateDoorCases) {
+    assertEqual(
+      `qimen-plate-markers-palace-generate-door-${id}`,
+      "marker",
+      expected,
+      getQimenPalaceOverDoorGenerateMarker(palaceKey, door)
+    );
+  }
+
+  qimenPlateMarkersVerifiedCaseCount += 1;
+  const doorGeneratePalaceCases = [
+    ["zhen-xiu", "zhen", "休", "生"],
+    ["li-du", "li", "杜", "生"],
+    ["qian-si", "qian", "死", "生"],
+    ["center-xiu", "center", "休", null],
+    ["invalid-palace", null, "休", null],
+    ["invalid-door", "zhen", null, null],
+  ];
+  for (const [id, palaceKey, door, expected] of doorGeneratePalaceCases) {
+    assertEqual(
+      `qimen-plate-markers-door-generate-palace-${id}`,
+      "marker",
+      expected,
+      getQimenDoorOverPalaceGenerateMarker(palaceKey, door)
+    );
+  }
+
+  qimenPlateMarkersVerifiedCaseCount += 1;
   const originalStarCases = [
     ["kan", "天蓬"], ["gen", "天任"], ["zhen", "天衝"], ["xun", "天輔"], ["li", "天英"],
     ["kun", "天芮"], ["dui", "天柱"], ["qian", "天心"], ["center", "天禽"],
@@ -6126,6 +6164,16 @@ function runQimenPlateMarkersTests() {
     assertEqual(`qimen-plate-markers-decorate-no-tian-yi-${palaceKey}`, "isTianYiStarPalace", false, missingTianYiMarkers.palaces[palaceKey].isTianYiStarPalace);
   }
   assertEqual("qimen-plate-markers-decorate-tian-yi-no-pollution", "json", decoratedTianYiBefore, JSON.stringify(decoratedTianYiPlate));
+
+  const generatedRelationPlate = createQimenMarkerFixturePlate();
+  generatedRelationPlate.palaces.li.door = "生";
+  generatedRelationPlate.palaces.zhen.door = "休";
+  const generatedRelationMarkers = decorateQimenPlateMarkers(generatedRelationPlate);
+  qimenPlateMarkersVerifiedCaseCount += 1;
+  assertEqual("qimen-plate-markers-decorate-palace-generate-door", "palaceGenerateDoor", "生", generatedRelationMarkers.palaces.li.palaceGenerateDoor);
+  assertEqual("qimen-plate-markers-decorate-door-generate-palace", "doorGeneratePalace", "生", generatedRelationMarkers.palaces.zhen.doorGeneratePalace);
+  assertEqual("qimen-plate-markers-decorate-center-no-generate", "palaceGenerateDoor", null, generatedRelationMarkers.palaces.center.palaceGenerateDoor);
+  assertEqual("qimen-plate-markers-decorate-center-no-door-generate", "doorGeneratePalace", null, generatedRelationMarkers.palaces.center.doorGeneratePalace);
 }
 
 function createQimenMarkerFixturePlate(options = {}) {
