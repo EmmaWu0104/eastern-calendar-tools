@@ -1,5 +1,9 @@
 import { QIMEN_PALACE_KEYS } from "./qimenPlateValidation.js";
 
+export const QIMEN_EARTHLY_BRANCHES = Object.freeze([
+  "子", "丑", "寅", "卯", "辰", "巳", "午", "未", "申", "酉", "戌", "亥",
+]);
+
 export const QIMEN_HEAVEN_STEM_MARKERS = Object.freeze({
   kan: Object.freeze({ 丙: "制", 丁: "制" }),
   gen: Object.freeze({ 丁: "墓", 庚: "刑" }),
@@ -119,6 +123,21 @@ export function getQimenDoorOverPalaceGenerateMarker(palaceKey, door) {
   const palaceElement = getQimenPalaceElement(palaceKey);
   const doorElement = getQimenDoorElement(door);
   return QIMEN_ELEMENT_GENERATES[doorElement] === palaceElement ? "生" : null;
+}
+
+export function getQimenGuXuByHourBranch(hourBranch) {
+  const hourBranchIndex = QIMEN_EARTHLY_BRANCHES.indexOf(hourBranch);
+  if (hourBranchIndex === -1) {
+    return null;
+  }
+
+  const gu = [
+    QIMEN_EARTHLY_BRANCHES[(hourBranchIndex + 10) % 12],
+    QIMEN_EARTHLY_BRANCHES[(hourBranchIndex + 11) % 12],
+  ];
+  const xu = gu.map((branch) => QIMEN_EARTHLY_BRANCHES[(QIMEN_EARTHLY_BRANCHES.indexOf(branch) + 6) % 12]);
+
+  return { hourBranch, gu, xu };
 }
 
 export function getQimenOriginalStarByPalace(palaceKey) {

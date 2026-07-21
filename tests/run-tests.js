@@ -117,6 +117,7 @@ const {
   getQimenCenterStemPlacements,
   getQimenDoorPoMarker,
   getQimenDoorOverPalaceGenerateMarker,
+  getQimenGuXuByHourBranch,
   getQimenHeavenStemMarker,
   getQimenOriginalStarByPalace,
   getQimenPalaceOverDoorGenerateMarker,
@@ -6031,6 +6032,22 @@ function runQimenPlateMarkersTests() {
   assertEqual("qimen-plate-markers-door-po-no-match", "marker", null, getQimenDoorPoMarker("li", "生"));
   assertEqual("qimen-plate-markers-door-po-invalid-palace", "marker", null, getQimenDoorPoMarker(null, "休"));
   assertEqual("qimen-plate-markers-door-po-invalid-door", "marker", null, getQimenDoorPoMarker("li", null));
+
+  const guXuCases = [
+    ["wei", "未", ["巳", "午"], ["亥", "子"]],
+    ["zi", "子", ["戌", "亥"], ["辰", "巳"]],
+    ["chou", "丑", ["亥", "子"], ["巳", "午"]],
+    ["wu", "午", ["辰", "巳"], ["戌", "亥"]],
+  ];
+  for (const [id, hourBranch, expectedGu, expectedXu] of guXuCases) {
+    const guXu = getQimenGuXuByHourBranch(hourBranch);
+    qimenPlateMarkersVerifiedCaseCount += 1;
+    assertEqual(`qimen-plate-markers-guxu-${id}`, "hourBranch", hourBranch, guXu?.hourBranch);
+    assertEqual(`qimen-plate-markers-guxu-${id}`, "gu", expectedGu.join(","), guXu?.gu.join(","));
+    assertEqual(`qimen-plate-markers-guxu-${id}`, "xu", expectedXu.join(","), guXu?.xu.join(","));
+  }
+  qimenPlateMarkersVerifiedCaseCount += 1;
+  assertEqual("qimen-plate-markers-guxu-invalid", "result", null, getQimenGuXuByHourBranch("無效"));
 
   qimenPlateMarkersVerifiedCaseCount += 1;
   const palaceOverDoorCases = [

@@ -32,6 +32,7 @@ import { getQimenPlate } from "./qimenPlateLookup.js";
 import {
   decorateQimenPlateMarkers,
   findQimenDisplayZhiFuPalaceKey,
+  getQimenGuXuByHourBranch,
 } from "./qimenPlateMarkers.js";
 import { resolveQimenJuFromFullTermCycleDraft } from "./qimenResolver.js";
 import { loadSolarTerms } from "./solarTerms.js";
@@ -49,6 +50,21 @@ const PALACE_DIRECTION_LABELS = {
   kan: "北",
   qian: "西北",
 };
+
+const QIMEN_GUXU_BRANCH_POSITIONS = Object.freeze({
+  子: Object.freeze({ palaceKey: "kan", position: "kan-bottom" }),
+  丑: Object.freeze({ palaceKey: "gen", position: "gen-bottom" }),
+  寅: Object.freeze({ palaceKey: "gen", position: "gen-left" }),
+  卯: Object.freeze({ palaceKey: "zhen", position: "zhen-left" }),
+  辰: Object.freeze({ palaceKey: "xun", position: "xun-left" }),
+  巳: Object.freeze({ palaceKey: "xun", position: "xun-top" }),
+  午: Object.freeze({ palaceKey: "li", position: "li-top" }),
+  未: Object.freeze({ palaceKey: "kun", position: "kun-top" }),
+  申: Object.freeze({ palaceKey: "kun", position: "kun-right" }),
+  酉: Object.freeze({ palaceKey: "dui", position: "dui-right" }),
+  戌: Object.freeze({ palaceKey: "qian", position: "qian-right" }),
+  亥: Object.freeze({ palaceKey: "qian", position: "qian-bottom" }),
+});
 
 const JINHAN_PALACE_LAYOUT = Object.freeze([
   Object.freeze(["巽", "離", "坤"]),
@@ -1363,13 +1379,14 @@ function clearQimenPlateDisplay() {
 function renderQimenPlateResult(plateResult) {
   const markers = decorateQimenPlateMarkers(plateResult.plate);
   const displayZhiFuPalaceKey = findQimenDisplayZhiFuPalaceKey(plateResult.plate);
+  const guXu = getQimenGuXuByHourBranch(getQimenHourBranch(plateResult.plate?.hourPillar));
   const gridWrap = document.createElement("div");
   gridWrap.className = "qimen-plate-grid-wrap";
-  gridWrap.append(renderQimenPlateGrid(plateResult.plate, markers, displayZhiFuPalaceKey));
+  gridWrap.append(renderQimenPlateGrid(plateResult.plate, markers, displayZhiFuPalaceKey, guXu));
   qimenElements.plateSection.replaceChildren(gridWrap);
 }
 
-function renderQimenPlateGrid(plate, markers, displayZhiFuPalaceKey) {
+function renderQimenPlateGrid(plate, markers, displayZhiFuPalaceKey, guXu) {
   const grid = document.createElement("div");
   grid.className = "qimen-plate-grid";
   grid.setAttribute("aria-label", "奇門盤面九宮");
@@ -1379,14 +1396,21 @@ function renderQimenPlateGrid(plate, markers, displayZhiFuPalaceKey) {
       plate?.palaces?.[palaceMeta.key],
       palaceMeta,
       markers?.palaces?.[palaceMeta.key],
-      displayZhiFuPalaceKey
+      displayZhiFuPalaceKey,
+      guXu
     ));
   }
 
   return grid;
 }
 
-function createQimenPalaceCell(palace, palaceMeta, palaceMarkers = {}, displayZhiFuPalaceKey = null) {
+function createQimenPalaceCell(
+  palace,
+  palaceMeta,
+  palaceMarkers = {},
+  displayZhiFuPalaceKey = null,
+  guXu = null
+) {
   const isDisplayZhiFuPalace = palaceMeta.key === displayZhiFuPalaceKey;
   const isZhiShiPalace = palace?.isZhiShiPalace === true;
   const cell = document.createElement("div");
@@ -1417,7 +1441,12 @@ function createQimenPalaceCell(palace, palaceMeta, palaceMarkers = {}, displayZh
     const lines = document.createElement("div");
     lines.className = "qimen-palace-lines";
     lines.textContent = "資料缺漏";
-    cell.append(header, lines, createQimenPalaceGuaCorner(palace, palaceMeta, palaceMarkers));
+    cell.append(
+      header,
+      lines,
+      createQimenPalaceGuaCorner(palace, palaceMeta, palaceMarkers),
+      createQimenGuXuBadges(palaceMeta.key, guXu)
+    );
     return cell;
   }
 
@@ -1425,12 +1454,49 @@ function createQimenPalaceCell(palace, palaceMeta, palaceMarkers = {}, displayZh
 
   const note = createQimenPalaceNote(palace);
 
-  cell.append(header, content, createQimenPalaceGuaCorner(palace, palaceMeta, palaceMarkers));
+  cell.append(
+    header,
+    content,
+    createQimenPalaceGuaCorner(palace, palaceMeta, palaceMarkers),
+    createQimenGuXuBadges(palaceMeta.key, guXu)
+  );
   if (note) {
     cell.append(note);
   }
 
   return cell;
+}
+
+function getQimenHourBranch(hourPillar) {
+  return typeof hourPillar === "string" ? hourPillar.at(-1) : null;
+}
+
+function createQimenGuXuBadges(palaceKey, guXu) {
+  const badges = document.createDocumentFragment();
+  for (const [type, branches] of [["gu", guXu?.gu], ["xu", guXu?.xu]]) {
+    if (!Array.isArray(branches)) {
+      continue;
+    }
+
+    for (const branch of branches) {
+      const branchPosition = QIMEN_GUXU_BRANCH_POSITIONS[branch];
+      if (branchPosition?.palaceKey !== palaceKey) {
+        continue;
+      }
+
+      const badge = document.createElement("span");
+      badge.className = [
+        "qimen-guxu-badge",
+        `qimen-guxu-${type}`,
+        `qimen-guxu-pos-${branchPosition.position}`,
+      ].join(" ");
+      badge.textContent = type === "gu" ? "孤" : "虛";
+      badge.setAttribute("aria-label", `${branch}${badge.textContent}`);
+      badges.append(badge);
+    }
+  }
+
+  return badges;
 }
 
 function createQimenPalaceContent(palace, palaceMarkers = {}, isDisplayZhiFuPalace = false) {

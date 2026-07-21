@@ -1240,7 +1240,7 @@ dd {
 
 .qimen-plate-grid-wrap {
   min-width: 0;
-  padding: 4px 6px 7px;
+  padding: 14px 16px;
   overflow-x: auto;
   overflow-y: visible;
   overscroll-behavior-x: contain;
@@ -1257,6 +1257,63 @@ dd {
   border: 1px solid #d8dee6;
   border-radius: 6px;
   background: #ffffff;
+}
+
+.qimen-guxu-badge {
+  position: absolute;
+  z-index: 2;
+  display: grid;
+  width: 22px;
+  height: 22px;
+  place-items: center;
+  box-sizing: border-box;
+  border: 1px solid #1f2933;
+  border-radius: 50%;
+  font-size: 12px;
+  font-weight: 850;
+  line-height: 1;
+}
+
+.qimen-guxu-gu {
+  background: #ffffff;
+  color: #1f2933;
+}
+
+.qimen-guxu-xu {
+  background: #1f2933;
+  color: #ffffff;
+}
+
+.qimen-guxu-pos-xun-top,
+.qimen-guxu-pos-li-top,
+.qimen-guxu-pos-kun-top {
+  top: -15px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.qimen-guxu-pos-kan-bottom,
+.qimen-guxu-pos-gen-bottom,
+.qimen-guxu-pos-qian-bottom {
+  bottom: -15px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.qimen-guxu-pos-gen-left,
+.qimen-guxu-pos-zhen-left,
+.qimen-guxu-pos-xun-left {
+  top: 50%;
+  left: -15px;
+  transform: translateY(-50%);
+}
+
+.qimen-guxu-pos-kun-right,
+.qimen-guxu-pos-dui-right,
+.qimen-guxu-pos-qian-right {
+  top: 50%;
+  right: -15px;
+  transform: translateY(-50%);
 }
 
 .qimen-palace-zhi-marker,
