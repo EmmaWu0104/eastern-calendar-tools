@@ -5859,11 +5859,11 @@
         "rawCells": {
           "kan": "戊 柱<br>丁 死 雀",
           "gen": "己 心<br>乙 驚 陳",
-          "zhen": "丁 蓬<br>壬 開 天",
+          "zhen": "丁 蓬<br>壬 開 合",
           "xun": "乙 任<br>辛 休 陰",
           "li": "壬 衝<br>丙 生 蛇",
           "kun": "辛 輔<br>癸 傷 符",
-          "dui": "丙 英<br>戊 杜 合",
+          "dui": "丙 英<br>戊 杜 天",
           "qian": "癸 芮<br>己 景 地",
           "center": "庚 禽<br>庚"
         }
@@ -5907,7 +5907,7 @@
           "heavenStem": "丁",
           "door": "開",
           "star": "天蓬",
-          "deity": "九天",
+          "deity": "六合",
           "isEmpty": false,
           "isHorse": false,
           "isZhiFuPalace": false,
@@ -5967,7 +5967,7 @@
           "heavenStem": "丙",
           "door": "杜",
           "star": "天英",
-          "deity": "六合",
+          "deity": "九天",
           "isEmpty": false,
           "isHorse": false,
           "isZhiFuPalace": false,

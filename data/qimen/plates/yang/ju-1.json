@@ -2597,13 +2597,13 @@
         "file": "data/1080.md",
         "rawHeader": "| 庚辰           |              | 直符：芮<br>直使：死 |",
         "rawCells": {
-          "kan": "辛 輔<br>戊 傷 地",
+          "kan": "辛 輔<br>戊 景 地",
           "gen": "乙 英<br>丙 死 天",
           "zhen": "己 芮<br>庚 驚 符",
           "xun": "丁 柱<br>辛 開 蛇",
           "li": "癸 心<br>乙 休 陰",
           "kun": "戊 蓬<br>己 生 合",
-          "dui": "丙 任<br>丁 景 陳",
+          "dui": "丙 任<br>丁 傷 陳",
           "qian": "庚 衝<br>癸 杜 雀",
           "center": "壬 禽<br>壬"
         }
@@ -2615,7 +2615,7 @@
           "luoshuNumber": 1,
           "earthStem": "戊",
           "heavenStem": "辛",
-          "door": "傷",
+          "door": "景",
           "star": "天輔",
           "deity": "九地",
           "isEmpty": false,
@@ -2705,7 +2705,7 @@
           "luoshuNumber": 7,
           "earthStem": "丁",
           "heavenStem": "丙",
-          "door": "景",
+          "door": "傷",
           "star": "天任",
           "deity": "勾陳",
           "isEmpty": false,
