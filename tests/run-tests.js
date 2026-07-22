@@ -54,6 +54,14 @@ const {
   parseQimen1080Markdown,
 } = await import("../src/qimen1080MarkdownParser.js");
 const {
+  QIMEN_SEQUENCE_DIAGNOSTIC_RULES,
+  buildQimen1080SequenceDiagnostics,
+  getQimenStemSequenceRule,
+  isCircularSequenceMatch,
+  normalizeQimenDoorForSequence,
+  normalizeQimenStarForSequence,
+} = await import("../src/qimen1080SequenceDiagnostics.js");
+const {
   buildQimen1080DryRunReport,
   convertQimen1080ParsedToDryRun,
 } = await import("../src/qimen1080ConverterDryRun.js");
@@ -230,6 +238,7 @@ let qimenPlateLookupVerifiedCaseCount = 0;
 let qimenPlateValidationVerifiedCaseCount = 0;
 let qimenPlateMarkersVerifiedCaseCount = 0;
 let qimen1080MarkdownParserVerifiedCaseCount = 0;
+let qimen1080SequenceDiagnosticsVerifiedCaseCount = 0;
 let qimen1080ConverterDryRunVerifiedCaseCount = 0;
 let qimen1080PreviewWriterVerifiedCaseCount = 0;
 let qimen1080FormalPlateAdapterVerifiedCaseCount = 0;
@@ -561,6 +570,7 @@ runQimenPlateMarkersTests();
 runHexagramTests();
 await runQimenPlateValidationTests();
 runQimen1080MarkdownParserTests();
+runQimen1080SequenceDiagnosticsTests();
 await runQimen1080ConverterDryRunTests();
 await runQimen1080PreviewWriterTests();
 await runQimen1080FormalPlateAdapterTests();
@@ -637,6 +647,7 @@ if (failures.length > 0) {
   console.log(`奇門盤面標記規則測試通過：${qimenPlateMarkersVerifiedCaseCount} cases`);
   console.log(`奇門1080盤面schema validation測試通過：${qimenPlateValidationVerifiedCaseCount} cases`);
   console.log(`奇門1080.md parser diagnostics測試通過：${qimen1080MarkdownParserVerifiedCaseCount} cases`);
+  console.log(`奇門1080.md 排盤序列 diagnostics測試通過：${qimen1080SequenceDiagnosticsVerifiedCaseCount} cases`);
   console.log(`奇門1080.md converter dry-run測試通過：${qimen1080ConverterDryRunVerifiedCaseCount} cases`);
   console.log(`奇門1080.md preview writer測試通過：${qimen1080PreviewWriterVerifiedCaseCount} cases`);
   console.log(`奇門1080.md formal plate adapter測試通過：${qimen1080FormalPlateAdapterVerifiedCaseCount} cases`);
@@ -6430,6 +6441,48 @@ function runQimen1080MarkdownParserTests() {
     true,
     ["INVALID_TABLE_SHAPE", "INVALID_CELL_FORMAT", "SUSPICIOUS_TEXT"].some((code) => invalidCodes.includes(code))
   );
+}
+
+function runQimen1080SequenceDiagnosticsTests() {
+  const starSequence = QIMEN_SEQUENCE_DIAGNOSTIC_RULES.starSequence;
+  qimen1080SequenceDiagnosticsVerifiedCaseCount += 1;
+  assertEqual("qimen-1080-sequence-circular", "original", true, isCircularSequenceMatch(starSequence, starSequence));
+  assertEqual("qimen-1080-sequence-circular", "rotation", true, isCircularSequenceMatch([...starSequence.slice(3), ...starSequence.slice(0, 3)], starSequence));
+  assertEqual("qimen-1080-sequence-circular", "wrong-order", false, isCircularSequenceMatch([starSequence[0], starSequence[2], starSequence[1], ...starSequence.slice(3)], starSequence));
+  assertEqual("qimen-1080-sequence-circular", "missing", false, isCircularSequenceMatch([...starSequence.slice(0, 7), null], starSequence));
+
+  qimen1080SequenceDiagnosticsVerifiedCaseCount += 1;
+  assertEqual("qimen-1080-sequence-normalization", "star-tianchong", "天衝", normalizeQimenStarForSequence("天沖"));
+  assertEqual("qimen-1080-sequence-normalization", "door-kai", "開", normalizeQimenDoorForSequence("開門"));
+  assertEqual("qimen-1080-sequence-normalization", "door-xiu", "休", normalizeQimenDoorForSequence("休門"));
+
+  qimen1080SequenceDiagnosticsVerifiedCaseCount += 1;
+  assertEqual("qimen-1080-sequence-deity", "yang-clockwise", true, isCircularSequenceMatch(QIMEN_SEQUENCE_DIAGNOSTIC_RULES.deitySequence, QIMEN_SEQUENCE_DIAGNOSTIC_RULES.deitySequence));
+  assertEqual("qimen-1080-sequence-deity", "yin-counterclockwise", true, isCircularSequenceMatch([...QIMEN_SEQUENCE_DIAGNOSTIC_RULES.deitySequence].reverse(), [...QIMEN_SEQUENCE_DIAGNOSTIC_RULES.deitySequence].reverse()));
+
+  const yangJu1Rule = getQimenStemSequenceRule("yang", 1);
+  const yinJu9Rule = getQimenStemSequenceRule("yin", 9);
+  const yangJu8Rule = getQimenStemSequenceRule("yang", 8);
+  const yinJu2Rule = getQimenStemSequenceRule("yin", 2);
+  qimen1080SequenceDiagnosticsVerifiedCaseCount += 1;
+  assertEqual("qimen-1080-sequence-stem-rules", "yang-1-center", "壬", yangJu1Rule?.center);
+  assertEqual("qimen-1080-sequence-stem-rules", "yin-9-sequence", "辛乙己丁癸戊丙庚", yinJu9Rule?.sequence?.join(""));
+  assertEqual("qimen-1080-sequence-stem-rules", "yang-8-center", "丁", yangJu8Rule?.center);
+  assertEqual("qimen-1080-sequence-stem-rules", "yin-2-sequence", "辛乙丙庚戊壬癸己", yinJu2Rule?.sequence?.join(""));
+
+  const parsed = parseQimen1080Markdown(qimen1080MarkdownRaw);
+  const validDiagnostics = buildQimen1080SequenceDiagnostics(parsed);
+  qimen1080SequenceDiagnosticsVerifiedCaseCount += 1;
+  assertEqual("qimen-1080-sequence-data", "does-not-throw", true, true);
+  assertEqual("qimen-1080-sequence-data", "summary-present", true, isPlainTestObject(validDiagnostics.summary));
+  assertEqual("qimen-1080-sequence-data", "total-plates", 1080, validDiagnostics.summary.totalPlates);
+
+  const centerStemErrorParsed = clonePlainTestData(parsed);
+  centerStemErrorParsed.plates[0].palaces.center.heavenStem = "甲";
+  const centerStemDiagnostics = buildQimen1080SequenceDiagnostics(centerStemErrorParsed);
+  qimen1080SequenceDiagnosticsVerifiedCaseCount += 1;
+  assertEqual("qimen-1080-sequence-center", "correct-center-no-error", false, validDiagnostics.errors.some((error) => error.type === "中宮天盤干" && error.hourPillar === parsed.plates[0].hourPillar && error.dunType === parsed.plates[0].dunType && error.ju === parsed.plates[0].ju));
+  assertEqual("qimen-1080-sequence-center", "wrong-center-error", true, centerStemDiagnostics.errors.some((error) => error.type === "中宮天盤干" && error.actual === "甲"));
 }
 
 async function runQimen1080ConverterDryRunTests() {
