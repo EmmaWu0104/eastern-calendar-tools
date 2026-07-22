@@ -7,7 +7,7 @@ import {
 const FORMAL_SCHEMA_VERSION = 1;
 const FORMAL_SOURCE_TYPE = "qimen1080-md";
 const FORMAL_SOURCE_FILE = "data/1080.md";
-const TIANQIN_UNRESOLVED_NOTE = "天禽寄宮未推導，第一版以 center 標記值符";
+const TIANQIN_UNRESOLVED_NOTE = "天禽寄宮未推導，第一版以 center 標記直符";
 
 export function convertQimen1080DryRunObjectToFormalPlate(object) {
   const notes = object.zhifuStar === "天禽" ? [TIANQIN_UNRESOLVED_NOTE] : [];

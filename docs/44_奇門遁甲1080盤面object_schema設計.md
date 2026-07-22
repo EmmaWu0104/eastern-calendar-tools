@@ -123,7 +123,7 @@ plate object 的主體應是九宮資料：
 * 九星
 * 八神
 * 天禽 / 寄宮相關標記
-* 空亡 / 馬星 / 值符 / 值使等可選標記
+* 空亡 / 馬星 / 直符 / 直使等可選標記
 
 但不急著放：
 
@@ -164,8 +164,8 @@ plate object 的主體應是九宮資料：
 |---|---|---|---|
 | `schemaVersion` | number | 是 | 單盤 schema 版本 |
 | `hourPillar` | string | 是 | 此盤對應時柱 |
-| `zhiFuStar` | string | 建議 | 值符星 |
-| `zhiShiDoor` | string | 建議 | 值使門 |
+| `zhiFuStar` | string | 建議 | 直符星 |
+| `zhiShiDoor` | string | 建議 | 直使門 |
 | `xunShou` | string | 可選 | 旬首 |
 | `notes` | string[] | 可選 | 人工備註 |
 | `palaces` | object | 是 | 九宮資料 |
@@ -189,7 +189,7 @@ plate object 的主體應是九宮資料：
   "heavenStem": "丙",
   "door": "休",
   "star": "天蓬",
-  "deity": "值符",
+  "deity": "直符",
   "isEmpty": false,
   "isHorse": false,
   "isZhiFuPalace": true,
@@ -212,8 +212,8 @@ plate object 的主體應是九宮資料：
 | `deity` | string / null | 建議 | 八神 |
 | `isEmpty` | boolean | 可選 | 空亡標記 |
 | `isHorse` | boolean | 可選 | 馬星標記 |
-| `isZhiFuPalace` | boolean | 可選 | 值符所在宮 |
-| `isZhiShiPalace` | boolean | 可選 | 值使所在宮 |
+| `isZhiFuPalace` | boolean | 可選 | 直符所在宮 |
+| `isZhiShiPalace` | boolean | 可選 | 直使所在宮 |
 | `notes` | string[] | 可選 | 該宮備註 |
 
 補充：
@@ -268,7 +268,7 @@ plate object 的主體應是九宮資料：
       "heavenStem": "丙",
       "door": "休",
       "star": "天蓬",
-      "deity": "值符",
+      "deity": "直符",
       "isEmpty": false,
       "isHorse": false,
       "isZhiFuPalace": true,
@@ -343,7 +343,7 @@ plate.palaces
 * 八門
 * 九星
 * 八神
-* 空亡 / 馬星 / 值符 / 值使標記
+* 空亡 / 馬星 / 直符 / 直使標記
 
 補充：
 
@@ -382,7 +382,7 @@ plate.palaces
 * 八門數量檢查
 * 九星數量檢查
 * 八神數量檢查
-* 值符 / 值使標記唯一性
+* 直符 / 直使標記唯一性
 * 天盤干 / 地盤干格式檢查
 * 空亡 / 馬星標記檢查
 

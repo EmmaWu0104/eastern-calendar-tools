@@ -103,7 +103,7 @@ const QIMEN_PALACE_DISPLAY_LAYOUT = Object.freeze([
 ]);
 
 const QIMEN_HIDDEN_PLATE_NOTES = new Set([
-  "天禽寄宮未推導，第一版以 center 標記值符",
+  "天禽寄宮未推導，第一版以 center 標記直符",
 ]);
 
 const JINHAN_DEITY_CLASS_NAMES = Object.freeze({
@@ -1629,8 +1629,8 @@ function createQimenSummaryRows(qimen, plate = null) {
     createQimenSummaryRow("節氣", qimen.actualSolarTerm),
     createQimenSummaryRow("起局", formatQimenJuSummary(qimen)),
     createQimenSummaryRow("時辰", formatQimenTimeSummary(qimen)),
-    createQimenSummaryRow("值符星", formatQimenStarPalace(plate?.zhiFuStar, zhiFuPalaceKey)),
-    createQimenSummaryRow("值使門", formatQimenDoorPalace(plate?.zhiShiDoor, zhiShiPalaceKey)),
+    createQimenSummaryRow("直符星", formatQimenStarPalace(plate?.zhiFuStar, zhiFuPalaceKey)),
+    createQimenSummaryRow("直使門", formatQimenDoorPalace(plate?.zhiShiDoor, zhiShiPalaceKey)),
     createQimenSummaryRow(
       "天乙星",
       formatQimenStarPalace(plate?.palaces?.[tianYiPalaceKey]?.star, tianYiPalaceKey)

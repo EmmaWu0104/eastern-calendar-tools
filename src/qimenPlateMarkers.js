@@ -175,7 +175,7 @@ export function findQimenDisplayZhiFuPalaceKey(plate) {
 
   if (plate?.zhiFuStar === "天禽" && isPlainObject(plate?.palaces)) {
     for (const palaceKey of QIMEN_PALACE_KEYS) {
-      if (palaceKey !== "center" && plate.palaces[palaceKey]?.deity === "值符") {
+      if (palaceKey !== "center" && plate.palaces[palaceKey]?.deity === "直符") {
         return palaceKey;
       }
     }

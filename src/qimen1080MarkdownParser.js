@@ -15,7 +15,7 @@ export const QIMEN_1080_STAR_SHORT_NAMES = Object.freeze({
 export const QIMEN_1080_DOOR_NAMES = Object.freeze(["休", "生", "傷", "杜", "景", "死", "驚", "開"]);
 
 export const QIMEN_1080_DEITY_SHORT_NAMES = Object.freeze({
-  符: "值符",
+  符: "直符",
   蛇: "騰蛇",
   陰: "太陰",
   合: "六合",
@@ -556,7 +556,7 @@ function validateSinglePlate(plate, result) {
       "error",
       "ZHIFU_STAR_NOT_FOUND",
       plate,
-      `值符星未出現在九宮：${plate.zhiFuStar}`
+      `直符星未出現在九宮：${plate.zhiFuStar}`
     ));
   }
 
@@ -565,7 +565,7 @@ function validateSinglePlate(plate, result) {
       "error",
       "ZHISHI_DOOR_NOT_FOUND",
       plate,
-      `值使門未出現在八門：${plate.zhiShiDoor}`
+      `直使門未出現在八門：${plate.zhiShiDoor}`
     ));
   }
 }

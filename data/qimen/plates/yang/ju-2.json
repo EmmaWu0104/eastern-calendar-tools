@@ -56,7 +56,7 @@
           "heavenStem": "戊",
           "door": "死",
           "star": "天芮",
-          "deity": "值符",
+          "deity": "直符",
           "isEmpty": false,
           "isHorse": false,
           "isZhiFuPalace": true,
@@ -202,7 +202,7 @@
           "heavenStem": "戊",
           "door": "杜",
           "star": "天芮",
-          "deity": "值符",
+          "deity": "直符",
           "isEmpty": false,
           "isHorse": false,
           "isZhiFuPalace": true,
@@ -483,7 +483,7 @@
           "heavenStem": "戊",
           "door": "驚",
           "star": "天芮",
-          "deity": "值符",
+          "deity": "直符",
           "isEmpty": false,
           "isHorse": false,
           "isZhiFuPalace": true,
@@ -629,7 +629,7 @@
           "heavenStem": "戊",
           "door": "生",
           "star": "天芮",
-          "deity": "值符",
+          "deity": "直符",
           "isEmpty": false,
           "isHorse": false,
           "isZhiFuPalace": true,
@@ -700,7 +700,7 @@
           "heavenStem": "戊",
           "door": "杜",
           "star": "天芮",
-          "deity": "值符",
+          "deity": "直符",
           "isEmpty": false,
           "isHorse": false,
           "isZhiFuPalace": true,
@@ -876,7 +876,7 @@
           "heavenStem": "戊",
           "door": "生",
           "star": "天芮",
-          "deity": "值符",
+          "deity": "直符",
           "isEmpty": false,
           "isHorse": false,
           "isZhiFuPalace": true,
@@ -1052,7 +1052,7 @@
           "heavenStem": "戊",
           "door": "開",
           "star": "天芮",
-          "deity": "值符",
+          "deity": "直符",
           "isEmpty": false,
           "isHorse": false,
           "isZhiFuPalace": true,
@@ -1183,7 +1183,7 @@
           "heavenStem": "戊",
           "door": "驚",
           "star": "天芮",
-          "deity": "值符",
+          "deity": "直符",
           "isEmpty": false,
           "isHorse": false,
           "isZhiFuPalace": true,
@@ -1404,7 +1404,7 @@
           "heavenStem": "戊",
           "door": "景",
           "star": "天芮",
-          "deity": "值符",
+          "deity": "直符",
           "isEmpty": false,
           "isHorse": false,
           "isZhiFuPalace": true,
@@ -1580,7 +1580,7 @@
           "heavenStem": "戊",
           "door": "驚",
           "star": "天芮",
-          "deity": "值符",
+          "deity": "直符",
           "isEmpty": false,
           "isHorse": false,
           "isZhiFuPalace": true,
@@ -1681,7 +1681,7 @@
           "heavenStem": "己",
           "door": "傷",
           "star": "天衝",
-          "deity": "值符",
+          "deity": "直符",
           "isEmpty": false,
           "isHorse": false,
           "isZhiFuPalace": true,
@@ -1812,7 +1812,7 @@
           "heavenStem": "己",
           "door": "開",
           "star": "天衝",
-          "deity": "值符",
+          "deity": "直符",
           "isEmpty": false,
           "isHorse": false,
           "isZhiFuPalace": true,
@@ -2093,7 +2093,7 @@
           "heavenStem": "己",
           "door": "生",
           "star": "天衝",
-          "deity": "值符",
+          "deity": "直符",
           "isEmpty": false,
           "isHorse": false,
           "isZhiFuPalace": true,
@@ -2239,7 +2239,7 @@
           "heavenStem": "己",
           "door": "景",
           "star": "天衝",
-          "deity": "值符",
+          "deity": "直符",
           "isEmpty": false,
           "isHorse": false,
           "isZhiFuPalace": true,
@@ -2310,7 +2310,7 @@
           "heavenStem": "己",
           "door": "生",
           "star": "天衝",
-          "deity": "值符",
+          "deity": "直符",
           "isEmpty": false,
           "isHorse": false,
           "isZhiFuPalace": true,
@@ -2486,7 +2486,7 @@
           "heavenStem": "己",
           "door": "杜",
           "star": "天衝",
-          "deity": "值符",
+          "deity": "直符",
           "isEmpty": false,
           "isHorse": false,
           "isZhiFuPalace": true,
@@ -2662,7 +2662,7 @@
           "heavenStem": "己",
           "door": "生",
           "star": "天衝",
-          "deity": "值符",
+          "deity": "直符",
           "isEmpty": false,
           "isHorse": false,
           "isZhiFuPalace": true,
@@ -2793,7 +2793,7 @@
           "heavenStem": "己",
           "door": "開",
           "star": "天衝",
-          "deity": "值符",
+          "deity": "直符",
           "isEmpty": false,
           "isHorse": false,
           "isZhiFuPalace": true,
@@ -3014,7 +3014,7 @@
           "heavenStem": "己",
           "door": "景",
           "star": "天衝",
-          "deity": "值符",
+          "deity": "直符",
           "isEmpty": false,
           "isHorse": false,
           "isZhiFuPalace": true,
@@ -3190,7 +3190,7 @@
           "heavenStem": "己",
           "door": "驚",
           "star": "天衝",
-          "deity": "值符",
+          "deity": "直符",
           "isEmpty": false,
           "isHorse": false,
           "isZhiFuPalace": true,
@@ -3306,7 +3306,7 @@
           "heavenStem": "庚",
           "door": "杜",
           "star": "天輔",
-          "deity": "值符",
+          "deity": "直符",
           "isEmpty": false,
           "isHorse": false,
           "isZhiFuPalace": true,
@@ -3422,7 +3422,7 @@
           "heavenStem": "庚",
           "door": "驚",
           "star": "天輔",
-          "deity": "值符",
+          "deity": "直符",
           "isEmpty": false,
           "isHorse": false,
           "isZhiFuPalace": true,
@@ -3703,7 +3703,7 @@
           "heavenStem": "庚",
           "door": "休",
           "star": "天輔",
-          "deity": "值符",
+          "deity": "直符",
           "isEmpty": false,
           "isHorse": false,
           "isZhiFuPalace": true,
@@ -3849,7 +3849,7 @@
           "heavenStem": "庚",
           "door": "驚",
           "star": "天輔",
-          "deity": "值符",
+          "deity": "直符",
           "isEmpty": false,
           "isHorse": false,
           "isZhiFuPalace": true,
@@ -3920,7 +3920,7 @@
           "heavenStem": "庚",
           "door": "開",
           "star": "天輔",
-          "deity": "值符",
+          "deity": "直符",
           "isEmpty": false,
           "isHorse": false,
           "isZhiFuPalace": true,
@@ -4096,7 +4096,7 @@
           "heavenStem": "庚",
           "door": "生",
           "star": "天輔",
-          "deity": "值符",
+          "deity": "直符",
           "isEmpty": false,
           "isHorse": false,
           "isZhiFuPalace": true,
@@ -4272,7 +4272,7 @@
           "heavenStem": "庚",
           "door": "驚",
           "star": "天輔",
-          "deity": "值符",
+          "deity": "直符",
           "isEmpty": false,
           "isHorse": false,
           "isZhiFuPalace": true,
@@ -4403,7 +4403,7 @@
           "heavenStem": "庚",
           "door": "杜",
           "star": "天輔",
-          "deity": "值符",
+          "deity": "直符",
           "isEmpty": false,
           "isHorse": false,
           "isZhiFuPalace": true,
@@ -4624,7 +4624,7 @@
           "heavenStem": "庚",
           "door": "休",
           "star": "天輔",
-          "deity": "值符",
+          "deity": "直符",
           "isEmpty": false,
           "isHorse": false,
           "isZhiFuPalace": true,
@@ -4800,7 +4800,7 @@
           "heavenStem": "庚",
           "door": "驚",
           "star": "天輔",
-          "deity": "值符",
+          "deity": "直符",
           "isEmpty": false,
           "isHorse": false,
           "isZhiFuPalace": true,
@@ -4846,7 +4846,7 @@
       "zhiShiDoor": "死",
       "xunShou": null,
       "notes": [
-        "天禽寄宮未推導，第一版以 center 標記值符"
+        "天禽寄宮未推導，第一版以 center 標記直符"
       ],
       "source": {
         "type": "qimen1080-md",
@@ -4888,7 +4888,7 @@
           "heavenStem": "戊",
           "door": "死",
           "star": "天芮",
-          "deity": "值符",
+          "deity": "直符",
           "isEmpty": false,
           "isHorse": false,
           "isZhiFuPalace": false,
@@ -4939,7 +4939,7 @@
           "isZhiFuPalace": true,
           "isZhiShiPalace": false,
           "notes": [
-            "天禽寄宮未推導，第一版以 center 標記值符"
+            "天禽寄宮未推導，第一版以 center 標記直符"
           ]
         },
         "qian": {
@@ -5011,7 +5011,7 @@
       "zhiShiDoor": "死",
       "xunShou": null,
       "notes": [
-        "天禽寄宮未推導，第一版以 center 標記值符"
+        "天禽寄宮未推導，第一版以 center 標記直符"
       ],
       "source": {
         "type": "qimen1080-md",
@@ -5038,7 +5038,7 @@
           "heavenStem": "戊",
           "door": "驚",
           "star": "天芮",
-          "deity": "值符",
+          "deity": "直符",
           "isEmpty": false,
           "isHorse": false,
           "isZhiFuPalace": false,
@@ -5104,7 +5104,7 @@
           "isZhiFuPalace": true,
           "isZhiShiPalace": false,
           "notes": [
-            "天禽寄宮未推導，第一版以 center 標記值符"
+            "天禽寄宮未推導，第一版以 center 標記直符"
           ]
         },
         "qian": {
@@ -5176,7 +5176,7 @@
       "zhiShiDoor": "死",
       "xunShou": null,
       "notes": [
-        "天禽寄宮未推導，第一版以 center 標記值符"
+        "天禽寄宮未推導，第一版以 center 標記直符"
       ],
       "source": {
         "type": "qimen1080-md",
@@ -5269,7 +5269,7 @@
           "isZhiFuPalace": true,
           "isZhiShiPalace": false,
           "notes": [
-            "天禽寄宮未推導，第一版以 center 標記值符"
+            "天禽寄宮未推導，第一版以 center 標記直符"
           ]
         },
         "qian": {
@@ -5325,7 +5325,7 @@
           "heavenStem": "戊",
           "door": "杜",
           "star": "天芮",
-          "deity": "值符",
+          "deity": "直符",
           "isEmpty": false,
           "isHorse": false,
           "isZhiFuPalace": false,
@@ -5341,7 +5341,7 @@
       "zhiShiDoor": "死",
       "xunShou": null,
       "notes": [
-        "天禽寄宮未推導，第一版以 center 標記值符"
+        "天禽寄宮未推導，第一版以 center 標記直符"
       ],
       "source": {
         "type": "qimen1080-md",
@@ -5434,7 +5434,7 @@
           "isZhiFuPalace": true,
           "isZhiShiPalace": false,
           "notes": [
-            "天禽寄宮未推導，第一版以 center 標記值符"
+            "天禽寄宮未推導，第一版以 center 標記直符"
           ]
         },
         "qian": {
@@ -5475,7 +5475,7 @@
           "heavenStem": "戊",
           "door": "死",
           "star": "天芮",
-          "deity": "值符",
+          "deity": "直符",
           "isEmpty": false,
           "isHorse": false,
           "isZhiFuPalace": false,
@@ -5506,7 +5506,7 @@
       "zhiShiDoor": "死",
       "xunShou": null,
       "notes": [
-        "天禽寄宮未推導，第一版以 center 標記值符"
+        "天禽寄宮未推導，第一版以 center 標記直符"
       ],
       "source": {
         "type": "qimen1080-md",
@@ -5548,7 +5548,7 @@
           "heavenStem": "戊",
           "door": "驚",
           "star": "天芮",
-          "deity": "值符",
+          "deity": "直符",
           "isEmpty": false,
           "isHorse": false,
           "isZhiFuPalace": false,
@@ -5599,7 +5599,7 @@
           "isZhiFuPalace": true,
           "isZhiShiPalace": false,
           "notes": [
-            "天禽寄宮未推導，第一版以 center 標記值符"
+            "天禽寄宮未推導，第一版以 center 標記直符"
           ]
         },
         "qian": {
@@ -5671,7 +5671,7 @@
       "zhiShiDoor": "死",
       "xunShou": null,
       "notes": [
-        "天禽寄宮未推導，第一版以 center 標記值符"
+        "天禽寄宮未推導，第一版以 center 標記直符"
       ],
       "source": {
         "type": "qimen1080-md",
@@ -5728,7 +5728,7 @@
           "heavenStem": "戊",
           "door": "開",
           "star": "天芮",
-          "deity": "值符",
+          "deity": "直符",
           "isEmpty": false,
           "isHorse": false,
           "isZhiFuPalace": false,
@@ -5764,7 +5764,7 @@
           "isZhiFuPalace": true,
           "isZhiShiPalace": false,
           "notes": [
-            "天禽寄宮未推導，第一版以 center 標記值符"
+            "天禽寄宮未推導，第一版以 center 標記直符"
           ]
         },
         "qian": {
@@ -5836,7 +5836,7 @@
       "zhiShiDoor": "死",
       "xunShou": null,
       "notes": [
-        "天禽寄宮未推導，第一版以 center 標記值符"
+        "天禽寄宮未推導，第一版以 center 標記直符"
       ],
       "source": {
         "type": "qimen1080-md",
@@ -5908,7 +5908,7 @@
           "heavenStem": "戊",
           "door": "杜",
           "star": "天芮",
-          "deity": "值符",
+          "deity": "直符",
           "isEmpty": false,
           "isHorse": false,
           "isZhiFuPalace": false,
@@ -5929,7 +5929,7 @@
           "isZhiFuPalace": true,
           "isZhiShiPalace": false,
           "notes": [
-            "天禽寄宮未推導，第一版以 center 標記值符"
+            "天禽寄宮未推導，第一版以 center 標記直符"
           ]
         },
         "qian": {
@@ -6001,7 +6001,7 @@
       "zhiShiDoor": "死",
       "xunShou": null,
       "notes": [
-        "天禽寄宮未推導，第一版以 center 標記值符"
+        "天禽寄宮未推導，第一版以 center 標記直符"
       ],
       "source": {
         "type": "qimen1080-md",
@@ -6043,7 +6043,7 @@
           "heavenStem": "戊",
           "door": "休",
           "star": "天芮",
-          "deity": "值符",
+          "deity": "直符",
           "isEmpty": false,
           "isHorse": false,
           "isZhiFuPalace": false,
@@ -6094,7 +6094,7 @@
           "isZhiFuPalace": true,
           "isZhiShiPalace": false,
           "notes": [
-            "天禽寄宮未推導，第一版以 center 標記值符"
+            "天禽寄宮未推導，第一版以 center 標記直符"
           ]
         },
         "qian": {
@@ -6166,7 +6166,7 @@
       "zhiShiDoor": "死",
       "xunShou": null,
       "notes": [
-        "天禽寄宮未推導，第一版以 center 標記值符"
+        "天禽寄宮未推導，第一版以 center 標記直符"
       ],
       "source": {
         "type": "qimen1080-md",
@@ -6259,7 +6259,7 @@
           "isZhiFuPalace": true,
           "isZhiShiPalace": false,
           "notes": [
-            "天禽寄宮未推導，第一版以 center 標記值符"
+            "天禽寄宮未推導，第一版以 center 標記直符"
           ]
         },
         "qian": {
@@ -6270,7 +6270,7 @@
           "heavenStem": "戊",
           "door": "生",
           "star": "天芮",
-          "deity": "值符",
+          "deity": "直符",
           "isEmpty": false,
           "isHorse": false,
           "isZhiFuPalace": false,
@@ -6331,7 +6331,7 @@
       "zhiShiDoor": "死",
       "xunShou": null,
       "notes": [
-        "天禽寄宮未推導，第一版以 center 標記值符"
+        "天禽寄宮未推導，第一版以 center 標記直符"
       ],
       "source": {
         "type": "qimen1080-md",
@@ -6424,7 +6424,7 @@
           "isZhiFuPalace": true,
           "isZhiShiPalace": false,
           "notes": [
-            "天禽寄宮未推導，第一版以 center 標記值符"
+            "天禽寄宮未推導，第一版以 center 標記直符"
           ]
         },
         "qian": {
@@ -6450,7 +6450,7 @@
           "heavenStem": "丁",
           "door": "驚",
           "star": "天芮",
-          "deity": "值符",
+          "deity": "直符",
           "isEmpty": false,
           "isHorse": false,
           "isZhiFuPalace": false,
@@ -6596,7 +6596,7 @@
           "heavenStem": "壬",
           "door": "開",
           "star": "天心",
-          "deity": "值符",
+          "deity": "直符",
           "isEmpty": false,
           "isHorse": false,
           "isZhiFuPalace": true,
@@ -6682,7 +6682,7 @@
           "heavenStem": "壬",
           "door": "生",
           "star": "天心",
-          "deity": "值符",
+          "deity": "直符",
           "isEmpty": false,
           "isHorse": false,
           "isZhiFuPalace": true,
@@ -6963,7 +6963,7 @@
           "heavenStem": "壬",
           "door": "傷",
           "star": "天心",
-          "deity": "值符",
+          "deity": "直符",
           "isEmpty": false,
           "isHorse": false,
           "isZhiFuPalace": true,
@@ -7109,7 +7109,7 @@
           "heavenStem": "壬",
           "door": "景",
           "star": "天心",
-          "deity": "值符",
+          "deity": "直符",
           "isEmpty": false,
           "isHorse": false,
           "isZhiFuPalace": true,
@@ -7180,7 +7180,7 @@
           "heavenStem": "壬",
           "door": "景",
           "star": "天心",
-          "deity": "值符",
+          "deity": "直符",
           "isEmpty": false,
           "isHorse": false,
           "isZhiFuPalace": true,
@@ -7356,7 +7356,7 @@
           "heavenStem": "壬",
           "door": "景",
           "star": "天心",
-          "deity": "值符",
+          "deity": "直符",
           "isEmpty": false,
           "isHorse": false,
           "isZhiFuPalace": true,
@@ -7532,7 +7532,7 @@
           "heavenStem": "壬",
           "door": "休",
           "star": "天心",
-          "deity": "值符",
+          "deity": "直符",
           "isEmpty": false,
           "isHorse": false,
           "isZhiFuPalace": true,
@@ -7663,7 +7663,7 @@
           "heavenStem": "壬",
           "door": "生",
           "star": "天心",
-          "deity": "值符",
+          "deity": "直符",
           "isEmpty": false,
           "isHorse": false,
           "isZhiFuPalace": true,
@@ -7884,7 +7884,7 @@
           "heavenStem": "壬",
           "door": "生",
           "star": "天心",
-          "deity": "值符",
+          "deity": "直符",
           "isEmpty": false,
           "isHorse": false,
           "isZhiFuPalace": true,
@@ -8060,7 +8060,7 @@
           "heavenStem": "壬",
           "door": "驚",
           "star": "天心",
-          "deity": "值符",
+          "deity": "直符",
           "isEmpty": false,
           "isHorse": false,
           "isZhiFuPalace": true,
@@ -8131,7 +8131,7 @@
           "heavenStem": "乙",
           "door": "休",
           "star": "天蓬",
-          "deity": "值符",
+          "deity": "直符",
           "isEmpty": false,
           "isHorse": false,
           "isZhiFuPalace": false,
@@ -8292,7 +8292,7 @@
           "heavenStem": "癸",
           "door": "死",
           "star": "天柱",
-          "deity": "值符",
+          "deity": "直符",
           "isEmpty": false,
           "isHorse": false,
           "isZhiFuPalace": true,
@@ -8573,7 +8573,7 @@
           "heavenStem": "癸",
           "door": "驚",
           "star": "天柱",
-          "deity": "值符",
+          "deity": "直符",
           "isEmpty": false,
           "isHorse": false,
           "isZhiFuPalace": true,
@@ -8719,7 +8719,7 @@
           "heavenStem": "癸",
           "door": "開",
           "star": "天柱",
-          "deity": "值符",
+          "deity": "直符",
           "isEmpty": false,
           "isHorse": false,
           "isZhiFuPalace": true,
@@ -8790,7 +8790,7 @@
           "heavenStem": "癸",
           "door": "驚",
           "star": "天柱",
-          "deity": "值符",
+          "deity": "直符",
           "isEmpty": false,
           "isHorse": false,
           "isZhiFuPalace": true,
@@ -8966,7 +8966,7 @@
           "heavenStem": "癸",
           "door": "驚",
           "star": "天柱",
-          "deity": "值符",
+          "deity": "直符",
           "isEmpty": false,
           "isHorse": false,
           "isZhiFuPalace": true,
@@ -9142,7 +9142,7 @@
           "heavenStem": "癸",
           "door": "驚",
           "star": "天柱",
-          "deity": "值符",
+          "deity": "直符",
           "isEmpty": false,
           "isHorse": false,
           "isZhiFuPalace": true,
@@ -9273,7 +9273,7 @@
           "heavenStem": "癸",
           "door": "驚",
           "star": "天柱",
-          "deity": "值符",
+          "deity": "直符",
           "isEmpty": false,
           "isHorse": false,
           "isZhiFuPalace": true,
@@ -9494,7 +9494,7 @@
           "heavenStem": "癸",
           "door": "驚",
           "star": "天柱",
-          "deity": "值符",
+          "deity": "直符",
           "isEmpty": false,
           "isHorse": false,
           "isZhiFuPalace": true,
@@ -9670,7 +9670,7 @@
           "heavenStem": "癸",
           "door": "驚",
           "star": "天柱",
-          "deity": "值符",
+          "deity": "直符",
           "isEmpty": false,
           "isHorse": false,
           "isZhiFuPalace": true,

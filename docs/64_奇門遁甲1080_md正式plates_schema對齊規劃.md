@@ -170,8 +170,8 @@ palace-level validation：
 |---|---|---|---|
 | `schemaVersion` | plate object 目前沒有；preview file meta 有 `qimen-1080-preview-v1` | plate object 必須 `schemaVersion: 1` | adapter 補 `schemaVersion: 1` |
 | `hourPillar` | 已存在 | 必須存在且等於 `plates` key | 直接沿用 |
-| 值符星命名 | `zhifuStar` | `zhiFuStar` | adapter 改名為 `zhiFuStar` |
-| 值使門命名 | `zhishiDoor` | `zhiShiDoor` | adapter 改名為 `zhiShiDoor` |
+| 直符星命名 | `zhifuStar` | `zhiFuStar` | adapter 改名為 `zhiFuStar` |
+| 直使門命名 | `zhishiDoor` | `zhiShiDoor` | adapter 改名為 `zhiShiDoor` |
 | `xunShou` | 無 | 若存在需 string / null | 第一版補 `xunShou: null` |
 | `notes` | 無 | 若存在需 `string[]` | plate 與 palace 第一版補 `notes: []` |
 | `palaces` | 9 宮皆有 `heavenStem` / `star` / `earthStem` / `door` / `deity` | 9 宮需含 meta，其他欄位若存在需型別正確 | adapter 補宮位 meta 與 flags |
@@ -214,7 +214,7 @@ palace-level validation：
       "heavenStem": "戊",
       "door": "休",
       "star": "天蓬",
-      "deity": "值符",
+      "deity": "直符",
       "isEmpty": false,
       "isHorse": false,
       "isZhiFuPalace": true,
@@ -275,8 +275,8 @@ preview 已保留 `center`，正式 schema 也應保留 `center` palace。
 
 * `zhiFuStar` 為天禽時，可能對應 `center` 或另有寄宮問題。
 * 第一版先依 parser / preview 可找到的 star 直接標記，不推導寄宮。
-* 若 `zhiFuStar === "天禽"`，可在 plate 或 center palace `notes` 記錄：`"天禽寄宮未推導，第一版以 center 標記值符"`。
-* `zhiShiDoor` 只會在外宮找到；center `door` 為 null，不應被標記值使。
+* 若 `zhiFuStar === "天禽"`，可在 plate 或 center palace `notes` 記錄：`"天禽寄宮未推導，第一版以 center 標記直符"`。
+* `zhiShiDoor` 只會在外宮找到；center `door` 為 null，不應被標記直使。
 * 後續若補寄宮規則，需另包更新 adapter 與 tests。
 
 ## 8. raw / source / provenance 策略

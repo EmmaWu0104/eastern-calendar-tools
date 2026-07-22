@@ -180,7 +180,7 @@ candidate 中 plate object 欄位：
 | `center.palaceName` / `direction` / `luoshuNumber` | `中` / `中` / 5 |
 | `center.door` / `center.deity` | 可為 null |
 | `zhiFuStar === "天禽"` 時是否以 center 標記 `isZhiFuPalace` | 是，`yang/ju-9.json plates["癸亥"]` 為 true |
-| 是否加入「天禽寄宮未推導，第一版以 center 標記值符」註記 | 是，天禽值符 sample 的 notes length 與 center notes length 皆為 1 |
+| 是否加入「天禽寄宮未推導，第一版以 center 標記直符」註記 | 是，天禽直符 sample 的 notes length 與 center notes length 皆為 1 |
 | 是否推導天禽寄宮 | 否 |
 
 本階段未推導天禽寄宮，只保留 center / 天禽資訊與註記。

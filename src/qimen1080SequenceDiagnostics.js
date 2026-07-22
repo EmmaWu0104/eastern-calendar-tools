@@ -18,7 +18,7 @@ export const QIMEN_SEQUENCE_DIAGNOSTIC_RULES = Object.freeze({
   }),
   starSequence: Object.freeze(["天蓬", "天任", "天衝", "天輔", "天英", "天芮", "天柱", "天心"]),
   doorSequence: Object.freeze(["開", "休", "生", "傷", "杜", "景", "死", "驚"]),
-  deitySequence: Object.freeze(["值符", "騰蛇", "太陰", "六合", "勾陳", "朱雀", "九地", "九天"]),
+  deitySequence: Object.freeze(["直符", "騰蛇", "太陰", "六合", "勾陳", "朱雀", "九地", "九天"]),
 });
 
 const STEM_SEQUENCE_RULES = Object.freeze({
@@ -39,7 +39,7 @@ const STAR_NORMALIZATION = Object.freeze({
 });
 
 const DEITY_NORMALIZATION = Object.freeze({
-  符: "值符", 蛇: "騰蛇", 陰: "太陰", 合: "六合", 陳: "勾陳", 雀: "朱雀", 地: "九地", 天: "九天",
+  符: "直符", 蛇: "騰蛇", 陰: "太陰", 合: "六合", 陳: "勾陳", 雀: "朱雀", 地: "九地", 天: "九天",
   腾蛇: "騰蛇", 勾陈: "勾陳",
 });
 

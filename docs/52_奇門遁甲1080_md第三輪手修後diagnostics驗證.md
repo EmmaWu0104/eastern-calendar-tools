@@ -141,7 +141,7 @@
 建議下一輪處理順序：
 
 1. 先處理 `UNKNOWN_DOOR` / `UNKNOWN_DEITY` / `UNKNOWN_STEM`。這些通常是 token 黏連、欄位錯位或單字誤植，可能會造成後續 `MISSING_*` / `DUPLICATE_*` 連鎖錯誤。
-2. 處理 2 筆 `ZHISHI_DOOR_NOT_FOUND`，確認值使門是資料錯位、八門錯字，還是 parser 對該盤判讀不足。
+2. 處理 2 筆 `ZHISHI_DOOR_NOT_FOUND`，確認直使門是資料錯位、八門錯字，還是 parser 對該盤判讀不足。
 3. 再分批處理 `MISSING_DOOR` / `DUPLICATE_DOOR`、`MISSING_STAR` / `DUPLICATE_STAR`。
 4. 最後處理 `MISSING_DEITY` / `DUPLICATE_DEITY` 與天干缺漏 / 重複，避免在 unknown token 未釐清前誤修正確資料。
 
@@ -183,4 +183,4 @@
 * errors 從 192 降至 179。
 * warnings 維持 0。
 
-目前仍有 179 errors，主要是 unknown token 與元素缺漏 / 重複。下一步應先處理高信心 `UNKNOWN_*` 與值使門問題，再判讀 `MISSING_*` / `DUPLICATE_*` 是資料問題、parser 規則不足，或前置錯誤造成的連鎖結果。
+目前仍有 179 errors，主要是 unknown token 與元素缺漏 / 重複。下一步應先處理高信心 `UNKNOWN_*` 與直使門問題，再判讀 `MISSING_*` / `DUPLICATE_*` 是資料問題、parser 規則不足，或前置錯誤造成的連鎖結果。

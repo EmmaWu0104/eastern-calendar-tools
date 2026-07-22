@@ -6316,7 +6316,7 @@ function createQimenDisplayZhiFuFixturePlate(options = {}) {
   }
 
   if (deityZhiFuPalaceKey) {
-    plate.palaces[deityZhiFuPalaceKey].deity = "值符";
+    plate.palaces[deityZhiFuPalaceKey].deity = "直符";
   }
 
   return plate;
@@ -6420,7 +6420,7 @@ function runQimen1080MarkdownParserTests() {
   assertEqual("qimen-1080-md-parser-yang-ju-1-jiazi", "palaces.center.deity", null, yangJu1Jiazi?.palaces?.center?.deity);
   assertEqual("qimen-1080-md-parser-yang-ju-1-jiazi", "palaces.kan.star", "天蓬", yangJu1Jiazi?.palaces?.kan?.star);
   assertEqual("qimen-1080-md-parser-yang-ju-1-jiazi", "palaces.kan.door", "休", yangJu1Jiazi?.palaces?.kan?.door);
-  assertEqual("qimen-1080-md-parser-yang-ju-1-jiazi", "palaces.kan.deity", "值符", yangJu1Jiazi?.palaces?.kan?.deity);
+  assertEqual("qimen-1080-md-parser-yang-ju-1-jiazi", "palaces.kan.deity", "直符", yangJu1Jiazi?.palaces?.kan?.deity);
 
   const invalidFixture = `# 陽遁
 ### 陽遁一局

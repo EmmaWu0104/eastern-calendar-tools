@@ -89,7 +89,7 @@ adapter output 的 formal plate object 欄位：
 | `zhiFuStar` | 由 dry-run `zhifuStar` 轉入 |
 | `zhiShiDoor` | 由 dry-run `zhishiDoor` 轉入 |
 | `xunShou` | `null` |
-| `notes` | `string[]`，一般為 `[]`；天禽值符盤可有註記 |
+| `notes` | `string[]`，一般為 `[]`；天禽直符盤可有註記 |
 | `source.type` | `qimen1080-md` |
 | `source.file` | `data/1080.md` |
 | `source.rawHeader` | 保留 |
@@ -133,7 +133,7 @@ sample 補充：
 | `center.door` | 可為 null |
 | `center.deity` | 可為 null |
 | `zhiFuStar === "天禽"` 時是否以 center 標記 `isZhiFuPalace` | 是，sample `yang/ju-9.json plates["癸亥"]` 為 true |
-| 是否加入「天禽寄宮未推導」註記 | 是，天禽值符 sample 的 plate notes 與 center notes length 皆為 1 |
+| 是否加入「天禽寄宮未推導」註記 | 是，天禽直符 sample 的 plate notes 與 center notes length 皆為 1 |
 | 是否推導天禽寄宮 | 否 |
 
 本階段只保留 center / 天禽資訊，並以直接 star match 做 `isZhiFuPalace` 初版標記；不推導天禽寄宮規則。
@@ -156,7 +156,7 @@ sample 補充：
 | `zhiFuStar` / `zhiShiDoor` 命名 | 達成 |
 | `schemaVersion: 1` | 達成 |
 | `xunShou: null` | 達成 |
-| `notes: []` | 達成；天禽值符盤可有註記 |
+| `notes: []` | 達成；天禽直符盤可有註記 |
 | `source.rawHeader` / `source.rawCells` | 達成 |
 | 使用 `QIMEN_PALACE_META` | 達成 |
 | `isEmpty` / `isHorse` | 達成，第一版皆為 false |

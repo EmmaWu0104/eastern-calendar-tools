@@ -66,7 +66,7 @@ converter dry-run 第一版建議只接受下列輸入：
       star: "天蓬",
       earthStem: "戊",
       door: "休",
-      deity: "值符"
+      deity: "直符"
     },
     gen: {
       heavenStem: null,
@@ -144,8 +144,8 @@ converter dry-run 第一版建議只接受下列輸入：
 | `ju` | 1-9 |
 | `dayGroup` | `甲己日` / `乙庚日` / `丙辛日` / `丁壬日` / `戊癸日` |
 | `hourPillar` | 六十甲子時柱 |
-| `zhifuStar` | 值符星，例如 `天蓬` |
-| `zhishiDoor` | 值使門，例如 `休` |
+| `zhifuStar` | 直符星，例如 `天蓬` |
+| `zhishiDoor` | 直使門，例如 `休` |
 | `palaces` | 九宮 normalized fields |
 | `raw.header` | parser 解析出的原始 header |
 | `raw.cells` | 各宮原始 cell 或 source text，可依 parser 現況保留 |
