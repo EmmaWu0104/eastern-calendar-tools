@@ -7832,11 +7832,11 @@ function runDailyInfoTests() {
   assertEqual("daily-info-geng-day-false", "isGengDay", false, isGengDay("辛未"));
 
   const baoYiHeZhiFaCases = [
-    { id: "daily-info-bao-yi-he-zhi-fa-zhi", pillar: "乙未", expected: "‼️制日" },
-    { id: "daily-info-bao-yi-he-zhi-fa-he", pillar: "甲寅", expected: "⭕和日" },
-    { id: "daily-info-bao-yi-he-zhi-fa-bao", pillar: "甲午", expected: "⭕寶日" },
-    { id: "daily-info-bao-yi-he-zhi-fa-yi", pillar: "癸酉", expected: "⭕義日" },
-    { id: "daily-info-bao-yi-he-zhi-fa-fa", pillar: "己卯", expected: "❌伐日" },
+    { id: "daily-info-bao-yi-he-zhi-fa-zhi", pillar: "乙未", expected: "‼️ 制日" },
+    { id: "daily-info-bao-yi-he-zhi-fa-he", pillar: "甲寅", expected: "⭕ 和日" },
+    { id: "daily-info-bao-yi-he-zhi-fa-bao", pillar: "甲午", expected: "⭕ 寶日" },
+    { id: "daily-info-bao-yi-he-zhi-fa-yi", pillar: "癸酉", expected: "⭕ 義日" },
+    { id: "daily-info-bao-yi-he-zhi-fa-fa", pillar: "己卯", expected: "❌ 伐日" },
   ];
 
   for (const testCase of baoYiHeZhiFaCases) {
@@ -7888,7 +7888,7 @@ function runDailyInfoTests() {
   assertEqual("daily-info-summary-suipo", "isSuiPo", true, dailyInfo.suiPo?.isSuiPo);
   assertEqual("daily-info-summary-sanfu", "type", "初伏", dailyInfo.sanfu?.type);
   dailyInfoVerifiedCaseCount += 1;
-  assertEqual("daily-info-summary-bao-yi-he-zhi-fa", "label", "⭕和日", dailyInfo.baoYiHeZhiFa?.label);
+  assertEqual("daily-info-summary-bao-yi-he-zhi-fa", "label", "⭕ 和日", dailyInfo.baoYiHeZhiFa?.label);
 
   const dailyInfoTianShe = getDailyInfoByBranches({
     yearBranch: "午",
