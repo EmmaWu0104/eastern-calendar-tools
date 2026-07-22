@@ -319,6 +319,25 @@ export function getClashingZodiacByBranch(branch) {
   return BRANCH_ZODIACS[clashBranch] ?? "";
 }
 
+export function formatBaziDailySummary({ date, dayBranch, clashZodiac, jianchuName } = {}) {
+  if (!(date instanceof Date) || !Number.isFinite(date.getTime())) {
+    return "--";
+  }
+
+  const normalizedDayBranch = normalizeText(dayBranch);
+  const dateText = [
+    String(date.getFullYear()).padStart(4, "0"),
+    String(date.getMonth() + 1).padStart(2, "0"),
+    String(date.getDate()).padStart(2, "0"),
+  ].join(".");
+  const weekday = ["日", "一", "二", "三", "四", "五", "六"][date.getDay()];
+  const dayElement = BRANCH_ELEMENTS[normalizedDayBranch] ?? "—";
+  const zodiac = normalizeText(clashZodiac) || getClashingZodiacByBranch(normalizedDayBranch) || "—";
+  const jianchu = normalizeText(jianchuName) || "—";
+
+  return `🗓 ${dateText} (${weekday})｜${dayElement}｜衝${zodiac}｜${jianchu}`;
+}
+
 export function getDaHuangDaoFortune(deity) {
   const normalizedDeity = normalizeText(deity);
 

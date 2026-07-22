@@ -5,6 +5,7 @@ import {
 import { calculateBaziFromSolarTerms } from "./bazi.js";
 import { getDailyGodsByStem } from "./dailyGods.js";
 import {
+  formatBaziDailySummary,
   getClashingZodiacByBranch,
   getDailyDaHuangDao,
 } from "./dailyInfo.js";
@@ -113,7 +114,6 @@ const JINHAN_DEITY_CLASS_NAMES = Object.freeze({
   yangGuishen: "jinhan-deity-yang-guishen",
 });
 
-const WEEKDAY_LABELS = Object.freeze(["星期日", "星期一", "星期二", "星期三", "星期四", "星期五", "星期六"]);
 const QUERY_YEAR_MIN = 1900;
 const QUERY_YEAR_MAX = 2100;
 const CHINESE_HOUR_LABELS = Object.freeze([
@@ -569,7 +569,7 @@ function renderResult(result, dateTimeValue) {
   renderPillar(elements.dayPillar, result.dayPillar, undefined, undefined, true);
   renderPillar(elements.hourPillar, result.hourPillar, undefined, undefined, true);
   renderPillarExtraPanel(result.jianchu, dailyDaHuangDao, result.dailyInfo);
-  updateWeekdayLabel(dateTimeValue, result.dailyInfo);
+  updateWeekdayLabel(dateTimeValue, result.dayPillar, result.jianchu, result.dailyInfo);
   renderSeasonInfo(result);
   renderDongGongDaySelection(result);
   renderSpecNotes();
@@ -2404,10 +2404,10 @@ function getElement(selector) {
   return element;
 }
 
-function updateWeekdayLabel(dateTimeValue, dailyInfo = null) {
+function updateWeekdayLabel(dateTimeValue, dayPillar = "", jianchu = null, dailyInfo = null) {
   const weekdayLine = document.createElement("span");
   weekdayLine.className = "weekday-line";
-  weekdayLine.textContent = formatWeekdayLabel(dateTimeValue);
+  weekdayLine.textContent = formatWeekdayLabel(dateTimeValue, dayPillar, jianchu, dailyInfo);
 
   const clothingBlock = createDailyClothingBlock(dailyInfo?.clothing);
   elements.weekdayLabel.replaceChildren(
@@ -2415,13 +2415,18 @@ function updateWeekdayLabel(dateTimeValue, dailyInfo = null) {
   );
 }
 
-function formatWeekdayLabel(dateTimeValue) {
+function formatWeekdayLabel(dateTimeValue, dayPillar, jianchu, dailyInfo) {
   const date = parseDateTimeLocalValue(dateTimeValue);
   if (!date) {
     return "--";
   }
 
-  return `查詢日：${WEEKDAY_LABELS[date.getDay()]}`;
+  return formatBaziDailySummary({
+    date,
+    dayBranch: dayPillar?.[1],
+    clashZodiac: dailyInfo?.clash?.zodiac,
+    jianchuName: jianchu?.fullName,
+  });
 }
 
 function createDailyClothingBlock(clothing) {

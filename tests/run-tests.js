@@ -15,6 +15,7 @@ const {
   getDailyDaHuangDao,
   getDailyClashByDayBranch,
   getDailyInfoByBranches,
+  formatBaziDailySummary,
   getSanfuByDateKey,
   getSeasonalMarkerByUpcomingTerm,
   getSuiPoByBranches,
@@ -7664,6 +7665,27 @@ function runQimenResolverTests() {
 }
 
 function runDailyInfoTests() {
+  const summaryCases = [
+    { id: "daily-summary-2026-07-22", date: new Date(2026, 6, 22), dayBranch: "酉", clashZodiac: "兔", jianchuName: "滿日", expected: "🗓 2026.07.22 (三)｜金｜衝兔｜滿日" },
+    { id: "daily-summary-zi", date: new Date(2026, 0, 5), dayBranch: "子", clashZodiac: "馬", jianchuName: "建日", expected: "🗓 2026.01.05 (一)｜水｜衝馬｜建日" },
+    { id: "daily-summary-wu", date: new Date(2026, 0, 6), dayBranch: "午", clashZodiac: "鼠", jianchuName: "除日", expected: "🗓 2026.01.06 (二)｜火｜衝鼠｜除日" },
+    { id: "daily-summary-mao", date: new Date(2026, 0, 7), dayBranch: "卯", clashZodiac: "雞", jianchuName: "滿日", expected: "🗓 2026.01.07 (三)｜木｜衝雞｜滿日" },
+  ];
+
+  for (const testCase of summaryCases) {
+    dailyInfoVerifiedCaseCount += 1;
+    assertEqual(testCase.id, "summary", testCase.expected, formatBaziDailySummary(testCase));
+  }
+
+  for (const dayBranch of ["辰", "戌", "丑", "未"]) {
+    dailyInfoVerifiedCaseCount += 1;
+    assertEqual(`daily-summary-earth-${dayBranch}`, "element", "土", formatBaziDailySummary({
+      date: new Date(2026, 0, 5),
+      dayBranch,
+      jianchuName: "建日",
+    }).split("｜")[1]);
+  }
+
   const clothingCases = [
     {
       id: "daily-info-clothing-wu",
@@ -8153,6 +8175,20 @@ function runBaziJianchuTests(solarTerms) {
 }
 
 function runBaziDailyInfoTests(solarTerms) {
+  const july22 = calculateBaziFromSolarTerms("2026-07-22T12:00:00", solarTerms);
+  baziDailyInfoVerifiedCaseCount += 1;
+  assertEqual(
+    "bazi-daily-summary-2026-07-22",
+    "summary",
+    "🗓 2026.07.22 (三)｜金｜衝兔｜滿日",
+    formatBaziDailySummary({
+      date: new Date(2026, 6, 22),
+      dayBranch: july22.dayPillar[1],
+      clashZodiac: july22.dailyInfo?.clash?.zodiac,
+      jianchuName: july22.jianchu?.fullName,
+    })
+  );
+
   const noonWuDay = calculateBaziFromSolarTerms("2026-05-20T12:00:00", solarTerms);
   baziDailyInfoVerifiedCaseCount += 1;
   if (!noonWuDay.dailyInfo) {
