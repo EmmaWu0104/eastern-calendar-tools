@@ -36,7 +36,12 @@ import {
   getQimenGuXuByHourBranch,
 } from "./qimenPlateMarkers.js";
 import { resolveQimenJuFromFullTermCycleDraft } from "./qimenResolver.js";
-import { loadSolarTerms } from "./solarTerms.js";
+import {
+  formatSolarTermDateTime,
+  getSolarTermOnDate,
+  getSolarTermsInMonth,
+  loadSolarTerms,
+} from "./solarTerms.js";
 
 const AUTO_NOW_REFRESH_MS = 30_000;
 
@@ -210,9 +215,11 @@ let qimenManualOverride = {
   dunType: "",
   ju: null,
 };
+const solarTermDayPanel = createSolarTermDayPanel();
 const pillarExtraPanel = createPillarExtraPanel();
 const qimenElements = createQimenSection();
 
+elements.pillars.append(solarTermDayPanel);
 elements.pillars.append(pillarExtraPanel);
 insertQimenSection(qimenElements.section);
 
@@ -356,6 +363,7 @@ function renderMonthCalendarDays() {
   const today = new Date();
   const firstWeekday = (new Date(visibleCalendarYear, visibleCalendarMonth, 1).getDay() + 6) % 7;
   const daysInMonth = new Date(visibleCalendarYear, visibleCalendarMonth + 1, 0).getDate();
+  const solarTermsByDay = getSolarTermsByDayInVisibleMonth();
   const cells = [];
 
   for (let index = 0; index < firstWeekday; index += 1) {
@@ -370,21 +378,43 @@ function renderMonthCalendarDays() {
     const isToday = isSameCalendarDate(today, visibleCalendarYear, visibleCalendarMonth, day);
     const isSelected = selectedDate
       && isSameCalendarDate(selectedDate, visibleCalendarYear, visibleCalendarMonth, day);
+    const solarTerms = solarTermsByDay.get(day) ?? [];
     button.type = "button";
     button.className = [
       "query-calendar-day",
       isToday ? "is-today" : "",
       isSelected ? "is-selected" : "",
+      solarTerms.length > 0 ? "has-solar-term" : "",
     ].filter(Boolean).join(" ");
-    button.textContent = String(day);
+    button.append(createBlockSpan(String(day), "query-calendar-day-number"));
+    if (solarTerms.length > 0) {
+      button.append(createBlockSpan(solarTerms.map((term) => term.name).join("／"), "query-calendar-solar-term"));
+    }
     button.setAttribute("role", "gridcell");
     button.setAttribute("aria-selected", String(Boolean(isSelected)));
-    button.setAttribute("aria-label", `${visibleCalendarYear}年${visibleCalendarMonth + 1}月${day}日`);
+    const solarTermLabel = solarTerms.length > 0 ? `，交節氣：${solarTerms.map((term) => term.name).join("、")}` : "";
+    button.setAttribute("aria-label", `${visibleCalendarYear}年${visibleCalendarMonth + 1}月${day}日${solarTermLabel}`);
     button.addEventListener("click", () => selectQueryCalendarDate(visibleCalendarYear, visibleCalendarMonth, day));
     cells.push(button);
   }
 
   elements.calendarDays.replaceChildren(...cells);
+}
+
+function getSolarTermsByDayInVisibleMonth() {
+  const termsByDay = new Map();
+  if (!currentSolarTerms) {
+    return termsByDay;
+  }
+
+  for (const term of getSolarTermsInMonth(currentSolarTerms, visibleCalendarYear, visibleCalendarMonth + 1)) {
+    const day = Number(term.asia_taipei.slice(8, 10));
+    const terms = termsByDay.get(day) ?? [];
+    terms.push(term);
+    termsByDay.set(day, terms);
+  }
+
+  return termsByDay;
 }
 
 function renderChineseHourButtons() {
@@ -538,6 +568,7 @@ async function renderByDateTime(dateTimeValue) {
     currentDateTimeValue = dateTimeValue;
     isJinhanDunTypeManuallyOverridden = false;
     renderResult(result, dateTimeValue);
+    renderQueryPicker();
     renderFlyingStars(result, dateTimeValue);
     await renderJinhanYujing(result, dateTimeValue);
     renderQimenSection(dateTimeValue);
@@ -568,6 +599,7 @@ function renderResult(result, dateTimeValue) {
   renderPillar(elements.monthPillar, result.monthPillar, undefined, undefined, true);
   renderPillar(elements.dayPillar, result.dayPillar, undefined, undefined, true);
   renderPillar(elements.hourPillar, result.hourPillar, undefined, undefined, true);
+  renderSolarTermDayPanel(getSelectedSolarTermDay());
   renderPillarExtraPanel(result.jianchu, dailyDaHuangDao, result.dailyInfo);
   updateWeekdayLabel(dateTimeValue, result.dayPillar, result.jianchu, result.dailyInfo);
   renderSeasonInfo(result);
@@ -589,10 +621,19 @@ function clearResult() {
     element.textContent = "--";
   }
   clearPillarExtraPanel();
+  clearSolarTermDayPanel();
   clearDongGongDaySelection();
   clearFlyingStars();
   clearJinhanYujing();
   clearQimenSection();
+}
+
+function getSelectedSolarTermDay() {
+  if (!currentSolarTerms || !selectedCalendarDate) {
+    return [];
+  }
+
+  return getSolarTermOnDate(currentSolarTerms, selectedCalendarDate);
 }
 
 function renderDongGongDaySelection(result) {
@@ -855,6 +896,25 @@ function createPillarExtraPanel() {
 
   panel.append(lines);
   return panel;
+}
+
+function createSolarTermDayPanel() {
+  const panel = document.createElement("aside");
+  panel.className = "pillar-extra-panel solar-term-day-panel";
+  panel.hidden = true;
+  return panel;
+}
+
+function renderSolarTermDayPanel(solarTerms) {
+  solarTermDayPanel.replaceChildren(
+    ...solarTerms.map((term) => createBlockSpan(formatSolarTermDateTime(term), "solar-term-day-panel-line"))
+  );
+  solarTermDayPanel.hidden = solarTerms.length === 0;
+}
+
+function clearSolarTermDayPanel() {
+  solarTermDayPanel.replaceChildren();
+  solarTermDayPanel.hidden = true;
 }
 
 function renderPillarExtraPanel(jianchu, dailyDaHuangDao, dailyInfo) {

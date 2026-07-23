@@ -144,6 +144,38 @@ export function findTermByNameAndYear(solarTerms, name, termYear) {
   );
 }
 
+export function getSolarTermsInMonth(solarTerms, year, month) {
+  if (!Number.isInteger(year) || !Number.isInteger(month) || month < 1 || month > 12) {
+    return [];
+  }
+
+  return normalizeIfNeeded(solarTerms).filter((term) => {
+    const date = getSolarTermDateParts(term);
+    return date?.year === year && date.month === month;
+  });
+}
+
+export function getSolarTermOnDate(solarTerms, dateLike) {
+  const date = normalizeCivilDate(dateLike);
+  if (!date) {
+    return [];
+  }
+
+  return getSolarTermsInMonth(solarTerms, date.year, date.month).filter((term) => {
+    const termDate = getSolarTermDateParts(term);
+    return termDate?.day === date.day;
+  });
+}
+
+export function formatSolarTermDateTime(term) {
+  const date = getSolarTermDateParts(term);
+  if (!term?.name || !date) {
+    return "—";
+  }
+
+  return `🌤️ ${term.name}\n${String(date.month).padStart(2, "0")}/${String(date.day).padStart(2, "0")} ${String(date.hour).padStart(2, "0")}:${String(date.minute).padStart(2, "0")}`;
+}
+
 export function formatTerm(term) {
   if (!term) {
     return "--";
@@ -162,6 +194,53 @@ function normalizeIfNeeded(solarTerms) {
   }
 
   return normalizeSolarTerms(solarTerms);
+}
+
+function normalizeCivilDate(dateLike) {
+  if (typeof dateLike === "string") {
+    const match = dateLike.trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (!match) {
+      return null;
+    }
+
+    return { year: Number(match[1]), month: Number(match[2]), day: Number(match[3]) };
+  }
+
+  if (dateLike instanceof Date && Number.isFinite(dateLike.getTime())) {
+    return {
+      year: dateLike.getFullYear(),
+      month: dateLike.getMonth() + 1,
+      day: dateLike.getDate(),
+    };
+  }
+
+  if (
+    Number.isInteger(dateLike?.year)
+    && Number.isInteger(dateLike?.month)
+    && Number.isInteger(dateLike?.day)
+  ) {
+    return { year: dateLike.year, month: dateLike.month + 1, day: dateLike.day };
+  }
+
+  return null;
+}
+
+function getSolarTermDateParts(term) {
+  const match = typeof term?.asia_taipei === "string"
+    ? term.asia_taipei.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/)
+    : null;
+
+  if (!match) {
+    return null;
+  }
+
+  return {
+    year: Number(match[1]),
+    month: Number(match[2]),
+    day: Number(match[3]),
+    hour: Number(match[4]),
+    minute: Number(match[5]),
+  };
 }
 
 function findLastTermIndexAtOrBefore(terms, timeMs) {

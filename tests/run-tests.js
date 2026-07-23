@@ -140,7 +140,13 @@ const {
   getHouDefinitions,
   getNextHouBySolarTermRange,
 } = await import("../src/seventyTwoHou.js");
-const { normalizeSolarTerms, parseLocalDateTime } = await import("../src/solarTerms.js");
+const {
+  formatSolarTermDateTime,
+  getSolarTermOnDate,
+  getSolarTermsInMonth,
+  normalizeSolarTerms,
+  parseLocalDateTime,
+} = await import("../src/solarTerms.js");
 const {
   calculateAllFlyingStarCharts,
   calculateAnnualFlyingStarChart,
@@ -580,6 +586,7 @@ runQimenYearSeedRecommendationTests();
 runQimenTimelineFromYearSeedRecommendationTests();
 runQimenResolverTests();
 runDailyInfoTests();
+runSolarTermCalendarTests(solarTerms);
 runQueryPickerTests(solarTerms);
 runBaziCurrentHouTests(solarTerms);
 runBaziJianchuTests(solarTerms);
@@ -7960,6 +7967,11 @@ function runQueryPickerTests(solarTerms) {
     assertEqual(testCase.id, "selectedCalendarDate", testCase.expected, actual);
   }
 
+  const ziSelectedDate = queryPickerHelpers.getSelectedCalendarDateFromDateTime("2026-07-22T23:00");
+  const ziSolarTerms = getSolarTermOnDate(solarTerms, ziSelectedDate);
+  queryPickerVerifiedCaseCount += 1;
+  assertEqual("query-picker-zi-solar-term-calendar-date", "term", "大暑", ziSolarTerms[0]?.name);
+
   const integrationCases = [
     {
       id: "query-picker-zi-bazi",
@@ -7988,6 +8000,19 @@ function runQueryPickerTests(solarTerms) {
     assertEqual(testCase.id, "dayPillar", testCase.expected.dayPillar, result.dayPillar);
     assertEqual(testCase.id, "hourPillar", testCase.expected.hourPillar, result.hourPillar);
   }
+}
+
+function runSolarTermCalendarTests(solarTerms) {
+  const julyTerms = getSolarTermsInMonth(solarTerms, 2026, 7);
+  assertEqual("solar-term-calendar-july", "names", "小暑、大暑", julyTerms.map((term) => term.name).join("、"));
+
+  const daxu = getSolarTermOnDate(solarTerms, "2026-07-23");
+  assertEqual("solar-term-calendar-daxu", "name", "大暑", daxu[0]?.name);
+  assertEqual("solar-term-calendar-daxu", "time", "2026-07-23T03:13:06.390+08:00", daxu[0]?.asia_taipei);
+  assertEqual("solar-term-calendar-daxu-format", "text", "🌤️ 大暑\n07/23 03:13", formatSolarTermDateTime(daxu[0]));
+
+  const july22Terms = getSolarTermOnDate(solarTerms, "2026-07-22");
+  assertEqual("solar-term-calendar-july22", "count", 0, july22Terms.length);
 }
 
 function runBaziCurrentHouTests(solarTerms) {
