@@ -156,6 +156,17 @@ const {
   calculatePeriodFlyingStarChart,
   flyStars,
 } = await import("../src/flyingStars.js");
+const {
+  COMBINED_FLYING_STAR_LAYERS,
+  createCombinedFlyingStarSummary,
+  createCombinedFlyingStarViewModel,
+  formatMonthlySummary,
+  formatPeriodCycle,
+  formatStarCircleNumber,
+  formatStarName,
+  formatYinYangDun,
+  getPeriodYuanName,
+} = await import("../src/flyingStarViewModel.js");
 const resolvedTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone ?? "unknown";
 
 console.log(`測試基準時區：${TEST_TIME_ZONE}`);
@@ -175,6 +186,7 @@ const [
   dongGongDataRaw,
   dongGongModuleRaw,
   mainModuleRaw,
+  mainCssRaw,
 ] = await Promise.all([
   readFile(new URL("../data/solar_terms_1899_2101.json", import.meta.url), "utf8"),
   readFile(new URL("./testcases.json", import.meta.url), "utf8"),
@@ -185,6 +197,7 @@ const [
   readFile(new URL("../data/dong_gong_day_selection.json", import.meta.url), "utf8"),
   readFile(new URL("../src/dongGongDaySelection.js", import.meta.url), "utf8"),
   readFile(new URL("../src/main.js", import.meta.url), "utf8"),
+  readFile(new URL("../styles/main.css", import.meta.url), "utf8"),
 ]);
 
 const solarTerms = normalizeSolarTerms(JSON.parse(termsRaw));
@@ -264,7 +277,6 @@ let queryPickerVerifiedCaseCount = 0;
 let flyingStarRenderFlowVerifiedCaseCount = 0;
 let hexagramVerifiedCaseCount = 0;
 const queryPickerHelpers = loadQueryPickerHelpersForTest(mainModuleRaw);
-const flyingStarViewHelpers = loadFlyingStarViewHelpersForTest(mainModuleRaw);
 
 const parsedLocalDateTime = parseLocalDateTime("2026-06-05T09:08:07.123");
 const localDateTimeExpected = {
@@ -8014,8 +8026,10 @@ function runFlyingStarRenderFlowTests(solarTerms) {
 
   // This models two complete renders in sequence.  The second chart must be
   // derived from its own calendarResult, rather than retaining the first one.
-  const firstMonthlyChart = calculateAllFlyingStarCharts(firstCalendarResult, firstInput).monthly;
-  const secondMonthlyChart = calculateAllFlyingStarCharts(secondCalendarResult, secondInput).monthly;
+  const firstCharts = calculateAllFlyingStarCharts(firstCalendarResult, firstInput);
+  const secondCharts = calculateAllFlyingStarCharts(secondCalendarResult, secondInput);
+  const firstMonthlyChart = firstCharts.monthly;
+  const secondMonthlyChart = secondCharts.monthly;
 
   const expectedFirstBasis = { monthPillar: "癸巳", monthBranch: "巳", centerStar: 5 };
   const expectedSecondBasis = { monthPillar: "乙未", monthBranch: "未", centerStar: 3 };
@@ -8059,14 +8073,14 @@ function runFlyingStarRenderFlowTests(solarTerms) {
     "flying-stars-monthly-summary",
     "firstTitle",
     "午年巳月",
-    flyingStarViewHelpers.formatMonthlySummary(firstMonthlyChart)
+    formatMonthlySummary(firstMonthlyChart)
   );
   flyingStarRenderFlowVerifiedCaseCount += 1;
   assertEqual(
     "flying-stars-monthly-summary",
     "secondTitle",
     "午年未月",
-    flyingStarViewHelpers.formatMonthlySummary(secondMonthlyChart)
+    formatMonthlySummary(secondMonthlyChart)
   );
 
   const monthJianCases = [
@@ -8090,9 +8104,224 @@ function runFlyingStarRenderFlowTests(solarTerms) {
       `flying-stars-month-jian-${testCase.id}`,
       "title",
       testCase.expected.title,
-      flyingStarViewHelpers.formatMonthlySummary(monthlyChart)
+      formatMonthlySummary(monthlyChart)
     );
   }
+
+  const expectedLayerKeys = "period,annual,monthly,daily,hourly";
+  const expectedLayerLabels = "運,年,月,日,時";
+  flyingStarRenderFlowVerifiedCaseCount += 1;
+  assertEqual(
+    "flying-stars-combined-layer-order",
+    "keys",
+    expectedLayerKeys,
+    COMBINED_FLYING_STAR_LAYERS.map((layer) => layer.key).join(",")
+  );
+  flyingStarRenderFlowVerifiedCaseCount += 1;
+  assertEqual(
+    "flying-stars-combined-layer-order",
+    "labels",
+    expectedLayerLabels,
+    COMBINED_FLYING_STAR_LAYERS.map((layer) => layer.label).join(",")
+  );
+
+  const firstCombined = createCombinedFlyingStarViewModel(firstCharts);
+  const secondCombined = createCombinedFlyingStarViewModel(secondCharts);
+  const combinedPalaces = secondCombined.layout.flat();
+  flyingStarRenderFlowVerifiedCaseCount += 1;
+  assertEqual("flying-stars-combined-palaces", "count", 9, combinedPalaces.length);
+
+  for (const palace of combinedPalaces) {
+    flyingStarRenderFlowVerifiedCaseCount += 1;
+    assertEqual(
+      `flying-stars-combined-${palace.id}`,
+      "layerOrder",
+      expectedLayerKeys,
+      palace.layers.map((layer) => layer.key).join(",")
+    );
+
+    for (const layer of palace.layers) {
+      const sourcePalace = secondCharts[layer.key].palaces[palace.id];
+      flyingStarRenderFlowVerifiedCaseCount += 1;
+      assertEqual(
+        `flying-stars-combined-${palace.id}-${layer.key}`,
+        "starNumber",
+        sourcePalace.starNumber,
+        layer.starNumber
+      );
+      flyingStarRenderFlowVerifiedCaseCount += 1;
+      assertEqual(
+        `flying-stars-combined-${palace.id}-${layer.key}`,
+        "starCircle",
+        formatStarCircleNumber(sourcePalace.starNumber),
+        layer.starCircle
+      );
+      flyingStarRenderFlowVerifiedCaseCount += 1;
+      assertEqual(
+        `flying-stars-combined-${palace.id}-${layer.key}`,
+        "circleOnly",
+        true,
+        /^[①-⑨]$/.test(layer.starCircle)
+      );
+    }
+  }
+
+  const firstCenterLayers = Object.fromEntries(
+    firstCombined.layout.flat().find((palace) => palace.id === "center").layers
+      .map((layer) => [layer.key, layer.starNumber])
+  );
+  const secondCenterLayers = Object.fromEntries(
+    secondCombined.layout.flat().find((palace) => palace.id === "center").layers
+      .map((layer) => [layer.key, layer.starNumber])
+  );
+  for (const layerKey of ["monthly", "daily", "hourly"]) {
+    flyingStarRenderFlowVerifiedCaseCount += 1;
+    assertEqual(
+      `flying-stars-combined-consecutive-${layerKey}`,
+      "updated",
+      true,
+      firstCenterLayers[layerKey] !== secondCenterLayers[layerKey]
+    );
+  }
+
+  const sixStarPalace = Object.values(secondCharts.period.palaces)
+    .find((palace) => palace.starNumber === 6);
+  flyingStarRenderFlowVerifiedCaseCount += 1;
+  assertEqual(
+    "flying-stars-independent-full-name",
+    "starDisplayName",
+    "⑥ 白武曲",
+    sixStarPalace?.starDisplayName
+  );
+  flyingStarRenderFlowVerifiedCaseCount += 1;
+  assertEqual(
+    "flying-stars-combined-circle-only",
+    "starCircle",
+    "⑥",
+    formatStarCircleNumber(sixStarPalace?.starNumber)
+  );
+  flyingStarRenderFlowVerifiedCaseCount += 1;
+  assertEqual(
+    "flying-stars-monthly-summary",
+    "doesNotUseTraditionalMonthNumber",
+    false,
+    formatMonthlySummary(secondCharts.monthly).includes("六月")
+  );
+
+  for (const [title, key] of [
+    ["運盤", "period"],
+    ["年盤", "annual"],
+    ["月盤", "monthly"],
+    ["日盤", "daily"],
+    ["時盤", "hourly"],
+  ]) {
+    flyingStarRenderFlowVerifiedCaseCount += 1;
+    assertEqual(
+      `flying-stars-independent-${key}`,
+      "rendered",
+      true,
+      mainModuleRaw.includes(`createFlyingStarChart("${title}", charts.${key}, charts.period)`)
+    );
+  }
+  flyingStarRenderFlowVerifiedCaseCount += 1;
+  assertEqual(
+    "flying-stars-independent-display-name",
+    "source",
+    true,
+    mainModuleRaw.includes("starName.textContent = palace.starDisplayName;")
+  );
+  flyingStarRenderFlowVerifiedCaseCount += 1;
+  assertEqual(
+    "flying-stars-combined-circle-source",
+    "source",
+    true,
+    mainModuleRaw.includes("starNumber.textContent = layer.starCircle;")
+  );
+
+  for (const [period, expected] of [
+    [1, "上元"], [2, "上元"], [3, "上元"],
+    [4, "中元"], [5, "中元"], [6, "中元"],
+    [7, "下元"], [8, "下元"], [9, "下元"],
+  ]) {
+    flyingStarRenderFlowVerifiedCaseCount += 1;
+    assertEqual("flying-stars-period-yuan", String(period), expected, getPeriodYuanName(period));
+  }
+  for (const [direction, expected] of [["forward", "陽遁"], ["reverse", "陰遁"]]) {
+    flyingStarRenderFlowVerifiedCaseCount += 1;
+    assertEqual("flying-stars-yinyang-dun", direction, expected, formatYinYangDun(direction));
+  }
+  for (const [starNumber, expected] of [[1, "①"], [9, "⑨"]]) {
+    flyingStarRenderFlowVerifiedCaseCount += 1;
+    assertEqual("flying-stars-circle-number", String(starNumber), expected, formatStarCircleNumber(starNumber));
+  }
+
+  const combinedSummary = Object.fromEntries(
+    createCombinedFlyingStarSummary(secondCharts).map((item) => [item.key, `${item.label}：${item.value}`])
+  );
+  const expectedCombinedSummary = {
+    period: "運：下元九運 ⑨",
+    annual: "年：下元丙午 ①",
+    monthly: "月：午年未月 ③",
+    daily: "日：陰遁 甲辰 ⑤",
+    hourly: "時：陰遁 己巳 ①",
+  };
+  for (const [key, expected] of Object.entries(expectedCombinedSummary)) {
+    flyingStarRenderFlowVerifiedCaseCount += 1;
+    assertEqual("flying-stars-combined-summary", key, expected, combinedSummary[key]);
+  }
+  flyingStarRenderFlowVerifiedCaseCount += 1;
+  assertEqual("flying-stars-period-cycle", "nine", "下元九運", formatPeriodCycle(9));
+  flyingStarRenderFlowVerifiedCaseCount += 1;
+  assertEqual(
+    "flying-stars-combined-star-name",
+    "desktopName",
+    "白武曲",
+    formatStarName(sixStarPalace)
+  );
+  flyingStarRenderFlowVerifiedCaseCount += 1;
+  assertEqual(
+    "flying-stars-combined-star-name",
+    "domClass",
+    true,
+    mainModuleRaw.includes('starName.className = "combined-star-name";')
+  );
+  flyingStarRenderFlowVerifiedCaseCount += 1;
+  assertEqual(
+    "flying-stars-combined-star-name",
+    "mobileHidden",
+    true,
+    /@media \(max-width: 680px\)[\s\S]*?\.combined-star-name\s*\{\s*display: none;/.test(mainCssRaw)
+  );
+  flyingStarRenderFlowVerifiedCaseCount += 1;
+  assertEqual(
+    "flying-stars-independent-basis",
+    "periodUsesYuan",
+    true,
+    mainModuleRaw.includes('label: "三元九運", value: formatPeriodCycle(chart.period)')
+  );
+  flyingStarRenderFlowVerifiedCaseCount += 1;
+  assertEqual(
+    "flying-stars-independent-basis",
+    "annualUsesPeriodYuan",
+    true,
+    mainModuleRaw.includes('label: "年柱", value: `${getPeriodYuanName(periodChart?.period)}${basis.yearPillar ?? "—"}`')
+  );
+  flyingStarRenderFlowVerifiedCaseCount += 1;
+  assertEqual(
+    "flying-stars-independent-basis",
+    "monthlyUsesMonthJian",
+    true,
+    mainModuleRaw.includes('label: "月盤依據", value: formatMonthlySummary(chart)')
+      && mainModuleRaw.includes('label: "月建", value: basis.monthBranch')
+      && !mainModuleRaw.includes('label: "年支分組", value: basis.yearBranchGroup')
+  );
+  flyingStarRenderFlowVerifiedCaseCount += 1;
+  assertEqual(
+    "flying-stars-independent-summary",
+    "centerUsesCircleFormatter",
+    true,
+    mainModuleRaw.includes('formatStarCircleNumber(chart.centerStar)')
+  );
 }
 
 function runSolarTermCalendarTests(solarTerms) {
@@ -9041,15 +9270,6 @@ function loadQueryPickerHelpersForTest(mainModuleRaw) {
     ]);
     ${definitions}
     return { buildDateTimeValueFromDateAndChineseHour, getSelectedCalendarDateFromDateTime };
-  `)();
-}
-
-function loadFlyingStarViewHelpersForTest(mainModuleRaw) {
-  const definition = extractNamedFunctionSource(mainModuleRaw, "formatMonthlySummary");
-
-  return Function(`
-    ${definition}
-    return { formatMonthlySummary };
   `)();
 }
 

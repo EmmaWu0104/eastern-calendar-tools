@@ -12,6 +12,15 @@ import {
 import { getDongGongDaySelection } from "./dongGongDaySelection.js";
 import { calculateAllFlyingStarCharts } from "./flyingStars.js";
 import {
+  createCombinedFlyingStarSummary,
+  createCombinedFlyingStarViewModel,
+  formatMonthlySummary,
+  formatPeriodCycle,
+  formatStarCircleNumber,
+  formatStarName,
+  getPeriodYuanName,
+} from "./flyingStarViewModel.js";
+import {
   formatHexagramLabel,
   getHexagramByTrigrams,
   getTrigramByQimenDoor,
@@ -136,7 +145,6 @@ const CHINESE_HOUR_LABELS = Object.freeze([
   Object.freeze({ index: 12, branch: "亥", timeRange: "21 ~ 23", startHour: 21 }),
 ]);
 
-const CHINESE_NUMBER_LABELS = Object.freeze(["", "一", "二", "三", "四", "五", "六", "七", "八", "九"]);
 const QIMEN_JU_LABELS = Object.freeze({
   1: "一局",
   2: "二局",
@@ -1054,12 +1062,14 @@ function createDailyGodsCell(palace) {
 function renderFlyingStars(calendarResult, inputDateTime) {
   try {
     const charts = calculateAllFlyingStarCharts(calendarResult, inputDateTime);
-    const yearBranch = typeof calendarResult?.yearPillar === "string" ? calendarResult.yearPillar[1] : "";
     elements.flyingStarsMessage.textContent = "";
     elements.flyingStars.replaceChildren(
-      createFlyingStarComboChart(charts.period, charts.annual, charts.monthly, yearBranch),
-      createFlyingStarChart("日盤", charts.daily),
-      createFlyingStarChart("時盤", charts.hourly)
+      createCombinedFlyingStarChart(charts),
+      createFlyingStarChart("運盤", charts.period, charts.period),
+      createFlyingStarChart("年盤", charts.annual, charts.period),
+      createFlyingStarChart("月盤", charts.monthly, charts.period),
+      createFlyingStarChart("日盤", charts.daily, charts.period),
+      createFlyingStarChart("時盤", charts.hourly, charts.period)
     );
   } catch (error) {
     console.error("九宮飛星計算失敗", error);
@@ -2059,7 +2069,7 @@ function createTableCell(text, className = "") {
   return cell;
 }
 
-function createFlyingStarChart(title, chart) {
+function createFlyingStarChart(title, chart, periodChart) {
   const article = document.createElement("article");
   article.className = "flying-star-card";
 
@@ -2068,10 +2078,11 @@ function createFlyingStarChart(title, chart) {
 
   const summary = document.createElement("div");
   summary.className = "flying-star-summary";
+  const centerPalace = chart.palaces.center;
   summary.append(
-    createMetaLine("中宮", `${chart.palaces.center.starDisplayName}入中`),
+    createMetaLine("中宮", `${formatStarCircleNumber(chart.centerStar)} ${formatStarName(centerPalace)}入中`),
     createMetaLine("飛法", formatDirection(chart.direction)),
-    createBasisBlock(formatFlyingStarBasis(chart))
+    createBasisBlock(formatFlyingStarBasis(chart, periodChart))
   );
 
   const grid = document.createElement("div");
@@ -2087,35 +2098,30 @@ function createFlyingStarChart(title, chart) {
   return article;
 }
 
-function createFlyingStarComboChart(periodChart, annualChart, monthlyChart, yearBranch) {
+function createCombinedFlyingStarChart(charts) {
+  const viewModel = createCombinedFlyingStarViewModel(charts);
   const article = document.createElement("article");
-  article.className = "flying-star-card flying-star-combo-card";
+  article.className = "flying-star-card combined-flying-star-card";
 
   const heading = document.createElement("h3");
-  heading.textContent = "綜合盤（運盤 / 年盤 / 月盤）";
+  heading.textContent = "五層綜合盤";
 
   const summary = document.createElement("div");
-  summary.className = "flying-stars-combo-summary";
-  summary.append(
-    createFlyingStarComboSummaryCell("運盤", formatPeriodSummary(periodChart), periodChart),
-    createFlyingStarComboSummaryCell("年盤", formatAnnualSummary(periodChart, annualChart), annualChart),
-    createFlyingStarComboSummaryCell("月盤", formatMonthlySummary(monthlyChart), monthlyChart)
-  );
+  summary.className = "combined-flying-star-summary";
+  summary.append(...createCombinedFlyingStarSummary(charts).map(createCombinedFlyingStarSummaryItem));
 
   const grid = document.createElement("div");
-  grid.className = "nine-palace-grid flying-stars-combo-grid";
+  grid.className = "nine-palace-grid combined-nine-palace-grid";
+  const yearBranch = charts.annual.basis?.yearPillar?.[1] ?? "";
   const annualAfflictions = getAnnualAfflictionsByYearBranch(yearBranch);
   const annualAfflictionBadgesByPalace = getAnnualAfflictionBadgesByPalace(yearBranch);
 
-  for (const row of periodChart.layout) {
-    for (const periodPalace of row) {
-      const palaceId = periodPalace.id;
+  for (const row of viewModel.layout) {
+    for (const palace of row) {
       grid.append(
-        createFlyingStarComboCell(
-          periodPalace,
-          annualChart.palaces[palaceId],
-          monthlyChart.palaces[palaceId],
-          annualAfflictionBadgesByPalace[periodPalace.name] ?? []
+        createCombinedFlyingStarPalaceCell(
+          palace,
+          annualAfflictionBadgesByPalace[palace.name] ?? []
         )
       );
     }
@@ -2128,36 +2134,53 @@ function createFlyingStarComboChart(periodChart, annualChart, monthlyChart, year
   return article;
 }
 
-function createFlyingStarComboSummaryCell(title, detail, chart) {
+function createCombinedFlyingStarSummaryItem(summary) {
+  const item = document.createElement("div");
+  item.className = "combined-flying-star-summary-item";
+  item.textContent = `${summary.label}：${summary.value}`;
+  return item;
+}
+
+function createCombinedFlyingStarPalaceCell(palace, annualAfflictionBadges = []) {
   const cell = document.createElement("div");
-  cell.className = "flying-stars-combo-summary-row";
+  cell.className = palace.id === "center"
+    ? "palace-cell palace-center combined-palace-cell"
+    : "palace-cell combined-palace-cell";
 
-  const titleElement = document.createElement("div");
-  titleElement.className = "flying-stars-combo-summary-title";
-  titleElement.textContent = `${title}：${detail}`;
-
-  const centerElement = document.createElement("div");
-  centerElement.className = "flying-stars-combo-summary-center";
-  centerElement.textContent = `中宮 ${chart.palaces.center.starDisplayName}`;
-
-  cell.append(titleElement, centerElement);
+  cell.append(
+    createCombinedStarLayers(palace.layers),
+    createAnnualAfflictionBadges(annualAfflictionBadges),
+    createPalaceFooter(palace)
+  );
   return cell;
 }
 
-function createFlyingStarComboCell(periodPalace, annualPalace, monthlyPalace, annualAfflictionBadges = []) {
-  const cell = document.createElement("div");
-  cell.className = periodPalace.id === "center"
-    ? "palace-cell palace-center flying-stars-combo-cell"
-    : "palace-cell flying-stars-combo-cell";
+function createCombinedStarLayers(layers) {
+  const container = document.createElement("div");
+  container.className = "combined-star-layers";
+  container.append(...layers.map(createCombinedStarItem));
+  return container;
+}
 
-  cell.append(
-    createComboStarLine(periodPalace.starDisplayName, "運"),
-    createComboStarLine(annualPalace.starDisplayName, "年"),
-    createComboStarLine(monthlyPalace.starDisplayName, "月"),
-    createAnnualAfflictionBadges(annualAfflictionBadges),
-    createPalaceFooter(periodPalace)
-  );
-  return cell;
+function createCombinedStarItem(layer) {
+  const item = document.createElement("div");
+  item.className = "combined-star-layer";
+  item.setAttribute("data-layer", layer.key);
+
+  const label = document.createElement("span");
+  label.className = "combined-star-label";
+  label.textContent = layer.label;
+
+  const starNumber = document.createElement("span");
+  starNumber.className = "combined-star-number";
+  starNumber.textContent = layer.starCircle;
+
+  const starName = document.createElement("span");
+  starName.className = "combined-star-name";
+  starName.textContent = layer.starName;
+
+  item.append(label, starNumber, starName);
+  return item;
 }
 
 function createAnnualAfflictionBadges(badges) {
@@ -2186,14 +2209,6 @@ function createAnnualAfflictionSummary(summaryText) {
   return summary;
 }
 
-function createComboStarLine(starName, label) {
-  const line = document.createElement("div");
-  line.className = "flying-stars-combo-star";
-  line.title = `${label}盤`;
-  line.textContent = starName;
-  return line;
-}
-
 function createPalaceFooter(palace) {
   const fragment = document.createDocumentFragment();
 
@@ -2207,40 +2222,6 @@ function createPalaceFooter(palace) {
 
   fragment.append(palaceLabel, directionLabel);
   return fragment;
-}
-
-function formatPeriodSummary(periodChart) {
-  return `${getPeriodCycleName(periodChart.period)}${formatChineseNumber(periodChart.period)}運`;
-}
-
-function formatAnnualSummary(periodChart, annualChart) {
-  return `${getPeriodCycleName(periodChart.period)}${annualChart.basis?.yearPillar ?? "—"}年`;
-}
-
-function formatMonthlySummary(monthlyChart) {
-  const yearBranch = monthlyChart.basis?.yearBranch ?? "—";
-  const monthBranch = monthlyChart.basis?.monthBranch ?? "—";
-  return `${yearBranch}年${monthBranch}月`;
-}
-
-function getPeriodCycleName(period) {
-  if (period >= 1 && period <= 3) {
-    return "上元";
-  }
-
-  if (period >= 4 && period <= 6) {
-    return "中元";
-  }
-
-  if (period >= 7 && period <= 9) {
-    return "下元";
-  }
-
-  return "";
-}
-
-function formatChineseNumber(value) {
-  return CHINESE_NUMBER_LABELS[value] ?? String(value);
 }
 
 function createMetaLine(label, value) {
@@ -2307,28 +2288,28 @@ function formatDirection(direction) {
   return direction === "reverse" ? "逆飛" : "順飛";
 }
 
-function formatFlyingStarBasis(chart) {
+function formatFlyingStarBasis(chart, periodChart) {
   const basis = chart.basis ?? {};
 
   if (chart.type === "period") {
     return [
       { label: "西元年份", value: `${basis.year}` },
-      { label: "三元九運", value: `${chart.period}運` },
+      { label: "三元九運", value: formatPeriodCycle(chart.period) },
     ];
   }
 
   if (chart.type === "annual") {
     return [
       { label: "有效年份", value: `${basis.year}` },
-      { label: "年柱", value: basis.yearPillar },
+      { label: "年柱", value: `${getPeriodYuanName(periodChart?.period)}${basis.yearPillar ?? "—"}` },
     ];
   }
 
   if (chart.type === "monthly") {
     return [
-      { label: "年支分組", value: basis.yearBranchGroup },
+      { label: "月盤依據", value: formatMonthlySummary(chart) },
       { label: "月柱", value: basis.monthPillar },
-      { label: "月支", value: basis.monthBranch },
+      { label: "月建", value: basis.monthBranch },
     ];
   }
 

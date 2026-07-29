@@ -914,40 +914,30 @@ dd {
   font-size: 13px;
 }
 
-.flying-star-combo-card {
+.combined-flying-star-card {
+  grid-column: 1 / -1;
   min-width: 0;
 }
 
-.flying-stars-combo-summary {
+.combined-flying-star-summary {
   display: grid;
-  gap: 6px;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
   margin-bottom: 10px;
 }
 
-.flying-stars-combo-summary-row {
+.combined-flying-star-summary-item {
   min-width: 0;
-  padding: 0 0 6px;
-  border-bottom: 1px solid #d8dee6;
-}
-
-.flying-stars-combo-summary-row:last-child {
-  padding-bottom: 0;
-  border-bottom: 0;
-}
-
-.flying-stars-combo-summary-title {
+  padding: 6px 8px;
+  border: 1px solid #e6ebf1;
+  border-radius: 6px;
+  background: #fbfcfe;
   color: #1f2933;
   font-size: 13px;
   font-weight: 800;
   line-height: 1.3;
-}
-
-.flying-stars-combo-summary-center {
-  margin-top: 3px;
-  color: #334e68;
-  font-size: 12px;
-  font-weight: 700;
-  line-height: 1.3;
+  text-align: center;
+  overflow-wrap: anywhere;
 }
 
 .meta-line {
@@ -1041,22 +1031,51 @@ dd {
   right: 6px;
 }
 
-.flying-stars-combo-cell {
-  display: grid;
-  gap: 3px;
-  align-content: center;
-  min-height: 94px;
-  padding: 8px 5px 22px;
-  text-align: center;
+.combined-palace-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 112px;
+  padding: 18px 7px 24px;
 }
 
-.flying-stars-combo-star {
+.combined-star-layers {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 5px 10px;
+  width: min(100%, 190px);
+}
+
+.combined-star-layer {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  justify-content: center;
   min-width: 0;
+  white-space: nowrap;
+}
+
+.combined-star-layer:last-child {
+  grid-column: 1 / -1;
+}
+
+.combined-star-label {
+  color: #52616f;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.combined-star-number {
+  color: #1f2933;
+  font-size: 17px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.combined-star-name {
   color: #1f2933;
   font-size: 12px;
-  font-weight: 800;
-  line-height: 1.25;
-  overflow-wrap: anywhere;
+  font-weight: 700;
 }
 
 .annual-affliction-badges {
@@ -2063,6 +2082,10 @@ dd {
   .flying-stars-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+
+  .combined-flying-star-summary {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 760px) {
@@ -2141,6 +2164,14 @@ dd {
     grid-template-columns: 1fr;
   }
 
+  .combined-flying-star-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .combined-star-name {
+    display: none;
+  }
+
   .pillar-gods-layout {
     grid-template-columns: 1fr;
   }
@@ -2156,6 +2187,28 @@ dd {
 }
 
 @media (max-width: 460px) {
+  .combined-palace-cell {
+    min-height: 104px;
+    padding-right: 4px;
+    padding-left: 4px;
+  }
+
+  .combined-star-layers {
+    gap: 4px 3px;
+  }
+
+  .combined-star-layer {
+    gap: 2px;
+  }
+
+  .combined-star-label {
+    font-size: 11px;
+  }
+
+  .combined-star-number {
+    font-size: 15px;
+  }
+
   .query-picker {
     grid-template-columns: 1fr;
     gap: 10px;
