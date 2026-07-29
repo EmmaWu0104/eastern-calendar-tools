@@ -1,4 +1,5 @@
 import { STAR_DISPLAY_NAMES } from "./flyingStars.js";
+import { createFlyingStarAfflictionViewModel } from "./annualAfflictions.js";
 
 export const COMBINED_FLYING_STAR_LAYERS = Object.freeze([
   Object.freeze({ key: "period", label: "運" }),
@@ -84,7 +85,10 @@ export function createCombinedFlyingStarSummary(charts) {
   ];
 }
 
-export function createCombinedFlyingStarViewModel(charts) {
+export function createCombinedFlyingStarViewModel(
+  charts,
+  afflictionViewModel = createFlyingStarAfflictionViewModel(charts)
+) {
   const layout = charts?.period?.layout;
   if (!Array.isArray(layout)) {
     throw new Error("五層綜合盤需要運盤 layout");
@@ -93,12 +97,14 @@ export function createCombinedFlyingStarViewModel(charts) {
   return {
     layers: COMBINED_FLYING_STAR_LAYERS,
     layout: layout.map((row) =>
-      row.map((periodPalace) => createCombinedPalaceViewModel(periodPalace, charts))
+      row.map((periodPalace) =>
+        createCombinedPalaceViewModel(periodPalace, charts, afflictionViewModel)
+      )
     ),
   };
 }
 
-function createCombinedPalaceViewModel(periodPalace, charts) {
+function createCombinedPalaceViewModel(periodPalace, charts, afflictionViewModel) {
   const palaceId = periodPalace?.id;
   if (!palaceId) {
     throw new Error("五層綜合盤缺少宮位 id");
@@ -108,18 +114,23 @@ function createCombinedPalaceViewModel(periodPalace, charts) {
     id: palaceId,
     name: periodPalace.name,
     number: periodPalace.number,
+    markers: afflictionViewModel?.combinedCellMarkers?.[palaceId] ?? [],
     layers: COMBINED_FLYING_STAR_LAYERS.map(({ key, label }) => {
       const palace = charts?.[key]?.palaces?.[palaceId];
       if (!palace) {
         throw new Error(`五層綜合盤缺少 ${key}.${palaceId}`);
       }
 
+      const sanSha = afflictionViewModel?.sanShaByLayer?.[key] ?? null;
+      const hasSanSha = sanSha?.palaceId === palaceId;
       return {
         key,
         label,
         starNumber: palace.starNumber,
         starCircle: formatStarCircleNumber(palace.starNumber),
         starName: formatStarName(palace),
+        hasSanSha,
+        sanSha: hasSanSha ? sanSha : null,
       };
     }),
   };

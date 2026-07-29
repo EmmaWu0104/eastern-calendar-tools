@@ -1,6 +1,5 @@
 import {
-  getAnnualAfflictionBadgesByPalace,
-  getAnnualAfflictionsByYearBranch,
+  createFlyingStarAfflictionViewModel,
 } from "./annualAfflictions.js";
 import { calculateBaziFromSolarTerms } from "./bazi.js";
 import { getDailyGodsByStem } from "./dailyGods.js";
@@ -1062,14 +1061,40 @@ function createDailyGodsCell(palace) {
 function renderFlyingStars(calendarResult, inputDateTime) {
   try {
     const charts = calculateAllFlyingStarCharts(calendarResult, inputDateTime);
+    const afflictionViewModel = createFlyingStarAfflictionViewModel(charts);
     elements.flyingStarsMessage.textContent = "";
     elements.flyingStars.replaceChildren(
-      createCombinedFlyingStarChart(charts),
-      createFlyingStarChart("運盤", charts.period, charts.period),
-      createFlyingStarChart("年盤", charts.annual, charts.period),
-      createFlyingStarChart("月盤", charts.monthly, charts.period),
-      createFlyingStarChart("日盤", charts.daily, charts.period),
-      createFlyingStarChart("時盤", charts.hourly, charts.period)
+      createCombinedFlyingStarChart(charts, afflictionViewModel),
+      createFlyingStarChart(
+        "運盤",
+        charts.period,
+        charts.period,
+        afflictionViewModel.individualCellMarkers.period
+      ),
+      createFlyingStarChart(
+        "年盤",
+        charts.annual,
+        charts.period,
+        afflictionViewModel.individualCellMarkers.annual
+      ),
+      createFlyingStarChart(
+        "月盤",
+        charts.monthly,
+        charts.period,
+        afflictionViewModel.individualCellMarkers.monthly
+      ),
+      createFlyingStarChart(
+        "日盤",
+        charts.daily,
+        charts.period,
+        afflictionViewModel.individualCellMarkers.daily
+      ),
+      createFlyingStarChart(
+        "時盤",
+        charts.hourly,
+        charts.period,
+        afflictionViewModel.individualCellMarkers.hourly
+      )
     );
   } catch (error) {
     console.error("九宮飛星計算失敗", error);
@@ -2069,9 +2094,10 @@ function createTableCell(text, className = "") {
   return cell;
 }
 
-function createFlyingStarChart(title, chart, periodChart) {
+function createFlyingStarChart(title, chart, periodChart, cellMarkersByPalace = {}) {
   const article = document.createElement("article");
   article.className = "flying-star-card";
+  article.setAttribute("data-chart-type", chart.type);
 
   const heading = document.createElement("h3");
   heading.textContent = title;
@@ -2090,7 +2116,7 @@ function createFlyingStarChart(title, chart, periodChart) {
 
   for (const row of chart.layout) {
     for (const palace of row) {
-      grid.append(createPalaceCell(palace));
+      grid.append(createPalaceCell(palace, cellMarkersByPalace[palace.id] ?? []));
     }
   }
 
@@ -2098,8 +2124,8 @@ function createFlyingStarChart(title, chart, periodChart) {
   return article;
 }
 
-function createCombinedFlyingStarChart(charts) {
-  const viewModel = createCombinedFlyingStarViewModel(charts);
+function createCombinedFlyingStarChart(charts, afflictionViewModel) {
+  const viewModel = createCombinedFlyingStarViewModel(charts, afflictionViewModel);
   const article = document.createElement("article");
   article.className = "flying-star-card combined-flying-star-card";
 
@@ -2112,24 +2138,16 @@ function createCombinedFlyingStarChart(charts) {
 
   const grid = document.createElement("div");
   grid.className = "nine-palace-grid combined-nine-palace-grid";
-  const yearBranch = charts.annual.basis?.yearPillar?.[1] ?? "";
-  const annualAfflictions = getAnnualAfflictionsByYearBranch(yearBranch);
-  const annualAfflictionBadgesByPalace = getAnnualAfflictionBadgesByPalace(yearBranch);
 
   for (const row of viewModel.layout) {
     for (const palace of row) {
-      grid.append(
-        createCombinedFlyingStarPalaceCell(
-          palace,
-          annualAfflictionBadgesByPalace[palace.name] ?? []
-        )
-      );
+      grid.append(createCombinedFlyingStarPalaceCell(palace));
     }
   }
 
   article.append(heading, summary, grid);
-  if (annualAfflictions.summary) {
-    article.append(createAnnualAfflictionSummary(annualAfflictions.summary));
+  if (afflictionViewModel.summary) {
+    article.append(createAnnualAfflictionSummary(afflictionViewModel.summary));
   }
   return article;
 }
@@ -2141,15 +2159,16 @@ function createCombinedFlyingStarSummaryItem(summary) {
   return item;
 }
 
-function createCombinedFlyingStarPalaceCell(palace, annualAfflictionBadges = []) {
+function createCombinedFlyingStarPalaceCell(palace) {
   const cell = document.createElement("div");
   cell.className = palace.id === "center"
     ? "palace-cell palace-center combined-palace-cell"
     : "palace-cell combined-palace-cell";
+  cell.setAttribute("data-palace-id", palace.id);
 
   cell.append(
     createCombinedStarLayers(palace.layers),
-    createAnnualAfflictionBadges(annualAfflictionBadges),
+    createAfflictionMarkerStack(palace.markers),
     createPalaceFooter(palace)
   );
   return cell;
@@ -2180,26 +2199,41 @@ function createCombinedStarItem(layer) {
   starName.textContent = layer.starName;
 
   item.append(label, starNumber, starName);
+  if (layer.hasSanSha) {
+    item.setAttribute("data-san-sha", "true");
+    item.append(createAfflictionBadge({
+      key: "sanSha",
+      name: "三煞",
+      label: "三",
+      direction: layer.sanSha.direction,
+    }, "san-sha-badge"));
+  }
   return item;
 }
 
-function createAnnualAfflictionBadges(badges) {
+function createAfflictionMarkerStack(badges) {
   if (!Array.isArray(badges) || badges.length === 0) {
     return document.createDocumentFragment();
   }
 
   const container = document.createElement("div");
-  container.className = "annual-affliction-badges";
-
-  for (const badge of badges) {
-    const badgeElement = document.createElement("span");
-    badgeElement.className = "annual-affliction-badge";
-    badgeElement.title = `${badge.name}${badge.direction}`;
-    badgeElement.textContent = badge.label;
-    container.append(badgeElement);
-  }
-
+  container.className = "flying-star-marker-stack";
+  container.append(...badges.map((badge) => createAfflictionBadge(badge)));
   return container;
+}
+
+function createAfflictionBadge(badge, extraClassName = "") {
+  const badgeElement = document.createElement("span");
+  badgeElement.className = ["flying-star-affliction-badge", extraClassName]
+    .filter(Boolean)
+    .join(" ");
+  badgeElement.setAttribute("data-affliction", badge.key);
+  if (badge.sourceLayer) {
+    badgeElement.setAttribute("data-layer", badge.sourceLayer);
+  }
+  badgeElement.title = `${badge.name}${badge.direction}`;
+  badgeElement.textContent = badge.label;
+  return badgeElement;
 }
 
 function createAnnualAfflictionSummary(summaryText) {
@@ -2264,9 +2298,10 @@ function createBasisBlock(items) {
   return container;
 }
 
-function createPalaceCell(palace) {
+function createPalaceCell(palace, afflictionBadges = []) {
   const cell = document.createElement("div");
   cell.className = palace.id === "center" ? "palace-cell palace-center" : "palace-cell";
+  cell.setAttribute("data-palace-id", palace.id);
 
   const starName = document.createElement("div");
   starName.className = "palace-star-center";
@@ -2280,7 +2315,12 @@ function createPalaceCell(palace) {
   directionLabel.className = "palace-corner palace-corner-right";
   directionLabel.textContent = PALACE_DIRECTION_LABELS[palace.id] ?? "";
 
-  cell.append(starName, palaceLabel, directionLabel);
+  cell.append(
+    starName,
+    createAfflictionMarkerStack(afflictionBadges),
+    palaceLabel,
+    directionLabel
+  );
   return cell;
 }
 

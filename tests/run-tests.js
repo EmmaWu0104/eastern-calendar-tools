@@ -2,8 +2,12 @@ const TEST_TIME_ZONE = "Asia/Taipei";
 process.env.TZ = TEST_TIME_ZONE;
 
 const {
+  createFlyingStarAfflictionViewModel,
+  createSanShaByLayer,
+  getPalaceIdByDirection,
   getAnnualAfflictionBadgesByPalace,
   getAnnualAfflictionsByYearBranch,
+  getSanShaDirection,
 } = await import("../src/annualAfflictions.js");
 const { access, readdir, readFile } = await import("node:fs/promises");
 const { calculateBaziFromSolarTerms } = await import("../src/bazi.js");
@@ -272,6 +276,7 @@ let baziJianchuVerifiedCaseCount = 0;
 let baziDailyInfoVerifiedCaseCount = 0;
 let guiDengVerifiedCaseCount = 0;
 let annualAfflictionsVerifiedCaseCount = 0;
+let sanShaVerifiedCaseCount = 0;
 let dongGongVerifiedCaseCount = 0;
 let queryPickerVerifiedCaseCount = 0;
 let flyingStarRenderFlowVerifiedCaseCount = 0;
@@ -608,6 +613,7 @@ runBaziJianchuTests(solarTerms);
 runBaziDailyInfoTests(solarTerms);
 runSeventyTwoHouTests();
 runGuiDengTests();
+runFlyingStarSanShaTests(solarTerms);
 runAnnualAfflictionsTests();
 runDongGongDaySelectionTests();
 
@@ -683,6 +689,7 @@ if (failures.length > 0) {
   console.log(`干支曆每日資訊整合測試通過：${baziDailyInfoVerifiedCaseCount} cases`);
   console.log(`七十二候測試通過：${seventyTwoHouVerifiedCaseCount} cases`);
   console.log(`貴人登天門測試通過：${guiDengVerifiedCaseCount} cases`);
+  console.log(`九宮飛星四柱三煞測試通過：${sanShaVerifiedCaseCount} cases`);
   console.log(`流年方位煞測試通過：${annualAfflictionsVerifiedCaseCount} cases`);
   console.log(`董公擇日測試通過：${dongGongVerifiedCaseCount} cases`);
   console.log(`六十四卦測試通過：${hexagramVerifiedCaseCount} cases`);
@@ -8220,7 +8227,9 @@ function runFlyingStarRenderFlowTests(solarTerms) {
       `flying-stars-independent-${key}`,
       "rendered",
       true,
-      mainModuleRaw.includes(`createFlyingStarChart("${title}", charts.${key}, charts.period)`)
+      new RegExp(
+        `createFlyingStarChart\\(\\s*"${title}",\\s*charts\\.${key},\\s*charts\\.period,\\s*afflictionViewModel\\.individualCellMarkers\\.${key}\\s*\\)`
+      ).test(mainModuleRaw)
     );
   }
   flyingStarRenderFlowVerifiedCaseCount += 1;
@@ -9073,7 +9082,7 @@ function runAnnualAfflictionsTests() {
         suiPo: "北",
         sanSha: "北",
         summary: "年煞：太歲南｜歲破北｜三煞北",
-        palaceLabels: { 離: "太", 坎: "歲三" },
+        palaceLabels: { li: "太", kan: "歲三" },
       },
     },
     {
@@ -9084,7 +9093,7 @@ function runAnnualAfflictionsTests() {
         suiPo: "南",
         sanSha: "南",
         summary: "年煞：太歲北｜歲破南｜三煞南",
-        palaceLabels: { 坎: "太", 離: "歲三" },
+        palaceLabels: { kan: "太", li: "歲三" },
       },
     },
     {
@@ -9095,7 +9104,7 @@ function runAnnualAfflictionsTests() {
         suiPo: "西",
         sanSha: "西",
         summary: "年煞：太歲東｜歲破西｜三煞西",
-        palaceLabels: { 震: "太", 兌: "歲三" },
+        palaceLabels: { zhen: "太", dui: "歲三" },
       },
     },
   ];
@@ -9133,6 +9142,211 @@ function runAnnualAfflictionsTests() {
       Object.keys(badgesByPalace).length
     );
   }
+}
+
+function runFlyingStarSanShaTests(solarTerms) {
+  const directionCases = {
+    申: "南",
+    子: "南",
+    辰: "南",
+    巳: "東",
+    酉: "東",
+    丑: "東",
+    寅: "北",
+    午: "北",
+    戌: "北",
+    亥: "西",
+    卯: "西",
+    未: "西",
+  };
+  for (const [branch, expectedDirection] of Object.entries(directionCases)) {
+    sanShaVerifiedCaseCount += 1;
+    assertEqual("san-sha-branch-direction", branch, expectedDirection, getSanShaDirection(branch));
+  }
+
+  for (const [direction, expectedPalaceId] of Object.entries({
+    南: "li",
+    東: "zhen",
+    北: "kan",
+    西: "dui",
+  })) {
+    sanShaVerifiedCaseCount += 1;
+    assertEqual("san-sha-direction-palace", direction, expectedPalaceId, getPalaceIdByDirection(direction));
+  }
+
+  const sampleInput = "2026-07-29T13:30";
+  const sampleCalendarResult = calculateBaziFromSolarTerms(sampleInput, solarTerms);
+  const sampleCharts = calculateAllFlyingStarCharts(sampleCalendarResult, sampleInput);
+  const sampleAfflictions = createFlyingStarAfflictionViewModel(sampleCharts);
+  const sampleCombined = createCombinedFlyingStarViewModel(sampleCharts, sampleAfflictions);
+
+  for (const [key, expectedPillar] of Object.entries({
+    yearPillar: "丙午",
+    monthPillar: "乙未",
+    dayPillar: "甲辰",
+    hourPillar: "辛未",
+  })) {
+    sanShaVerifiedCaseCount += 1;
+    assertEqual("san-sha-sample-pillars", key, expectedPillar, sampleCalendarResult[key]);
+  }
+
+  for (const [layerKey, expected] of Object.entries({
+    annual: { branch: "午", direction: "北", palaceId: "kan" },
+    monthly: { branch: "未", direction: "西", palaceId: "dui" },
+    daily: { branch: "辰", direction: "南", palaceId: "li" },
+    hourly: { branch: "未", direction: "西", palaceId: "dui" },
+  })) {
+    const actual = sampleAfflictions.sanShaByLayer[layerKey];
+    sanShaVerifiedCaseCount += 1;
+    assertEqual(`san-sha-sample-${layerKey}`, "branch", expected.branch, actual?.branch);
+    assertEqual(`san-sha-sample-${layerKey}`, "direction", expected.direction, actual?.direction);
+    assertEqual(`san-sha-sample-${layerKey}`, "palaceId", expected.palaceId, actual?.palaceId);
+  }
+
+  sanShaVerifiedCaseCount += 1;
+  assertEqual(
+    "san-sha-combined-summary",
+    "text",
+    "太歲南｜歲破北｜三煞：年北 月西 日南 時西",
+    sampleAfflictions.summary
+  );
+
+  const combinedSanShaLayers = sampleCombined.layout
+    .flat()
+    .flatMap((palace) =>
+      palace.layers
+        .filter((layer) => layer.hasSanSha)
+        .map((layer) => `${palace.id}:${layer.key}`)
+    )
+    .sort();
+  sanShaVerifiedCaseCount += 1;
+  assertEqual(
+    "san-sha-combined-layer-markers",
+    "palaceLayers",
+    "dui:hourly,dui:monthly,kan:annual,li:daily",
+    combinedSanShaLayers.join(",")
+  );
+  sanShaVerifiedCaseCount += 1;
+  assertEqual(
+    "san-sha-combined-no-cell-marker",
+    "allCellMarkersExcludeSanSha",
+    true,
+    sampleCombined.layout
+      .flat()
+      .every((palace) => palace.markers.every((marker) => marker.key !== "sanSha"))
+  );
+
+  const individualMarkers = sampleAfflictions.individualCellMarkers;
+  const individualCases = [
+    ["period", "", ""],
+    ["annual", "kan", "歲三"],
+    ["monthly", "dui", "三"],
+    ["daily", "li", "三"],
+    ["hourly", "dui", "三"],
+  ];
+  for (const [chartType, palaceId, expectedLabels] of individualCases) {
+    sanShaVerifiedCaseCount += 1;
+    const actualLabels = palaceId
+      ? formatAnnualAfflictionBadgeLabels(individualMarkers[chartType]?.[palaceId])
+      : Object.values(individualMarkers[chartType] ?? {})
+        .flat()
+        .map((marker) => marker.label)
+        .join("");
+    assertEqual(`san-sha-independent-${chartType}`, palaceId || "all", expectedLabels, actualLabels);
+  }
+
+  sanShaVerifiedCaseCount += 1;
+  assertEqual(
+    "san-sha-annual-tai-sui",
+    "li",
+    "太",
+    formatAnnualAfflictionBadgeLabels(individualMarkers.annual.li)
+  );
+  sanShaVerifiedCaseCount += 1;
+  assertEqual(
+    "san-sha-annual-collision-stack",
+    "kan",
+    2,
+    individualMarkers.annual.kan?.length
+  );
+  sanShaVerifiedCaseCount += 1;
+  assertEqual(
+    "san-sha-annual-collision-labels",
+    "kan",
+    "歲三",
+    formatAnnualAfflictionBadgeLabels(individualMarkers.annual.kan)
+  );
+
+  sanShaVerifiedCaseCount += 1;
+  assertEqual(
+    "san-sha-dom-inline-after-name",
+    "source",
+    true,
+    /item\.append\(label, starNumber, starName\);[\s\S]*?if \(layer\.hasSanSha\)[\s\S]*?item\.append\(createAfflictionBadge/.test(mainModuleRaw)
+  );
+  sanShaVerifiedCaseCount += 1;
+  assertEqual(
+    "san-sha-dom-reusable-badge",
+    "classes",
+    true,
+    mainModuleRaw.includes('"flying-star-affliction-badge"')
+      && mainModuleRaw.includes('"san-sha-badge"')
+      && mainCssRaw.includes(".san-sha-badge")
+  );
+  sanShaVerifiedCaseCount += 1;
+  assertEqual(
+    "san-sha-mobile-badge-visible",
+    "onlyStarNameHidden",
+    true,
+    /@media \(max-width: 680px\)[\s\S]*?\.combined-star-name\s*\{\s*display: none;/.test(mainCssRaw)
+      && !/@media \(max-width: 680px\)[\s\S]*?\.san-sha-badge\s*\{\s*display: none;/.test(mainCssRaw)
+  );
+  sanShaVerifiedCaseCount += 1;
+  assertEqual(
+    "san-sha-marker-stack",
+    "source",
+    true,
+    mainModuleRaw.includes('container.className = "flying-star-marker-stack";')
+      && mainCssRaw.includes(".flying-star-marker-stack")
+  );
+
+  const nextInput = "2027-09-15T09:30";
+  const nextCalendarResult = calculateBaziFromSolarTerms(nextInput, solarTerms);
+  const nextCharts = calculateAllFlyingStarCharts(nextCalendarResult, nextInput);
+  const nextSanShaByLayer = createSanShaByLayer(nextCharts);
+  const nextAfflictions = createFlyingStarAfflictionViewModel(nextCharts);
+  const nextCombined = createCombinedFlyingStarViewModel(nextCharts, nextAfflictions);
+  for (const layerKey of ["annual", "monthly", "daily", "hourly"]) {
+    sanShaVerifiedCaseCount += 1;
+    assertEqual(
+      `san-sha-consecutive-query-${layerKey}`,
+      "updated",
+      true,
+      sampleAfflictions.sanShaByLayer[layerKey].direction !== nextSanShaByLayer[layerKey].direction
+    );
+  }
+  sanShaVerifiedCaseCount += 1;
+  assertEqual(
+    "san-sha-consecutive-query-markers",
+    "palaceLayers",
+    "dui:annual,zhen:daily,zhen:hourly,zhen:monthly",
+    nextCombined.layout
+      .flat()
+      .flatMap((palace) =>
+        palace.layers
+          .filter((layer) => layer.hasSanSha)
+          .map((layer) => `${palace.id}:${layer.key}`)
+      )
+      .sort()
+      .join(",")
+  );
+  sanShaVerifiedCaseCount += 1;
+  assertEqual(
+    "san-sha-consecutive-query-summary",
+    "text",
+    "太歲西南｜歲破東北｜三煞：年西 月東 日東 時東",
+    nextAfflictions.summary
+  );
 }
 
 function runDongGongDaySelectionTests() {
