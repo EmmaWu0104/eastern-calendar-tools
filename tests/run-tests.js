@@ -261,8 +261,10 @@ let guiDengVerifiedCaseCount = 0;
 let annualAfflictionsVerifiedCaseCount = 0;
 let dongGongVerifiedCaseCount = 0;
 let queryPickerVerifiedCaseCount = 0;
+let flyingStarRenderFlowVerifiedCaseCount = 0;
 let hexagramVerifiedCaseCount = 0;
 const queryPickerHelpers = loadQueryPickerHelpersForTest(mainModuleRaw);
+const flyingStarViewHelpers = loadFlyingStarViewHelpersForTest(mainModuleRaw);
 
 const parsedLocalDateTime = parseLocalDateTime("2026-06-05T09:08:07.123");
 const localDateTimeExpected = {
@@ -588,6 +590,7 @@ runQimenResolverTests();
 runDailyInfoTests();
 runSolarTermCalendarTests(solarTerms);
 runQueryPickerTests(solarTerms);
+runFlyingStarRenderFlowTests(solarTerms);
 runBaziCurrentHouTests(solarTerms);
 runBaziJianchuTests(solarTerms);
 runBaziDailyInfoTests(solarTerms);
@@ -672,6 +675,7 @@ if (failures.length > 0) {
   console.log(`董公擇日測試通過：${dongGongVerifiedCaseCount} cases`);
   console.log(`六十四卦測試通過：${hexagramVerifiedCaseCount} cases`);
   console.log(`月曆十二時辰選取測試通過：${queryPickerVerifiedCaseCount} cases`);
+  console.log(`九宮飛星月盤 render 資料流測試通過：${flyingStarRenderFlowVerifiedCaseCount} cases`);
   if (pendingCases.length > 0) {
     console.log(`待人工驗證案例略過：${pendingCases.length} cases`);
     for (const testCase of pendingCases) {
@@ -8002,6 +8006,95 @@ function runQueryPickerTests(solarTerms) {
   }
 }
 
+function runFlyingStarRenderFlowTests(solarTerms) {
+  const firstInput = "2026-05-29T09:30";
+  const secondInput = "2026-07-29T09:30";
+  const firstCalendarResult = calculateBaziFromSolarTerms(firstInput, solarTerms);
+  const secondCalendarResult = calculateBaziFromSolarTerms(secondInput, solarTerms);
+
+  // This models two complete renders in sequence.  The second chart must be
+  // derived from its own calendarResult, rather than retaining the first one.
+  const firstMonthlyChart = calculateAllFlyingStarCharts(firstCalendarResult, firstInput).monthly;
+  const secondMonthlyChart = calculateAllFlyingStarCharts(secondCalendarResult, secondInput).monthly;
+
+  const expectedFirstBasis = { monthPillar: "癸巳", monthBranch: "巳", centerStar: 5 };
+  const expectedSecondBasis = { monthPillar: "乙未", monthBranch: "未", centerStar: 3 };
+
+  for (const [key, expected] of Object.entries(expectedFirstBasis)) {
+    flyingStarRenderFlowVerifiedCaseCount += 1;
+    assertEqual(
+      "flying-stars-monthly-first-query",
+      key,
+      expected,
+      key === "centerStar" ? firstMonthlyChart.centerStar : firstMonthlyChart.basis[key]
+    );
+  }
+
+  for (const [key, expected] of Object.entries(expectedSecondBasis)) {
+    flyingStarRenderFlowVerifiedCaseCount += 1;
+    assertEqual(
+      "flying-stars-monthly-second-query",
+      key,
+      expected,
+      key === "centerStar" ? secondMonthlyChart.centerStar : secondMonthlyChart.basis[key]
+    );
+  }
+
+  flyingStarRenderFlowVerifiedCaseCount += 1;
+  assertEqual(
+    "flying-stars-monthly-consecutive-query",
+    "monthPillarChanges",
+    true,
+    firstMonthlyChart.basis.monthPillar !== secondMonthlyChart.basis.monthPillar
+  );
+  flyingStarRenderFlowVerifiedCaseCount += 1;
+  assertEqual(
+    "flying-stars-monthly-consecutive-query",
+    "monthBranchChanges",
+    true,
+    firstMonthlyChart.basis.monthBranch !== secondMonthlyChart.basis.monthBranch
+  );
+  flyingStarRenderFlowVerifiedCaseCount += 1;
+  assertEqual(
+    "flying-stars-monthly-summary",
+    "firstTitle",
+    "午年巳月",
+    flyingStarViewHelpers.formatMonthlySummary(firstMonthlyChart)
+  );
+  flyingStarRenderFlowVerifiedCaseCount += 1;
+  assertEqual(
+    "flying-stars-monthly-summary",
+    "secondTitle",
+    "午年未月",
+    flyingStarViewHelpers.formatMonthlySummary(secondMonthlyChart)
+  );
+
+  const monthJianCases = [
+    { id: "may", input: "2026-05-29T09:30", expected: { yearBranch: "午", monthBranch: "巳", title: "午年巳月" } },
+    { id: "july-before-xiaoshu", input: "2026-07-01T09:30", expected: { yearBranch: "午", monthBranch: "午", title: "午年午月" } },
+    { id: "xiaoshu-before", input: "2026-07-07T09:56:57", expected: { yearBranch: "午", monthBranch: "午", title: "午年午月" } },
+    { id: "xiaoshu-after", input: "2026-07-07T09:56:59", expected: { yearBranch: "午", monthBranch: "未", title: "午年未月" } },
+    { id: "september", input: "2026-09-29T09:30", expected: { yearBranch: "午", monthBranch: "酉", title: "午年酉月" } },
+    { id: "january", input: "2027-01-15T09:30", expected: { yearBranch: "午", monthBranch: "丑", title: "午年丑月" } },
+  ];
+
+  for (const testCase of monthJianCases) {
+    const calendarResult = calculateBaziFromSolarTerms(testCase.input, solarTerms);
+    const monthlyChart = calculateAllFlyingStarCharts(calendarResult, testCase.input).monthly;
+    flyingStarRenderFlowVerifiedCaseCount += 1;
+    assertEqual(`flying-stars-month-jian-${testCase.id}`, "yearBranch", testCase.expected.yearBranch, monthlyChart.basis.yearBranch);
+    flyingStarRenderFlowVerifiedCaseCount += 1;
+    assertEqual(`flying-stars-month-jian-${testCase.id}`, "monthBranch", testCase.expected.monthBranch, monthlyChart.basis.monthBranch);
+    flyingStarRenderFlowVerifiedCaseCount += 1;
+    assertEqual(
+      `flying-stars-month-jian-${testCase.id}`,
+      "title",
+      testCase.expected.title,
+      flyingStarViewHelpers.formatMonthlySummary(monthlyChart)
+    );
+  }
+}
+
 function runSolarTermCalendarTests(solarTerms) {
   const julyTerms = getSolarTermsInMonth(solarTerms, 2026, 7);
   assertEqual("solar-term-calendar-july", "names", "小暑、大暑", julyTerms.map((term) => term.name).join("、"));
@@ -8948,6 +9041,15 @@ function loadQueryPickerHelpersForTest(mainModuleRaw) {
     ]);
     ${definitions}
     return { buildDateTimeValueFromDateAndChineseHour, getSelectedCalendarDateFromDateTime };
+  `)();
+}
+
+function loadFlyingStarViewHelpersForTest(mainModuleRaw) {
+  const definition = extractNamedFunctionSource(mainModuleRaw, "formatMonthlySummary");
+
+  return Function(`
+    ${definition}
+    return { formatMonthlySummary };
   `)();
 }
 

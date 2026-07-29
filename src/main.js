@@ -136,21 +136,6 @@ const CHINESE_HOUR_LABELS = Object.freeze([
   Object.freeze({ index: 12, branch: "亥", timeRange: "21 ~ 23", startHour: 21 }),
 ]);
 
-const BRANCH_MONTH_LABELS = Object.freeze({
-  寅: "正月",
-  卯: "二月",
-  辰: "三月",
-  巳: "四月",
-  午: "五月",
-  未: "六月",
-  申: "七月",
-  酉: "八月",
-  戌: "九月",
-  亥: "十月",
-  子: "十一月",
-  丑: "十二月",
-});
-
 const CHINESE_NUMBER_LABELS = Object.freeze(["", "一", "二", "三", "四", "五", "六", "七", "八", "九"]);
 const QIMEN_JU_LABELS = Object.freeze({
   1: "一局",
@@ -2234,9 +2219,8 @@ function formatAnnualSummary(periodChart, annualChart) {
 
 function formatMonthlySummary(monthlyChart) {
   const yearBranch = monthlyChart.basis?.yearBranch ?? "—";
-  const monthBranch = monthlyChart.basis?.monthBranch ?? "";
-  const monthLabel = BRANCH_MONTH_LABELS[monthBranch] ?? `${monthBranch || "—"}月`;
-  return `${yearBranch}年${monthLabel}`;
+  const monthBranch = monthlyChart.basis?.monthBranch ?? "—";
+  return `${yearBranch}年${monthBranch}月`;
 }
 
 function getPeriodCycleName(period) {
