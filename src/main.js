@@ -1747,7 +1747,7 @@ function createQimenSummaryRows(qimen, plate = null) {
   const zhiFuPalaceKey = plate ? findQimenDisplayZhiFuPalaceKey(plate) : null;
   const zhiShiPalaceKey = findQimenZhiShiPalaceKey(plate);
   const tianYiPalaceKey = findQimenTianYiPalaceKey(markers);
-  const annotations = createQimenSummaryAnnotations(qimen);
+  const annotations = createQimenSummaryAnnotations(qimen, plate);
 
   const rows = [
     createQimenSummaryRow("節氣", qimen.actualSolarTerm),
@@ -1772,11 +1772,12 @@ function createQimenSummaryRows(qimen, plate = null) {
   return rows;
 }
 
-function createQimenSummaryAnnotations(qimen) {
+function createQimenSummaryAnnotations(qimen, plate = null) {
   return {
     timeSpecialConditions: resolveQimenTimeSpecialConditions({
       dayPillar: currentCalendarResult?.dayPillar,
       hourPillar: qimen?.hourPillar,
+      plate,
     }),
   };
 }

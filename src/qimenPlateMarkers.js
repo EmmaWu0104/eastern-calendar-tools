@@ -165,10 +165,20 @@ export function getQimenOriginalStarByPalace(palaceKey) {
 
 export function normalizeQimenStarName(star) {
   if (typeof star !== "string") {
-    return star;
+    return null;
   }
 
-  return star === "天沖" ? "天衝" : star;
+  const normalized = star.trim().replace(/星$/u, "");
+  return normalized ? normalized.replace("天沖", "天衝") : null;
+}
+
+export function normalizeQimenDoorName(door) {
+  if (typeof door !== "string") {
+    return null;
+  }
+
+  const normalized = door.trim().replace(/門$/u, "");
+  return normalized || null;
 }
 
 export function findQimenTianRuiPalaceKey(plate) {

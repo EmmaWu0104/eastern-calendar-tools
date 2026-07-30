@@ -145,6 +145,7 @@ const {
   getQimenPalaceOverDoorGenerateMarker,
   getQimenPalaceOverDoorMarker,
   findQimenTianYiStarPalaceKey,
+  normalizeQimenDoorName,
   normalizeQimenStarName,
 } = await import("../src/qimenPlateMarkers.js");
 const {
@@ -158,6 +159,7 @@ const {
   QIMEN_HOUR_STEM_ENTERS_TOMB_BY_DAY_STEM,
   normalizeQimenDayPillar,
   normalizeQimenPillar,
+  resolveQimenRecurrenceOpposition,
   resolveQimenTimeSpecialConditions,
 } = await import("../src/qimenTimeSpecialConditions.js");
 const {
@@ -6808,6 +6810,90 @@ function runQimenTimeSpecialConditionsTests() {
   assertEqual("qimen-time-special-none", "conditions.length", 0, noConditions.conditions.length);
   assertEqual("qimen-time-special-none", "diagnostics.length", 0, noConditions.diagnostics.length);
 
+  const recurrenceOppositionCases = [
+    ["door-fu-yin", "休", "天任", "門伏吟"],
+    ["star-fu-yin", "生", "天蓬", "符伏吟"],
+    ["door-star-fu-yin", "休", "天蓬", "門符伏吟"],
+    ["door-fan-yin", "景", "天任", "門反吟"],
+    ["star-fan-yin", "生", "天英", "符反吟"],
+    ["door-star-fan-yin", "景", "天英", "門符反吟"],
+    ["fu-yin-then-fan-yin", "休", "天英", "門伏吟 符反吟"],
+    ["fu-yin-then-fan-yin-opposite", "景", "天蓬", "符伏吟 門反吟"],
+    ["no-match", "生", "天任", null],
+  ];
+  for (const [id, door, star, expectedLabel] of recurrenceOppositionCases) {
+    const recurrenceOpposition = resolveQimenRecurrenceOpposition({ door, star });
+    qimenTimeSpecialConditionsVerifiedCaseCount += 1;
+    assertEqual(`qimen-time-special-recurrence-opposition-${id}`, "label", expectedLabel, recurrenceOpposition.label);
+  }
+
+  const recurrenceOppositionPartialCases = [
+    ["door-fu-yin-no-star", "休", null, "門伏吟"],
+    ["star-fu-yin-no-door", null, "天蓬", "符伏吟"],
+    ["door-fan-yin-no-star", "景", undefined, "門反吟"],
+    ["star-fan-yin-no-door", undefined, "天英", "符反吟"],
+    ["missing-door-star", null, null, null],
+  ];
+  for (const [id, door, star, expectedLabel] of recurrenceOppositionPartialCases) {
+    qimenTimeSpecialConditionsVerifiedCaseCount += 1;
+    assertEqual(
+      `qimen-time-special-recurrence-opposition-partial-${id}`,
+      "label",
+      expectedLabel,
+      resolveQimenRecurrenceOpposition({ door, star }).label
+    );
+  }
+
+  const recurrenceNormalizationCases = [
+    ["door-xiu", " 休門 ", "天任星", "門伏吟"],
+    ["door-jing", " 景 ", "天任", "門反吟"],
+    ["star-peng", "生門", " 天蓬星 ", "符伏吟"],
+    ["star-ying", "生", " 天英 ", "符反吟"],
+  ];
+  for (const [id, door, star, expectedLabel] of recurrenceNormalizationCases) {
+    qimenTimeSpecialConditionsVerifiedCaseCount += 1;
+    assertEqual(`qimen-time-special-recurrence-opposition-normalize-${id}`, "label", expectedLabel, resolveQimenRecurrenceOpposition({ door, star }).label);
+  }
+  assertEqual("qimen-time-special-normalize-door", "value", "休", normalizeQimenDoorName(" 休門 "));
+  assertEqual("qimen-time-special-normalize-star", "value", "天蓬", normalizeQimenStarName(" 天蓬星 "));
+
+  const createKanPlate = (door, star) => ({
+    palaces: {
+      kan: { door, star },
+      xun: { door: "休", star: "天蓬" },
+    },
+  });
+  const kanOnlyResult = resolveQimenTimeSpecialConditions({
+    dayPillar: "乙巳",
+    hourPillar: "丙午",
+    plate: createKanPlate("生", "天任"),
+  });
+  const kanMatchResult = resolveQimenTimeSpecialConditions({
+    dayPillar: "乙巳",
+    hourPillar: "丙午",
+    plate: createKanPlate("休", "天蓬"),
+  });
+  qimenTimeSpecialConditionsVerifiedCaseCount += 1;
+  assertEqual("qimen-time-special-recurrence-opposition-kan-only-no-scan", "conditions.length", 0, kanOnlyResult.conditions.length);
+  assertEqual("qimen-time-special-recurrence-opposition-kan-only-match", "keys", "recurrenceOpposition", getConditionKeys(kanMatchResult).join(","));
+  assertEqual("qimen-time-special-recurrence-opposition-kan-only-match", "label", "門符伏吟", kanMatchResult.conditions[0]?.label);
+
+  const recurrenceAndTimeConditions = resolveQimenTimeSpecialConditions({
+    dayPillar: "乙",
+    hourPillar: "癸未",
+    plate: createKanPlate("休", "天英"),
+  });
+  qimenTimeSpecialConditionsVerifiedCaseCount += 1;
+  assertEqual("qimen-time-special-recurrence-opposition-order", "keys", "tianWangFourSpread,hourStemEntersTomb,recurrenceOpposition", getConditionKeys(recurrenceAndTimeConditions).join(","));
+  assertEqual("qimen-time-special-recurrence-opposition-order", "label", "門伏吟 符反吟", recurrenceAndTimeConditions.conditions[2]?.label);
+  assertEqual("qimen-time-special-recurrence-opposition-order", "count", 3, recurrenceAndTimeConditions.conditions.length);
+
+  const recurrenceMissingPlateResult = resolveQimenTimeSpecialConditions({ dayPillar: "乙巳", hourPillar: "丙午", plate: null });
+  const recurrenceMissingKanResult = resolveQimenTimeSpecialConditions({ dayPillar: "乙巳", hourPillar: "丙午", plate: { palaces: {} } });
+  qimenTimeSpecialConditionsVerifiedCaseCount += 1;
+  assertEqual("qimen-time-special-recurrence-opposition-missing-plate", "conditions.length", 0, recurrenceMissingPlateResult.conditions.length);
+  assertEqual("qimen-time-special-recurrence-opposition-missing-kan", "conditions.length", 0, recurrenceMissingKanResult.conditions.length);
+
   const normalizationCases = [
     ["甲辰", "甲辰"], ["甲辰日", "甲辰"], [" 甲辰日 ", "甲辰"],
     ["庚午", "庚午"], ["庚午時", "庚午"], [" 庚午時 ", "庚午"],
@@ -6843,8 +6929,9 @@ function runQimenTimeSpecialConditionsTests() {
     "qimen-time-special-summary-ui",
     "implementation",
     true,
-    mainModuleRaw.includes("createQimenSummaryAnnotations(qimen)")
+    mainModuleRaw.includes("createQimenSummaryAnnotations(qimen, plate)")
       && mainModuleRaw.includes("resolveQimenTimeSpecialConditions({")
+      && mainModuleRaw.includes("plate,")
       && mainModuleRaw.includes("createQimenSummaryDivider()")
       && mainModuleRaw.includes("createQimenTimeSpecialConditionsSection(annotations.timeSpecialConditions)")
       && mainModuleRaw.includes('"qimen-time-special-condition"')

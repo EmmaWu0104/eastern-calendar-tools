@@ -1,4 +1,5 @@
 import { HEAVENLY_STEMS, SEXAGENARY_CYCLE } from "./ganzhi.js";
+import { normalizeQimenDoorName, normalizeQimenStarName } from "./qimenPlateMarkers.js";
 
 export const QIMEN_FIVE_NOT_ENCOUNTER_HOUR_BY_DAY_STEM = Object.freeze({
   甲: "庚午",
@@ -27,10 +28,14 @@ export const QIMEN_TIME_SPECIAL_CONDITION_DEFINITIONS = Object.freeze([
   Object.freeze({ key: "hourStemEntersTomb", label: "時干入墓" }),
 ]);
 
-export function resolveQimenTimeSpecialConditions({ dayPillar, hourPillar } = {}) {
+export function resolveQimenTimeSpecialConditions({ dayPillar, hourPillar, plate } = {}) {
   const diagnostics = [];
   const normalizedDayPillar = normalizeQimenDayPillar(dayPillar);
   const normalizedHourPillar = normalizeQimenPillar(hourPillar);
+  const recurrenceOpposition = resolveQimenRecurrenceOpposition({
+    door: plate?.palaces?.kan?.door,
+    star: plate?.palaces?.kan?.star,
+  });
   if (!normalizedDayPillar) {
     diagnostics.push(createDiagnostic("DAY_PILLAR_NOT_FOUND"));
   }
@@ -44,7 +49,8 @@ export function resolveQimenTimeSpecialConditions({ dayPillar, hourPillar } = {}
       dayStem: null,
       hourPillar: normalizedHourPillar,
       hourStem: null,
-      conditions: [],
+      conditions: createRecurrenceOppositionCondition(recurrenceOpposition),
+      recurrenceOpposition,
       diagnostics,
     };
   }
@@ -63,6 +69,7 @@ export function resolveQimenTimeSpecialConditions({ dayPillar, hourPillar } = {}
     }
     return QIMEN_HOUR_STEM_ENTERS_TOMB_BY_DAY_STEM[dayStem]?.includes(normalizedHourPillar) === true;
   });
+  conditions.push(...createRecurrenceOppositionCondition(recurrenceOpposition));
 
   return {
     dayPillar: normalizedDayPillar,
@@ -70,7 +77,37 @@ export function resolveQimenTimeSpecialConditions({ dayPillar, hourPillar } = {}
     hourPillar: normalizedHourPillar,
     hourStem,
     conditions,
+    recurrenceOpposition,
     diagnostics,
+  };
+}
+
+export function resolveQimenRecurrenceOpposition({ door, star } = {}) {
+  const normalizedDoor = normalizeQimenDoorName(door);
+  const normalizedStar = normalizeQimenStarName(star);
+  const isDoorFuYin = normalizedDoor === "休";
+  const isStarFuYin = normalizedStar === "天蓬";
+  const isDoorFanYin = normalizedDoor === "景";
+  const isStarFanYin = normalizedStar === "天英";
+  const fuYinLabel = isDoorFuYin && isStarFuYin
+    ? "門符伏吟"
+    : isDoorFuYin
+      ? "門伏吟"
+      : isStarFuYin
+        ? "符伏吟"
+        : null;
+  const fanYinLabel = isDoorFanYin && isStarFanYin
+    ? "門符反吟"
+    : isDoorFanYin
+      ? "門反吟"
+      : isStarFanYin
+        ? "符反吟"
+        : null;
+
+  return {
+    fuYinLabel,
+    fanYinLabel,
+    label: [fuYinLabel, fanYinLabel].filter(Boolean).join(" ") || null,
   };
 }
 
@@ -94,6 +131,12 @@ export function normalizeQimenDayPillar(dayPillar) {
   }
 
   return normalizeQimenPillar(normalized);
+}
+
+function createRecurrenceOppositionCondition(recurrenceOpposition) {
+  return recurrenceOpposition?.label
+    ? [{ key: "recurrenceOpposition", label: recurrenceOpposition.label }]
+    : [];
 }
 
 function createDiagnostic(code) {
