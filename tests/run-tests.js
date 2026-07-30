@@ -154,6 +154,13 @@ const {
   resolveQimenSolarTermVirtuePunishment,
 } = await import("../src/qimenSolarTermVirtuePunishment.js");
 const {
+  QIMEN_FIVE_NOT_ENCOUNTER_HOUR_BY_DAY_STEM,
+  QIMEN_HOUR_STEM_ENTERS_TOMB_BY_DAY_STEM,
+  normalizeQimenDayPillar,
+  normalizeQimenPillar,
+  resolveQimenTimeSpecialConditions,
+} = await import("../src/qimenTimeSpecialConditions.js");
+const {
   getCurrentHouBySolarTermRange,
   getHouBySolarTerm,
   getHouDefinitions,
@@ -278,6 +285,7 @@ let qimenPlateValidationVerifiedCaseCount = 0;
 let qimenPlateMarkersVerifiedCaseCount = 0;
 let qimenOpenCloseVerifiedCaseCount = 0;
 let qimenSolarTermVirtuePunishmentVerifiedCaseCount = 0;
+let qimenTimeSpecialConditionsVerifiedCaseCount = 0;
 let qimen1080MarkdownParserVerifiedCaseCount = 0;
 let qimen1080SequenceDiagnosticsVerifiedCaseCount = 0;
 let qimen1080ConverterDryRunVerifiedCaseCount = 0;
@@ -612,6 +620,7 @@ runQimenPlateLookupTests();
 runQimenPlateMarkersTests();
 runQimenOpenCloseTests();
 runQimenSolarTermVirtuePunishmentTests();
+runQimenTimeSpecialConditionsTests();
 runHexagramTests();
 await runQimenPlateValidationTests();
 runQimen1080MarkdownParserTests();
@@ -695,6 +704,7 @@ if (failures.length > 0) {
   console.log(`奇門盤面標記規則測試通過：${qimenPlateMarkersVerifiedCaseCount} cases`);
   console.log(`奇門九星加時定開闔測試通過：${qimenOpenCloseVerifiedCaseCount} cases`);
   console.log(`奇門節氣德刑測試通過：${qimenSolarTermVirtuePunishmentVerifiedCaseCount} cases`);
+  console.log(`奇門特殊時辰條件測試通過：${qimenTimeSpecialConditionsVerifiedCaseCount} cases`);
   console.log(`奇門1080盤面schema validation測試通過：${qimenPlateValidationVerifiedCaseCount} cases`);
   console.log(`奇門1080.md parser diagnostics測試通過：${qimen1080MarkdownParserVerifiedCaseCount} cases`);
   console.log(`奇門1080.md 排盤序列 diagnostics測試通過：${qimen1080SequenceDiagnosticsVerifiedCaseCount} cases`);
@@ -6633,6 +6643,139 @@ function runQimenSolarTermVirtuePunishmentTests() {
   qimenSolarTermVirtuePunishmentVerifiedCaseCount += 1;
   assertEqual("qimen-solar-term-open-close-preserved", "openCloseRender", true, mainModuleRaw.includes("createQimenOpenCloseBadge(openClose)"));
   assertEqual("qimen-solar-term-gu-xu-preserved", "guXuRender", true, mainModuleRaw.includes("createQimenGuXuBadges(palaceMeta.key, guXu)"));
+}
+
+function runQimenTimeSpecialConditionsTests() {
+  const getConditionKeys = (result) => result.conditions.map((condition) => condition.key);
+  const tianFuPillars = ["甲子", "甲戌", "甲申", "甲午", "甲辰", "甲寅"];
+  for (const hourPillar of tianFuPillars) {
+    const result = resolveQimenTimeSpecialConditions({ dayPillar: "乙巳", hourPillar });
+    qimenTimeSpecialConditionsVerifiedCaseCount += 1;
+    assertEqual(`qimen-time-special-tian-fu-${hourPillar}`, "keys", "tianFuHour", getConditionKeys(result).join(","));
+  }
+  assertEqual("qimen-time-special-tian-fu-non-jia", "contains", false, getConditionKeys(resolveQimenTimeSpecialConditions({ dayPillar: "乙巳", hourPillar: "乙亥" })).includes("tianFuHour"));
+  assertEqual("qimen-time-special-tian-fu-gui", "contains", false, getConditionKeys(resolveQimenTimeSpecialConditions({ dayPillar: "乙巳", hourPillar: "癸亥" })).includes("tianFuHour"));
+
+  const tianWangPillars = ["癸酉", "癸未", "癸巳", "癸卯", "癸丑", "癸亥"];
+  for (const hourPillar of tianWangPillars) {
+    const result = resolveQimenTimeSpecialConditions({ dayPillar: "乙巳", hourPillar });
+    qimenTimeSpecialConditionsVerifiedCaseCount += 1;
+    assertEqual(`qimen-time-special-tian-wang-${hourPillar}`, "contains", true, getConditionKeys(result).includes("tianWangFourSpread"));
+  }
+  assertEqual("qimen-time-special-tian-wang-jia", "contains", false, getConditionKeys(resolveQimenTimeSpecialConditions({ dayPillar: "乙巳", hourPillar: "甲子" })).includes("tianWangFourSpread"));
+  assertEqual("qimen-time-special-tian-wang-other", "contains", false, getConditionKeys(resolveQimenTimeSpecialConditions({ dayPillar: "乙巳", hourPillar: "丙午" })).includes("tianWangFourSpread"));
+
+  const fiveNotEncounterPositiveCases = Object.entries(QIMEN_FIVE_NOT_ENCOUNTER_HOUR_BY_DAY_STEM);
+  for (const [dayStem, hourPillar] of fiveNotEncounterPositiveCases) {
+    const dayPillar = SEXAGENARY_CYCLE.find((pillar) => pillar[0] === dayStem);
+    const result = resolveQimenTimeSpecialConditions({ dayPillar, hourPillar });
+    qimenTimeSpecialConditionsVerifiedCaseCount += 1;
+    assertEqual(`qimen-time-special-five-not-encounter-positive-${dayStem}`, "contains", true, getConditionKeys(result).includes("fiveNotEncounterHour"));
+  }
+
+  const fiveNotEncounterNegativeCases = [
+    ["甲", "庚申"], ["乙", "辛未"], ["丙", "壬午"], ["丁", "癸巳"], ["戊", "甲子"],
+    ["己", "乙卯"], ["庚", "丙寅"], ["辛", "丁卯"], ["壬", "戊午"], ["癸", "己酉"],
+  ];
+  for (const [dayStem, hourPillar] of fiveNotEncounterNegativeCases) {
+    const dayPillar = SEXAGENARY_CYCLE.find((pillar) => pillar[0] === dayStem);
+    const result = resolveQimenTimeSpecialConditions({ dayPillar, hourPillar });
+    qimenTimeSpecialConditionsVerifiedCaseCount += 1;
+    assertEqual(`qimen-time-special-five-not-encounter-negative-${dayStem}`, "contains", false, getConditionKeys(result).includes("fiveNotEncounterHour"));
+  }
+
+  for (const [dayStem, hourPillars] of Object.entries(QIMEN_HOUR_STEM_ENTERS_TOMB_BY_DAY_STEM)) {
+    for (const hourPillar of hourPillars) {
+      const result = resolveQimenTimeSpecialConditions({ dayPillar: dayStem, hourPillar });
+      qimenTimeSpecialConditionsVerifiedCaseCount += 1;
+      assertEqual(`qimen-time-special-hour-stem-tomb-positive-${dayStem}-${hourPillar}`, "contains", true, getConditionKeys(result).includes("hourStemEntersTomb"));
+    }
+  }
+
+  const hourStemTombDifferentBranchCases = [
+    ["乙", "丁卯"], ["乙", "癸巳"], ["乙", "丙申"], ["庚", "癸丑"],
+    ["丙", "己卯"], ["丙", "壬午"], ["丙", "戊申"], ["辛", "己未"],
+  ];
+  for (const [dayPillar, hourPillar] of hourStemTombDifferentBranchCases) {
+    const result = resolveQimenTimeSpecialConditions({ dayPillar, hourPillar });
+    qimenTimeSpecialConditionsVerifiedCaseCount += 1;
+    assertEqual(`qimen-time-special-hour-stem-tomb-branch-negative-${dayPillar}-${hourPillar}`, "contains", false, getConditionKeys(result).includes("hourStemEntersTomb"));
+  }
+
+  const hourStemTombDifferentDayCases = [
+    ["甲", "癸未"], ["丁", "丁丑"], ["戊", "丙戌"],
+    ["己", "己丑"], ["壬", "壬辰"], ["癸", "戊戌"],
+  ];
+  for (const [dayPillar, hourPillar] of hourStemTombDifferentDayCases) {
+    const result = resolveQimenTimeSpecialConditions({ dayPillar, hourPillar });
+    qimenTimeSpecialConditionsVerifiedCaseCount += 1;
+    assertEqual(`qimen-time-special-hour-stem-tomb-day-negative-${dayPillar}-${hourPillar}`, "contains", false, getConditionKeys(result).includes("hourStemEntersTomb"));
+  }
+
+  const tianWangAndTomb = resolveQimenTimeSpecialConditions({ dayPillar: "乙日", hourPillar: "癸未時" });
+  const onlyHourStemTomb = resolveQimenTimeSpecialConditions({ dayPillar: "辛", hourPillar: "己丑" });
+  qimenTimeSpecialConditionsVerifiedCaseCount += 1;
+  assertEqual("qimen-time-special-tian-wang-and-tomb", "keys", "tianWangFourSpread,hourStemEntersTomb", getConditionKeys(tianWangAndTomb).join(","));
+  assertEqual("qimen-time-special-tian-wang-and-tomb", "count", 2, tianWangAndTomb.conditions.length);
+  assertEqual("qimen-time-special-only-tomb", "keys", "hourStemEntersTomb", getConditionKeys(onlyHourStemTomb).join(","));
+
+  const tianFuAndFive = resolveQimenTimeSpecialConditions({ dayPillar: "戊辰日", hourPillar: "甲寅時" });
+  const tianWangAndFive = resolveQimenTimeSpecialConditions({ dayPillar: "丁卯日", hourPillar: "癸卯時" });
+  qimenTimeSpecialConditionsVerifiedCaseCount += 1;
+  assertEqual("qimen-time-special-tian-fu-and-five", "keys", "tianFuHour,fiveNotEncounterHour", getConditionKeys(tianFuAndFive).join(","));
+  assertEqual("qimen-time-special-tian-fu-and-five", "count", 2, tianFuAndFive.conditions.length);
+  assertEqual("qimen-time-special-tian-wang-and-five", "keys", "tianWangFourSpread,fiveNotEncounterHour", getConditionKeys(tianWangAndFive).join(","));
+  assertEqual("qimen-time-special-tian-wang-and-five", "count", 2, tianWangAndFive.conditions.length);
+
+  const noConditions = resolveQimenTimeSpecialConditions({ dayPillar: "乙巳", hourPillar: "丙午" });
+  qimenTimeSpecialConditionsVerifiedCaseCount += 1;
+  assertEqual("qimen-time-special-none", "conditions.length", 0, noConditions.conditions.length);
+  assertEqual("qimen-time-special-none", "diagnostics.length", 0, noConditions.diagnostics.length);
+
+  const normalizationCases = [
+    ["甲辰", "甲辰"], ["甲辰日", "甲辰"], [" 甲辰日 ", "甲辰"],
+    ["庚午", "庚午"], ["庚午時", "庚午"], [" 庚午時 ", "庚午"],
+    ["", null], ["甲丑", null], [null, null], [undefined, null],
+  ];
+  for (const [input, expected] of normalizationCases) {
+    qimenTimeSpecialConditionsVerifiedCaseCount += 1;
+    assertEqual(`qimen-time-special-normalize-${String(input)}`, "pillar", expected, normalizeQimenPillar(input));
+  }
+  const dayNormalizationCases = [
+    ["乙", "乙"], ["乙日", "乙"], [" 乙日 ", "乙"], ["乙巳", "乙巳"], ["乙巳日", "乙巳"],
+    ["", null], ["乙子", null], [null, null], [undefined, null],
+  ];
+  for (const [input, expected] of dayNormalizationCases) {
+    qimenTimeSpecialConditionsVerifiedCaseCount += 1;
+    assertEqual(`qimen-time-special-day-normalize-${String(input)}`, "pillar", expected, normalizeQimenDayPillar(input));
+  }
+  const invalidInputCases = [
+    [{ dayPillar: "甲丑", hourPillar: "庚午" }],
+    [{ dayPillar: "甲子", hourPillar: "庚卯" }],
+    [{ dayPillar: "", hourPillar: "" }],
+    [{ dayPillar: null, hourPillar: undefined }],
+  ];
+  for (const [input] of invalidInputCases) {
+    const result = resolveQimenTimeSpecialConditions(input);
+    qimenTimeSpecialConditionsVerifiedCaseCount += 1;
+    assertEqual("qimen-time-special-invalid", "conditions.length", 0, result.conditions.length);
+    assertEqual("qimen-time-special-invalid", "hasDiagnostics", true, result.diagnostics.length > 0);
+  }
+
+  qimenTimeSpecialConditionsVerifiedCaseCount += 1;
+  assertEqual(
+    "qimen-time-special-summary-ui",
+    "implementation",
+    true,
+    mainModuleRaw.includes("createQimenSummaryAnnotations(qimen)")
+      && mainModuleRaw.includes("resolveQimenTimeSpecialConditions({")
+      && mainModuleRaw.includes("createQimenSummaryDivider()")
+      && mainModuleRaw.includes("createQimenTimeSpecialConditionsSection(annotations.timeSpecialConditions)")
+      && mainModuleRaw.includes('"qimen-time-special-condition"')
+      && mainCssRaw.includes(".qimen-summary-divider")
+      && mainCssRaw.includes(".qimen-time-special-conditions:empty")
+      && !mainModuleRaw.includes("qimen-time-special-condition-badge")
+  );
 }
 
 function createQimenDisplayZhiFuFixturePlate(options = {}) {

@@ -49,6 +49,7 @@ import { resolveQimenJuFromFullTermCycleDraft } from "./qimenResolver.js";
 import {
   createQimenSolarTermVirtuePunishmentViewModel,
 } from "./qimenSolarTermVirtuePunishment.js";
+import { resolveQimenTimeSpecialConditions } from "./qimenTimeSpecialConditions.js";
 import {
   formatSolarTermDateTime,
   getSolarTermOnDate,
@@ -1746,17 +1747,21 @@ function createQimenSummaryRows(qimen, plate = null) {
   const zhiFuPalaceKey = plate ? findQimenDisplayZhiFuPalaceKey(plate) : null;
   const zhiShiPalaceKey = findQimenZhiShiPalaceKey(plate);
   const tianYiPalaceKey = findQimenTianYiPalaceKey(markers);
+  const annotations = createQimenSummaryAnnotations(qimen);
 
   const rows = [
     createQimenSummaryRow("節氣", qimen.actualSolarTerm),
     createQimenSummaryRow("起局", formatQimenJuSummary(qimen)),
     createQimenSummaryRow("時辰", formatQimenTimeSummary(qimen)),
+    createQimenSummaryDivider(),
     createQimenSummaryRow("直符星", formatQimenStarPalace(plate?.zhiFuStar, zhiFuPalaceKey)),
     createQimenSummaryRow("直使門", formatQimenDoorPalace(plate?.zhiShiDoor, zhiShiPalaceKey)),
     createQimenSummaryRow(
       "天乙星",
       formatQimenStarPalace(plate?.palaces?.[tianYiPalaceKey]?.star, tianYiPalaceKey)
     ),
+    createQimenSummaryDivider(),
+    createQimenTimeSpecialConditionsSection(annotations.timeSpecialConditions),
   ];
 
   const notes = formatQimenNotes(qimen.notes);
@@ -1765,6 +1770,34 @@ function createQimenSummaryRows(qimen, plate = null) {
   }
 
   return rows;
+}
+
+function createQimenSummaryAnnotations(qimen) {
+  return {
+    timeSpecialConditions: resolveQimenTimeSpecialConditions({
+      dayPillar: currentCalendarResult?.dayPillar,
+      hourPillar: qimen?.hourPillar,
+    }),
+  };
+}
+
+function createQimenSummaryDivider() {
+  const divider = document.createElement("div");
+  divider.className = "qimen-summary-divider";
+  divider.setAttribute("aria-hidden", "true");
+  return divider;
+}
+
+function createQimenTimeSpecialConditionsSection(timeSpecialConditions) {
+  const section = document.createElement("div");
+  section.className = "qimen-time-special-conditions";
+  for (const condition of timeSpecialConditions?.conditions ?? []) {
+    const line = document.createElement("div");
+    line.className = "qimen-time-special-condition";
+    line.textContent = condition.label;
+    section.append(line);
+  }
+  return section;
 }
 
 function formatQimenJuSummary(qimen) {

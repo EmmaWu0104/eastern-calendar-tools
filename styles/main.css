@@ -1237,6 +1237,31 @@ dd {
   grid-column: 1 / -1;
 }
 
+.qimen-summary-divider {
+  min-width: 0;
+  margin: 2px 0;
+  border-top: 1px solid #d8dee6;
+}
+
+.qimen-time-special-conditions {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+}
+
+.qimen-time-special-conditions:empty {
+  display: none;
+}
+
+.qimen-time-special-condition {
+  min-width: 0;
+  color: #334e68;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
 .qimen-plate-panel {
   display: grid;
   align-content: start;
