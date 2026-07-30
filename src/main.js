@@ -45,6 +45,7 @@ import {
   findQimenDisplayZhiFuPalaceKey,
   getQimenGuXuByHourBranch,
 } from "./qimenPlateMarkers.js";
+import { createQimenQiResponseViewModel } from "./qimenQiResponse.js";
 import { resolveQimenJuFromFullTermCycleDraft } from "./qimenResolver.js";
 import {
   createQimenSolarTermVirtuePunishmentViewModel,
@@ -1462,6 +1463,11 @@ function createQimenPlateAnnotations(plate, qimen) {
     displayZhiFuPalaceKey: findQimenDisplayZhiFuPalaceKey(plate),
     guXu,
     openClose: createQimenOpenCloseViewModel(plate),
+    qiResponse: createQimenQiResponseViewModel({
+      monthPillar: currentCalendarResult?.monthPillar,
+      actualSolarTerm: qimen?.actualSolarTerm,
+      plate,
+    }),
     virtuePunishment: createQimenSolarTermVirtuePunishmentViewModel(qimen, plate, guXu),
   };
 }
@@ -1491,6 +1497,7 @@ function createQimenPalaceCell(
   const displayZhiFuPalaceKey = annotations.displayZhiFuPalaceKey ?? null;
   const guXu = annotations.guXu ?? null;
   const openClose = annotations.openClose?.palaces?.[palaceMeta.key] ?? null;
+  const qiResponse = annotations.qiResponse?.palaces?.[palaceMeta.key] ?? {};
   const virtuePunishment = annotations.virtuePunishment?.palaces?.[palaceMeta.key] ?? [];
   const isDisplayZhiFuPalace = palaceMeta.key === displayZhiFuPalaceKey;
   const isZhiShiPalace = palace?.isZhiShiPalace === true;
@@ -1535,7 +1542,12 @@ function createQimenPalaceCell(
     return cell;
   }
 
-  const content = createQimenPalaceContent(palace, palaceMarkers, isDisplayZhiFuPalace);
+  const content = createQimenPalaceContent(
+    palace,
+    palaceMarkers,
+    isDisplayZhiFuPalace,
+    qiResponse
+  );
 
   const note = createQimenPalaceNote(palace);
 
@@ -1611,7 +1623,12 @@ function createQimenVirtuePunishmentBadges(palaceKey, markers) {
   return badges;
 }
 
-function createQimenPalaceContent(palace, palaceMarkers = {}, isDisplayZhiFuPalace = false) {
+function createQimenPalaceContent(
+  palace,
+  palaceMarkers = {},
+  isDisplayZhiFuPalace = false,
+  qiResponse = {}
+) {
   const content = document.createElement("div");
   content.className = "qimen-palace-content";
 
@@ -1630,7 +1647,17 @@ function createQimenPalaceContent(palace, palaceMarkers = {}, isDisplayZhiFuPala
     "qimen-palace-star",
     palaceMarkers.isTianYiStarPalace === true ? "qimen-palace-star-tian-yi" : "",
   ].filter(Boolean).join(" ");
-  star.textContent = formatNullableQimenValue(palace.star);
+  star.append(document.createTextNode(formatNullableQimenValue(palace.star)));
+  if (qiResponse.starQiResponse?.state) {
+    star.append(createQimenInlineMarker(
+      qiResponse.starQiResponse.state,
+      [
+        "qimen-star-qi-response",
+        palaceMarkers.isTianYiStarPalace === true ? "is-inside-tian-yi-frame" : "",
+      ].filter(Boolean).join(" "),
+      `九星氣應：${qiResponse.starQiResponse.state}`
+    ));
+  }
 
   left.append(deity, star);
 
@@ -1649,6 +1676,13 @@ function createQimenPalaceContent(palace, palaceMarkers = {}, isDisplayZhiFuPala
     door.append(createQimenInlineMarker(
       palaceMarkers.doorGeneratePalace,
       "qimen-door-generate-palace-marker"
+    ));
+  }
+  if (qiResponse.doorQiResponse?.state) {
+    door.append(createQimenInlineMarker(
+      qiResponse.doorQiResponse.state,
+      "qimen-door-qi-response",
+      `八門氣應：${qiResponse.doorQiResponse.state}`
     ));
   }
 
@@ -1696,10 +1730,13 @@ function createQimenPalaceGuaCorner(palace, palaceMeta, palaceMarkers = {}) {
   return corner;
 }
 
-function createQimenInlineMarker(text, className) {
+function createQimenInlineMarker(text, className, ariaLabel = null) {
   const marker = document.createElement("span");
   marker.className = className;
   marker.textContent = text;
+  if (ariaLabel) {
+    marker.setAttribute("aria-label", ariaLabel);
+  }
   return marker;
 }
 

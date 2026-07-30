@@ -6,6 +6,8 @@ const SOLAR_TERM_NAME_ALIASES = Object.freeze({
   谷雨: "穀雨",
   惊蛰: "驚蟄",
   处暑: "處暑",
+  小满: "小滿",
+  芒种: "芒種",
 });
 
 const QIMEN_SOLAR_TERM_VIRTUE_PUNISHMENT_GROUPS = Object.freeze([

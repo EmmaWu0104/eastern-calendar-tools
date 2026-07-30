@@ -155,6 +155,18 @@ const {
   resolveQimenSolarTermVirtuePunishment,
 } = await import("../src/qimenSolarTermVirtuePunishment.js");
 const {
+  QIMEN_DOOR_QI_RESPONSE_BY_GROUP,
+  QIMEN_DOOR_QI_RESPONSE_SOLAR_TERM_GROUPS,
+  QIMEN_MONTH_BRANCH_GROUPS,
+  QIMEN_STAR_QI_RESPONSE_BY_GROUP,
+  QIMEN_STAR_QI_RESPONSE_GROUP_BY_STAR,
+  createQimenQiResponseViewModel,
+  getQimenMonthBranch,
+  normalizeQimenMonthPillar,
+  resolveQimenDoorQiResponse,
+  resolveQimenStarQiResponse,
+} = await import("../src/qimenQiResponse.js");
+const {
   QIMEN_FIVE_NOT_ENCOUNTER_HOUR_BY_DAY_STEM,
   QIMEN_HOUR_STEM_ENTERS_TOMB_BY_DAY_STEM,
   normalizeQimenDayPillar,
@@ -287,6 +299,7 @@ let qimenPlateValidationVerifiedCaseCount = 0;
 let qimenPlateMarkersVerifiedCaseCount = 0;
 let qimenOpenCloseVerifiedCaseCount = 0;
 let qimenSolarTermVirtuePunishmentVerifiedCaseCount = 0;
+let qimenQiResponseVerifiedCaseCount = 0;
 let qimenTimeSpecialConditionsVerifiedCaseCount = 0;
 let qimen1080MarkdownParserVerifiedCaseCount = 0;
 let qimen1080SequenceDiagnosticsVerifiedCaseCount = 0;
@@ -622,6 +635,7 @@ runQimenPlateLookupTests();
 runQimenPlateMarkersTests();
 runQimenOpenCloseTests();
 runQimenSolarTermVirtuePunishmentTests();
+runQimenQiResponseTests();
 runQimenTimeSpecialConditionsTests();
 runHexagramTests();
 await runQimenPlateValidationTests();
@@ -706,6 +720,7 @@ if (failures.length > 0) {
   console.log(`奇門盤面標記規則測試通過：${qimenPlateMarkersVerifiedCaseCount} cases`);
   console.log(`奇門九星加時定開闔測試通過：${qimenOpenCloseVerifiedCaseCount} cases`);
   console.log(`奇門節氣德刑測試通過：${qimenSolarTermVirtuePunishmentVerifiedCaseCount} cases`);
+  console.log(`奇門氣應測試通過：${qimenQiResponseVerifiedCaseCount} cases`);
   console.log(`奇門特殊時辰條件測試通過：${qimenTimeSpecialConditionsVerifiedCaseCount} cases`);
   console.log(`奇門1080盤面schema validation測試通過：${qimenPlateValidationVerifiedCaseCount} cases`);
   console.log(`奇門1080.md parser diagnostics測試通過：${qimen1080MarkdownParserVerifiedCaseCount} cases`);
@@ -6721,6 +6736,265 @@ function runQimenSolarTermVirtuePunishmentTests() {
   qimenSolarTermVirtuePunishmentVerifiedCaseCount += 1;
   assertEqual("qimen-solar-term-open-close-preserved", "openCloseRender", true, mainModuleRaw.includes("createQimenOpenCloseBadge(openClose)"));
   assertEqual("qimen-solar-term-gu-xu-preserved", "guXuRender", true, mainModuleRaw.includes("createQimenGuXuBadges(palaceMeta.key, guXu)"));
+}
+
+function runQimenQiResponseTests() {
+  const starGroupRepresentatives = {
+    chongFu: "天衝",
+    ying: "天英",
+    renRuiQin: "天任",
+    zhuXin: "天柱",
+    peng: "天蓬",
+  };
+  const monthGroupRepresentatives = {
+    fire: "巳",
+    earth: "未",
+    metal: "申",
+    water: "亥",
+    wood: "寅",
+  };
+  const expectedStarStates = {
+    chongFu: { fire: "旺", earth: "休", metal: "囚", water: "廢", wood: "相" },
+    ying: { fire: "相", earth: "旺", metal: "休", water: "囚", wood: "廢" },
+    renRuiQin: { fire: "廢", earth: "相", metal: "旺", water: "休", wood: "囚" },
+    zhuXin: { fire: "囚", earth: "廢", metal: "相", water: "旺", wood: "休" },
+    peng: { fire: "休", earth: "囚", metal: "廢", water: "相", wood: "旺" },
+  };
+
+  for (const [starGroup, star] of Object.entries(starGroupRepresentatives)) {
+    for (const [monthGroup, monthBranch] of Object.entries(monthGroupRepresentatives)) {
+      const result = resolveQimenStarQiResponse({ monthPillar: monthBranch, star });
+      qimenQiResponseVerifiedCaseCount += 1;
+      assertEqual(`qimen-qi-star-matrix-${starGroup}-${monthGroup}`, "state", expectedStarStates[starGroup][monthGroup], result.state);
+      assertEqual(`qimen-qi-star-matrix-${starGroup}-${monthGroup}`, "starGroup", starGroup, result.starGroup);
+      assertEqual(`qimen-qi-star-matrix-${starGroup}-${monthGroup}`, "monthGroup", monthGroup, result.monthGroup);
+      assertEqual(`qimen-qi-star-matrix-${starGroup}-${monthGroup}`, "diagnostics.length", 0, result.diagnostics.length);
+    }
+  }
+
+  const expectedChongFuByBranch = {
+    子: "廢", 丑: "休", 寅: "相", 卯: "相", 辰: "休", 巳: "旺",
+    午: "旺", 未: "休", 申: "囚", 酉: "囚", 戌: "休", 亥: "廢",
+  };
+  for (const [monthBranch, expectedState] of Object.entries(expectedChongFuByBranch)) {
+    qimenQiResponseVerifiedCaseCount += 1;
+    assertEqual(
+      `qimen-qi-star-twelve-branches-${monthBranch}`,
+      "state",
+      expectedState,
+      resolveQimenStarQiResponse({ monthPillar: monthBranch, star: "天輔" }).state
+    );
+  }
+
+  const weiMonthStarCases = [
+    ["天衝", "休"], ["天輔", "休"], ["天英", "旺"],
+    ["天任", "相"], ["天芮", "相"], ["天禽", "相"],
+    ["天柱", "廢"], ["天心", "廢"], ["天蓬", "囚"],
+  ];
+  for (const [star, expectedState] of weiMonthStarCases) {
+    const result = resolveQimenStarQiResponse({ monthPillar: "己未", star });
+    qimenQiResponseVerifiedCaseCount += 1;
+    assertEqual(`qimen-qi-star-wei-${star}`, "state", expectedState, result.state);
+    assertEqual(`qimen-qi-star-wei-${star}`, "monthBranch", "未", result.monthBranch);
+  }
+
+  const starNormalizationCases = [
+    ["天沖", "天衝", "休"],
+    ["天衝星", "天衝", "休"],
+    ["天沖星", "天衝", "休"],
+    [" 天輔星 ", "天輔", "休"],
+    [" 天蓬星 ", "天蓬", "囚"],
+  ];
+  for (const [star, normalizedStar, expectedState] of starNormalizationCases) {
+    const result = resolveQimenStarQiResponse({ monthPillar: "未", star });
+    qimenQiResponseVerifiedCaseCount += 1;
+    assertEqual(`qimen-qi-star-normalize-${star}`, "normalizedStar", normalizedStar, result.normalizedStar);
+    assertEqual(`qimen-qi-star-normalize-${star}`, "state", expectedState, result.state);
+  }
+
+  const monthPillarNormalizationCases = [
+    ["己未", "己未", "未"],
+    ["己未月", "己未", "未"],
+    [" 己未月 ", "己未", "未"],
+    ["未", "未", "未"],
+    ["未月", "未", "未"],
+    ["甲丑", null, null],
+    ["", null, null],
+    [null, null, null],
+    [{}, null, null],
+  ];
+  for (const [input, expectedPillar, expectedBranch] of monthPillarNormalizationCases) {
+    qimenQiResponseVerifiedCaseCount += 1;
+    assertEqual(`qimen-qi-month-normalize-${String(input)}`, "monthPillar", expectedPillar, normalizeQimenMonthPillar(input));
+    assertEqual(`qimen-qi-month-normalize-${String(input)}`, "monthBranch", expectedBranch, getQimenMonthBranch(input));
+  }
+
+  const invalidStarCases = [
+    [{ monthPillar: null, star: "天蓬" }],
+    [{ monthPillar: "甲丑", star: "天蓬" }],
+    [{ monthPillar: "己未", star: null }],
+    [{ monthPillar: "己未", star: "未知星" }],
+    [{}],
+  ];
+  for (const [input] of invalidStarCases) {
+    const result = resolveQimenStarQiResponse(input);
+    qimenQiResponseVerifiedCaseCount += 1;
+    assertEqual(`qimen-qi-star-invalid-${JSON.stringify(input)}`, "state", null, result.state);
+    assertEqual(`qimen-qi-star-invalid-${JSON.stringify(input)}`, "hasDiagnostics", true, result.diagnostics.length > 0);
+  }
+
+  const expectedDoorStatesByGroup = {
+    winterSolstice: { 休: "旺", 生: "絕", 傷: "胎", 杜: "沒", 景: "死", 死: "囚", 驚: "休", 開: "廢" },
+    springStart: { 休: "廢", 生: "旺", 傷: "絕", 杜: "胎", 景: "沒", 死: "死", 驚: "囚", 開: "休" },
+    springEquinox: { 休: "休", 生: "廢", 傷: "旺", 杜: "絕", 景: "胎", 死: "沒", 驚: "死", 開: "囚" },
+    summerStart: { 休: "囚", 生: "休", 傷: "廢", 杜: "旺", 景: "絕", 死: "胎", 驚: "沒", 開: "死" },
+    summerSolstice: { 休: "死", 生: "囚", 傷: "休", 杜: "廢", 景: "旺", 死: "絕", 驚: "胎", 開: "沒" },
+    autumnStart: { 休: "沒", 生: "死", 傷: "囚", 杜: "休", 景: "廢", 死: "旺", 驚: "絕", 開: "胎" },
+    autumnEquinox: { 休: "胎", 生: "沒", 傷: "死", 杜: "囚", 景: "休", 死: "廢", 驚: "旺", 開: "絕" },
+    winterStart: { 休: "絕", 生: "胎", 傷: "沒", 杜: "死", 景: "囚", 死: "休", 驚: "廢", 開: "旺" },
+  };
+
+  for (const [solarTermGroup, expectedByDoor] of Object.entries(expectedDoorStatesByGroup)) {
+    const actualSolarTerm = QIMEN_DOOR_QI_RESPONSE_SOLAR_TERM_GROUPS[solarTermGroup][0];
+    const states = [];
+    for (const [door, expectedState] of Object.entries(expectedByDoor)) {
+      const result = resolveQimenDoorQiResponse({ actualSolarTerm, door });
+      states.push(result.state);
+      qimenQiResponseVerifiedCaseCount += 1;
+      assertEqual(`qimen-qi-door-matrix-${solarTermGroup}-${door}`, "state", expectedState, result.state);
+      assertEqual(`qimen-qi-door-matrix-${solarTermGroup}-${door}`, "solarTermGroup", solarTermGroup, result.solarTermGroup);
+      assertEqual(`qimen-qi-door-matrix-${solarTermGroup}-${door}`, "diagnostics.length", 0, result.diagnostics.length);
+    }
+    qimenQiResponseVerifiedCaseCount += 1;
+    assertEqual(
+      `qimen-qi-door-matrix-${solarTermGroup}`,
+      "completeUniqueStates",
+      true,
+      states.length === 8
+        && new Set(states).size === 8
+        && ["旺", "絕", "胎", "沒", "死", "囚", "休", "廢"].every((state) => states.includes(state))
+    );
+  }
+
+  for (const [solarTermGroup, solarTermsInGroup] of Object.entries(QIMEN_DOOR_QI_RESPONSE_SOLAR_TERM_GROUPS)) {
+    for (const actualSolarTerm of solarTermsInGroup) {
+      const result = resolveQimenDoorQiResponse({ actualSolarTerm, door: "休" });
+      qimenQiResponseVerifiedCaseCount += 1;
+      assertEqual(`qimen-qi-door-twenty-four-terms-${actualSolarTerm}`, "solarTermGroup", solarTermGroup, result.solarTermGroup);
+      assertEqual(`qimen-qi-door-twenty-four-terms-${actualSolarTerm}`, "hasState", true, Boolean(result.state));
+    }
+  }
+
+  const greatHeatDoorCases = [
+    ["休門", "死"], ["生門", "囚"], ["傷門", "休"], ["杜門", "廢"],
+    ["景門", "旺"], ["死門", "絕"], ["驚門", "胎"], ["開門", "沒"],
+  ];
+  for (const [door, expectedState] of greatHeatDoorCases) {
+    const result = resolveQimenDoorQiResponse({ actualSolarTerm: "大暑", door });
+    qimenQiResponseVerifiedCaseCount += 1;
+    assertEqual(`qimen-qi-door-great-heat-${door}`, "state", expectedState, result.state);
+  }
+
+  const solarTermNormalizationCases = [
+    ["谷雨", "穀雨", "春分", "休"],
+    ["惊蛰", "驚蟄", "立春", "廢"],
+    ["处暑", "處暑", "立秋", "沒"],
+    ["小满", "小滿", "立夏", "囚"],
+    ["芒种", "芒種", "立夏", "囚"],
+    [" 大暑 ", "大暑", "夏至", "死"],
+  ];
+  for (const [input, normalizedTerm, groupFirstTerm, expectedState] of solarTermNormalizationCases) {
+    const result = resolveQimenDoorQiResponse({ actualSolarTerm: input, door: "休門" });
+    const expectedGroup = Object.entries(QIMEN_DOOR_QI_RESPONSE_SOLAR_TERM_GROUPS)
+      .find(([, terms]) => terms.includes(groupFirstTerm))?.[0];
+    qimenQiResponseVerifiedCaseCount += 1;
+    assertEqual(`qimen-qi-door-term-normalize-${input}`, "actualSolarTerm", normalizedTerm, result.actualSolarTerm);
+    assertEqual(`qimen-qi-door-term-normalize-${input}`, "solarTermGroup", expectedGroup, result.solarTermGroup);
+    assertEqual(`qimen-qi-door-term-normalize-${input}`, "state", expectedState, result.state);
+  }
+
+  for (const door of ["休", "生", "傷", "杜", "景", "死", "驚", "開"]) {
+    const shortResult = resolveQimenDoorQiResponse({ actualSolarTerm: "大暑", door });
+    const fullResult = resolveQimenDoorQiResponse({ actualSolarTerm: "大暑", door: ` ${door}門 ` });
+    qimenQiResponseVerifiedCaseCount += 1;
+    assertEqual(`qimen-qi-door-normalize-${door}`, "short", shortResult.state, fullResult.state);
+    assertEqual(`qimen-qi-door-normalize-${door}`, "normalizedDoor", door, fullResult.normalizedDoor);
+  }
+
+  const invalidDoorCases = [
+    [{ actualSolarTerm: null, door: "休" }],
+    [{ actualSolarTerm: "未知節氣", door: "休" }],
+    [{ actualSolarTerm: "大暑", door: null }],
+    [{ actualSolarTerm: "大暑", door: "未知門" }],
+    [{}],
+  ];
+  for (const [input] of invalidDoorCases) {
+    const result = resolveQimenDoorQiResponse(input);
+    qimenQiResponseVerifiedCaseCount += 1;
+    assertEqual(`qimen-qi-door-invalid-${JSON.stringify(input)}`, "state", null, result.state);
+    assertEqual(`qimen-qi-door-invalid-${JSON.stringify(input)}`, "hasDiagnostics", true, result.diagnostics.length > 0);
+  }
+
+  const qiPlate = createQimenMarkerFixturePlate();
+  qiPlate.palaces.center.star = "天禽";
+  qiPlate.palaces.center.door = null;
+  const qiViewModel = createQimenQiResponseViewModel({
+    monthPillar: "己未",
+    actualSolarTerm: "大暑",
+    plate: qiPlate,
+  });
+  qimenQiResponseVerifiedCaseCount += 1;
+  assertEqual("qimen-qi-view-model", "palaceCount", QIMEN_PALACE_KEYS.length, Object.keys(qiViewModel.palaces).length);
+  assertEqual("qimen-qi-view-model", "starResponseCount", 9, Object.values(qiViewModel.palaces).filter((palace) => palace.starQiResponse).length);
+  assertEqual("qimen-qi-view-model", "doorResponseCount", 8, Object.values(qiViewModel.palaces).filter((palace) => palace.doorQiResponse).length);
+  assertEqual("qimen-qi-view-model", "centerStar", "天禽", qiViewModel.palaces.center.starQiResponse?.normalizedStar);
+  assertEqual("qimen-qi-view-model", "centerState", "相", qiViewModel.palaces.center.starQiResponse?.state);
+  assertEqual("qimen-qi-view-model", "centerDoor", null, qiViewModel.palaces.center.doorQiResponse);
+
+  const actualTermDataFlow = createQimenQiResponseViewModel({
+    monthPillar: "己未",
+    actualSolarTerm: "大暑",
+    qimenSolarTerm: "小暑",
+    plate: qiPlate,
+  });
+  qimenQiResponseVerifiedCaseCount += 1;
+  assertEqual("qimen-qi-actual-term-data-flow", "actualSolarTerm", "大暑", actualTermDataFlow.actualSolarTerm);
+  assertEqual("qimen-qi-actual-term-data-flow", "doorState", "囚", actualTermDataFlow.palaces.kan.doorQiResponse?.state);
+
+  const missingPlateViewModel = createQimenQiResponseViewModel({
+    monthPillar: "己未",
+    actualSolarTerm: "大暑",
+    plate: null,
+  });
+  qimenQiResponseVerifiedCaseCount += 1;
+  assertEqual("qimen-qi-missing-plate", "starResponseCount", 0, Object.values(missingPlateViewModel.palaces).filter((palace) => palace.starQiResponse).length);
+  assertEqual("qimen-qi-missing-plate", "doorResponseCount", 0, Object.values(missingPlateViewModel.palaces).filter((palace) => palace.doorQiResponse).length);
+
+  qimenQiResponseVerifiedCaseCount += 1;
+  assertEqual("qimen-qi-declarative-star-groups", "starCount", 9, Object.keys(QIMEN_STAR_QI_RESPONSE_GROUP_BY_STAR).length);
+  assertEqual("qimen-qi-declarative-star-matrix", "groupCount", 5, Object.keys(QIMEN_STAR_QI_RESPONSE_BY_GROUP).length);
+  assertEqual("qimen-qi-declarative-month-groups", "branchCount", 12, Object.values(QIMEN_MONTH_BRANCH_GROUPS).flat().length);
+  assertEqual("qimen-qi-declarative-door-groups", "groupCount", 8, Object.keys(QIMEN_DOOR_QI_RESPONSE_BY_GROUP).length);
+
+  qimenQiResponseVerifiedCaseCount += 1;
+  assertEqual(
+    "qimen-qi-ui-data-flow",
+    "implementation",
+    true,
+    mainModuleRaw.includes("createQimenQiResponseViewModel({")
+      && mainModuleRaw.includes("monthPillar: currentCalendarResult?.monthPillar")
+      && mainModuleRaw.includes("actualSolarTerm: qimen?.actualSolarTerm")
+      && mainModuleRaw.includes("annotations.qiResponse?.palaces?.[palaceMeta.key]")
+      && mainModuleRaw.includes('"qimen-star-qi-response"')
+      && mainModuleRaw.includes('"is-inside-tian-yi-frame"')
+      && mainModuleRaw.includes('"qimen-door-qi-response"')
+      && mainModuleRaw.includes("palaceMarkers.doorPo")
+      && mainModuleRaw.includes("palaceMarkers.doorGeneratePalace")
+      && mainCssRaw.includes(".qimen-star-qi-response.is-inside-tian-yi-frame")
+      && mainCssRaw.includes(".qimen-door-qi-response")
+      && mainCssRaw.includes("top: -5px")
+      && mainCssRaw.includes("bottom: -5px")
+  );
 }
 
 function runQimenTimeSpecialConditionsTests() {
