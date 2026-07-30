@@ -1321,7 +1321,8 @@ dd {
   background: #ffffff;
 }
 
-.qimen-guxu-badge {
+.qimen-guxu-badge,
+.qimen-open-close-badge {
   position: absolute;
   z-index: 2;
   display: grid;
@@ -1336,12 +1337,29 @@ dd {
   line-height: 1;
 }
 
+.qimen-open-close-badge {
+  position: static;
+  display: inline-grid;
+  margin-left: 1px;
+  vertical-align: middle;
+}
+
 .qimen-guxu-gu {
   background: #ffffff;
   color: #1f2933;
 }
 
 .qimen-guxu-xu {
+  background: #1f2933;
+  color: #ffffff;
+}
+
+.qimen-open-close-badge.is-open {
+  background: #ffffff;
+  color: #1f2933;
+}
+
+.qimen-open-close-badge.is-close {
   background: #1f2933;
   color: #ffffff;
 }

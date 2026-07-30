@@ -124,6 +124,13 @@ const {
 } = await import("../src/qimenResolver.js");
 const { getQimenPlate } = await import("../src/qimenPlateLookup.js");
 const {
+  QIMEN_JIA_HOUR_RESOLVED_STEMS,
+  QIMEN_OPEN_CLOSE_BY_STAR,
+  createQimenOpenCloseViewModel,
+  resolveQimenOpenClose,
+  resolveQimenOpenCloseStem,
+} = await import("../src/qimenOpenClose.js");
+const {
   decorateQimenPlateMarkers,
   findQimenDisplayZhiFuPalaceKey,
   findQimenTianRuiPalaceKey,
@@ -261,6 +268,7 @@ let qimenFullTermCycleDraftResolverFormatterCacheReplacementVerifiedCaseCount = 
 let qimenPlateLookupVerifiedCaseCount = 0;
 let qimenPlateValidationVerifiedCaseCount = 0;
 let qimenPlateMarkersVerifiedCaseCount = 0;
+let qimenOpenCloseVerifiedCaseCount = 0;
 let qimen1080MarkdownParserVerifiedCaseCount = 0;
 let qimen1080SequenceDiagnosticsVerifiedCaseCount = 0;
 let qimen1080ConverterDryRunVerifiedCaseCount = 0;
@@ -593,6 +601,7 @@ runQimenFullTermCycleDraftCachedResolverFormatterFullRangeDiagnosticsTests();
 runQimenFullTermCycleDraftResolverFormatterCacheReplacementTests();
 runQimenPlateLookupTests();
 runQimenPlateMarkersTests();
+runQimenOpenCloseTests();
 runHexagramTests();
 await runQimenPlateValidationTests();
 runQimen1080MarkdownParserTests();
@@ -674,6 +683,7 @@ if (failures.length > 0) {
   console.log(`奇門完整循環草案resolver formatter cache replacement測試通過：${qimenFullTermCycleDraftResolverFormatterCacheReplacementVerifiedCaseCount} cases`);
   console.log(`奇門1080盤面lookup測試通過：${qimenPlateLookupVerifiedCaseCount} cases`);
   console.log(`奇門盤面標記規則測試通過：${qimenPlateMarkersVerifiedCaseCount} cases`);
+  console.log(`奇門九星加時定開闔測試通過：${qimenOpenCloseVerifiedCaseCount} cases`);
   console.log(`奇門1080盤面schema validation測試通過：${qimenPlateValidationVerifiedCaseCount} cases`);
   console.log(`奇門1080.md parser diagnostics測試通過：${qimen1080MarkdownParserVerifiedCaseCount} cases`);
   console.log(`奇門1080.md 排盤序列 diagnostics測試通過：${qimen1080SequenceDiagnosticsVerifiedCaseCount} cases`);
@@ -6326,6 +6336,112 @@ function createQimenMarkerFixturePlate(options = {}) {
     zhiShiDoor: "休",
     palaces,
   };
+}
+
+function runQimenOpenCloseTests() {
+  const jiaHourStemCases = [
+    ["甲子", "戊"], ["甲戌", "己"], ["甲申", "庚"],
+    ["甲午", "辛"], ["甲辰", "壬"], ["甲寅", "癸"],
+  ];
+  for (const [hourPillar, expectedStem] of jiaHourStemCases) {
+    const plate = createQimenMarkerFixturePlate();
+    plate.hourPillar = hourPillar;
+    for (const palaceKey of QIMEN_PALACE_KEYS) {
+      plate.palaces[palaceKey].heavenStem = "甲";
+    }
+    plate.palaces.zhen.heavenStem = expectedStem;
+    plate.palaces.zhen.star = "天任";
+    const resolution = resolveQimenOpenClose(plate);
+    qimenOpenCloseVerifiedCaseCount += 1;
+    assertEqual(`qimen-open-close-jia-resolve-${hourPillar}`, "stem", expectedStem, resolveQimenOpenCloseStem(hourPillar));
+    assertEqual(`qimen-open-close-jia-mapping-${hourPillar}`, "stem", expectedStem, QIMEN_JIA_HOUR_RESOLVED_STEMS[hourPillar[1]]);
+    assertEqual(`qimen-open-close-jia-result-${hourPillar}`, "resolvedStem", expectedStem, resolution.result?.resolvedStem);
+    assertEqual(`qimen-open-close-jia-result-${hourPillar}`, "palaceKey", "zhen", resolution.result?.palaceKey);
+  }
+
+  qimenOpenCloseVerifiedCaseCount += 1;
+  assertEqual("qimen-open-close-non-jia-direct-stem", "stem", "乙", resolveQimenOpenCloseStem("乙亥"));
+
+  for (const [star, expected] of Object.entries(QIMEN_OPEN_CLOSE_BY_STAR)) {
+    const plate = createQimenMarkerFixturePlate();
+    plate.hourPillar = "乙亥";
+    plate.palaces.kan.heavenStem = "乙";
+    plate.palaces.kan.star = star;
+    const resolution = resolveQimenOpenClose(plate);
+    qimenOpenCloseVerifiedCaseCount += 1;
+    assertEqual(`qimen-open-close-star-${star}`, "type", expected.type, resolution.result?.type);
+    assertEqual(`qimen-open-close-star-${star}`, "label", expected.label, resolution.result?.label);
+    assertEqual(`qimen-open-close-star-${star}`, "star", star, resolution.result?.star);
+  }
+
+  const centerPlate = createQimenMarkerFixturePlate();
+  centerPlate.hourPillar = "乙亥";
+  centerPlate.palaces.kan.heavenStem = "丙";
+  centerPlate.palaces.center.heavenStem = "乙";
+  centerPlate.palaces.kun.star = "天衝";
+  const centerResolution = resolveQimenOpenClose(centerPlate);
+  qimenOpenCloseVerifiedCaseCount += 1;
+  assertEqual("qimen-open-close-center-source", "sourcePalaceKey", "center", centerResolution.result?.sourcePalaceKey);
+  assertEqual("qimen-open-close-center-display", "palaceKey", "kun", centerResolution.result?.palaceKey);
+  assertEqual("qimen-open-close-center-display", "type", "open", centerResolution.result?.type);
+
+  const exampleOnePlate = getQimenPlate({ dunType: "yin", ju: 4, hourPillar: "甲戌" }).plate;
+  const exampleOne = resolveQimenOpenClose(exampleOnePlate);
+  qimenOpenCloseVerifiedCaseCount += 1;
+  assertEqual("qimen-open-close-example-one", "sourceStem", "甲", exampleOne.result?.sourceStem);
+  assertEqual("qimen-open-close-example-one", "resolvedStem", "己", exampleOne.result?.resolvedStem);
+  assertEqual("qimen-open-close-example-one", "sourcePalaceKey", "zhen", exampleOne.result?.sourcePalaceKey);
+  assertEqual("qimen-open-close-example-one", "palaceKey", "zhen", exampleOne.result?.palaceKey);
+  assertEqual("qimen-open-close-example-one", "star", "天衝", exampleOne.result?.star);
+  assertEqual("qimen-open-close-example-one", "label", "開", exampleOne.result?.label);
+
+  const exampleTwoPlate = getQimenPlate({ dunType: "yin", ju: 4, hourPillar: "乙亥" }).plate;
+  const exampleTwo = resolveQimenOpenClose(exampleTwoPlate);
+  qimenOpenCloseVerifiedCaseCount += 1;
+  assertEqual("qimen-open-close-example-two", "sourceStem", "乙", exampleTwo.result?.sourceStem);
+  assertEqual("qimen-open-close-example-two", "sourcePalaceKey", "center", exampleTwo.result?.sourcePalaceKey);
+  assertEqual("qimen-open-close-example-two", "palaceKey", "kun", exampleTwo.result?.palaceKey);
+  assertEqual("qimen-open-close-example-two", "star", "天衝", exampleTwo.result?.star);
+  assertEqual("qimen-open-close-example-two", "label", "開", exampleTwo.result?.label);
+
+  const viewModel = createQimenOpenCloseViewModel(exampleOnePlate);
+  qimenOpenCloseVerifiedCaseCount += 1;
+  assertEqual("qimen-open-close-view-model-target", "label", "開", viewModel.palaces.zhen?.label);
+  assertEqual("qimen-open-close-view-model-result", "palaceKey", "zhen", viewModel.result?.palaceKey);
+  for (const palaceKey of QIMEN_PALACE_KEYS.filter((palaceKey) => palaceKey !== "zhen")) {
+    assertEqual(`qimen-open-close-view-model-single-${palaceKey}`, "openClose", null, viewModel.palaces[palaceKey]);
+  }
+
+  const noHourStem = resolveQimenOpenClose({ palaces: {} });
+  const noResolvedJiaStem = resolveQimenOpenClose({ hourPillar: "甲卯", palaces: {} });
+  const missingHeavenStem = resolveQimenOpenClose({ hourPillar: "乙亥", palaces: {} });
+  const unknownStarPlate = createQimenMarkerFixturePlate();
+  unknownStarPlate.hourPillar = "乙亥";
+  unknownStarPlate.palaces.kan.heavenStem = "乙";
+  unknownStarPlate.palaces.kan.star = "未知星";
+  const unknownStar = resolveQimenOpenClose(unknownStarPlate);
+  qimenOpenCloseVerifiedCaseCount += 1;
+  assertEqual("qimen-open-close-safe-no-hour-stem", "result", null, noHourStem.result);
+  assertEqual("qimen-open-close-safe-no-hour-stem", "diagnostic", "HOUR_STEM_NOT_FOUND", noHourStem.diagnostics[0]?.code);
+  assertEqual("qimen-open-close-safe-no-resolved-jia", "result", null, noResolvedJiaStem.result);
+  assertEqual("qimen-open-close-safe-no-resolved-jia", "diagnostic", "JIA_HOUR_STEM_NOT_RESOLVED", noResolvedJiaStem.diagnostics[0]?.code);
+  assertEqual("qimen-open-close-safe-missing-heaven-stem", "result", null, missingHeavenStem.result);
+  assertEqual("qimen-open-close-safe-missing-heaven-stem", "diagnostic", "HEAVEN_STEM_PALACE_NOT_FOUND", missingHeavenStem.diagnostics[0]?.code);
+  assertEqual("qimen-open-close-safe-unknown-star", "result", null, unknownStar.result);
+  assertEqual("qimen-open-close-safe-unknown-star", "diagnostic", "UNKNOWN_STAR_POLARITY", unknownStar.diagnostics[0]?.code);
+
+  qimenOpenCloseVerifiedCaseCount += 1;
+  assertEqual(
+    "qimen-open-close-ui-header-and-badge",
+    "implementation",
+    true,
+    mainModuleRaw.includes("createQimenOpenCloseViewModel(plateResult.plate)")
+      && mainModuleRaw.includes("createQimenOpenCloseBadge(openClose)")
+      && mainModuleRaw.includes("formatQimenPalaceHeader(palace, palaceMeta, openClose)")
+      && mainCssRaw.includes(".qimen-open-close-badge")
+      && mainCssRaw.includes(".qimen-open-close-badge.is-open")
+      && mainCssRaw.includes(".qimen-open-close-badge.is-close")
+  );
 }
 
 function createQimenDisplayZhiFuFixturePlate(options = {}) {

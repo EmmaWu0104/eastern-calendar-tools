@@ -38,6 +38,7 @@ import {
 import { getJinhanDunType } from "./jinhanDunType.js";
 import { getNaYinByPillar } from "./nayin.js";
 import { getQimenPlate } from "./qimenPlateLookup.js";
+import { createQimenOpenCloseViewModel } from "./qimenOpenClose.js";
 import {
   decorateQimenPlateMarkers,
   findQimenDisplayZhiFuPalaceKey,
@@ -1458,15 +1459,16 @@ function clearQimenPlateDisplay() {
 
 function renderQimenPlateResult(plateResult) {
   const markers = decorateQimenPlateMarkers(plateResult.plate);
+  const openCloseViewModel = createQimenOpenCloseViewModel(plateResult.plate);
   const displayZhiFuPalaceKey = findQimenDisplayZhiFuPalaceKey(plateResult.plate);
   const guXu = getQimenGuXuByHourBranch(getQimenHourBranch(plateResult.plate?.hourPillar));
   const gridWrap = document.createElement("div");
   gridWrap.className = "qimen-plate-grid-wrap";
-  gridWrap.append(renderQimenPlateGrid(plateResult.plate, markers, displayZhiFuPalaceKey, guXu));
+  gridWrap.append(renderQimenPlateGrid(plateResult.plate, markers, displayZhiFuPalaceKey, guXu, openCloseViewModel));
   qimenElements.plateSection.replaceChildren(gridWrap);
 }
 
-function renderQimenPlateGrid(plate, markers, displayZhiFuPalaceKey, guXu) {
+function renderQimenPlateGrid(plate, markers, displayZhiFuPalaceKey, guXu, openCloseViewModel) {
   const grid = document.createElement("div");
   grid.className = "qimen-plate-grid";
   grid.setAttribute("aria-label", "奇門盤面九宮");
@@ -1477,7 +1479,8 @@ function renderQimenPlateGrid(plate, markers, displayZhiFuPalaceKey, guXu) {
       palaceMeta,
       markers?.palaces?.[palaceMeta.key],
       displayZhiFuPalaceKey,
-      guXu
+      guXu,
+      openCloseViewModel?.palaces?.[palaceMeta.key] ?? null
     ));
   }
 
@@ -1489,7 +1492,8 @@ function createQimenPalaceCell(
   palaceMeta,
   palaceMarkers = {},
   displayZhiFuPalaceKey = null,
-  guXu = null
+  guXu = null,
+  openClose = null
 ) {
   const isDisplayZhiFuPalace = palaceMeta.key === displayZhiFuPalaceKey;
   const isZhiShiPalace = palace?.isZhiShiPalace === true;
@@ -1507,7 +1511,10 @@ function createQimenPalaceCell(
   header.className = "qimen-palace-header";
   const headerLabel = document.createElement("span");
   headerLabel.className = "qimen-palace-header-label";
-  headerLabel.textContent = formatQimenPalaceHeader(palace, palaceMeta);
+  headerLabel.append(document.createTextNode(formatQimenPalaceHeader(palace, palaceMeta, openClose)));
+  if (openClose) {
+    headerLabel.append(createQimenOpenCloseBadge(openClose));
+  }
   header.append(headerLabel);
 
   if (palaceMarkers.centerHeavenStem) {
@@ -1685,10 +1692,21 @@ function createQimenPalaceNote(palace) {
   return note;
 }
 
-function formatQimenPalaceHeader(palace, palaceMeta) {
+function createQimenOpenCloseBadge(openClose) {
+  const badge = document.createElement("span");
+  badge.className = [
+    "qimen-open-close-badge",
+    openClose.type === "open" ? "is-open" : "is-close",
+  ].join(" ");
+  badge.textContent = openClose.label;
+  badge.setAttribute("aria-label", `九星加時定開闔：${openClose.label}`);
+  return badge;
+}
+
+function formatQimenPalaceHeader(palace, palaceMeta, openClose = null) {
   const direction = formatNullableQimenValue(palace?.direction || palaceMeta.direction);
   const number = formatNullableQimenValue(palace?.luoshuNumber || palaceMeta.number);
-  return `${direction}｜${number}`;
+  return `${direction}｜${number}${openClose ? "｜" : ""}`;
 }
 
 function formatNullableQimenValue(value) {
