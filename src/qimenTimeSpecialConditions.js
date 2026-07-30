@@ -57,17 +57,27 @@ export function resolveQimenTimeSpecialConditions({ dayPillar, hourPillar, plate
 
   const dayStem = normalizedDayPillar[0];
   const hourStem = normalizedHourPillar[0];
-  const conditions = QIMEN_TIME_SPECIAL_CONDITION_DEFINITIONS.filter((condition) => {
+  const conditions = QIMEN_TIME_SPECIAL_CONDITION_DEFINITIONS.flatMap((condition) => {
     if (condition.key === "tianFuHour") {
-      return hourStem === "甲";
+      return hourStem === "甲" ? [condition] : [];
     }
     if (condition.key === "tianWangFourSpread") {
-      return hourStem === "癸";
+      if (hourStem !== "癸") {
+        return [];
+      }
+      return [{
+        ...condition,
+        label: normalizedHourPillar === "癸亥" ? "天網四張" : "天網",
+      }];
     }
     if (condition.key === "fiveNotEncounterHour") {
-      return QIMEN_FIVE_NOT_ENCOUNTER_HOUR_BY_DAY_STEM[dayStem] === normalizedHourPillar;
+      return QIMEN_FIVE_NOT_ENCOUNTER_HOUR_BY_DAY_STEM[dayStem] === normalizedHourPillar
+        ? [condition]
+        : [];
     }
-    return QIMEN_HOUR_STEM_ENTERS_TOMB_BY_DAY_STEM[dayStem]?.includes(normalizedHourPillar) === true;
+    return QIMEN_HOUR_STEM_ENTERS_TOMB_BY_DAY_STEM[dayStem]?.includes(normalizedHourPillar) === true
+      ? [condition]
+      : [];
   });
   conditions.push(...createRecurrenceOppositionCondition(recurrenceOpposition));
 

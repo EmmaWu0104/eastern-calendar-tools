@@ -6734,14 +6734,21 @@ function runQimenTimeSpecialConditionsTests() {
   assertEqual("qimen-time-special-tian-fu-non-jia", "contains", false, getConditionKeys(resolveQimenTimeSpecialConditions({ dayPillar: "乙巳", hourPillar: "乙亥" })).includes("tianFuHour"));
   assertEqual("qimen-time-special-tian-fu-gui", "contains", false, getConditionKeys(resolveQimenTimeSpecialConditions({ dayPillar: "乙巳", hourPillar: "癸亥" })).includes("tianFuHour"));
 
-  const tianWangPillars = ["癸酉", "癸未", "癸巳", "癸卯", "癸丑", "癸亥"];
-  for (const hourPillar of tianWangPillars) {
+  const tianWangPillars = [
+    ["癸酉", "天網"], ["癸未", "天網"], ["癸巳", "天網"],
+    ["癸卯", "天網"], ["癸丑", "天網"], ["癸亥", "天網四張"],
+    ["癸亥時", "天網四張"], [" 癸亥時 ", "天網四張"],
+  ];
+  for (const [hourPillar, expectedLabel] of tianWangPillars) {
     const result = resolveQimenTimeSpecialConditions({ dayPillar: "乙巳", hourPillar });
     qimenTimeSpecialConditionsVerifiedCaseCount += 1;
     assertEqual(`qimen-time-special-tian-wang-${hourPillar}`, "contains", true, getConditionKeys(result).includes("tianWangFourSpread"));
+    assertEqual(`qimen-time-special-tian-wang-${hourPillar}`, "label", expectedLabel, result.conditions.find((condition) => condition.key === "tianWangFourSpread")?.label);
+    assertEqual(`qimen-time-special-tian-wang-${hourPillar}`, "count", 1, result.conditions.filter((condition) => condition.key === "tianWangFourSpread").length);
   }
   assertEqual("qimen-time-special-tian-wang-jia", "contains", false, getConditionKeys(resolveQimenTimeSpecialConditions({ dayPillar: "乙巳", hourPillar: "甲子" })).includes("tianWangFourSpread"));
   assertEqual("qimen-time-special-tian-wang-other", "contains", false, getConditionKeys(resolveQimenTimeSpecialConditions({ dayPillar: "乙巳", hourPillar: "丙午" })).includes("tianWangFourSpread"));
+  assertEqual("qimen-time-special-tian-wang-ren", "contains", false, getConditionKeys(resolveQimenTimeSpecialConditions({ dayPillar: "乙巳", hourPillar: "壬辰" })).includes("tianWangFourSpread"));
 
   const fiveNotEncounterPositiveCases = Object.entries(QIMEN_FIVE_NOT_ENCOUNTER_HOUR_BY_DAY_STEM);
   for (const [dayStem, hourPillar] of fiveNotEncounterPositiveCases) {
@@ -6794,6 +6801,7 @@ function runQimenTimeSpecialConditionsTests() {
   const onlyHourStemTomb = resolveQimenTimeSpecialConditions({ dayPillar: "辛", hourPillar: "己丑" });
   qimenTimeSpecialConditionsVerifiedCaseCount += 1;
   assertEqual("qimen-time-special-tian-wang-and-tomb", "keys", "tianWangFourSpread,hourStemEntersTomb", getConditionKeys(tianWangAndTomb).join(","));
+  assertEqual("qimen-time-special-tian-wang-and-tomb", "labels", "天網,時干入墓", tianWangAndTomb.conditions.map((condition) => condition.label).join(","));
   assertEqual("qimen-time-special-tian-wang-and-tomb", "count", 2, tianWangAndTomb.conditions.length);
   assertEqual("qimen-time-special-only-tomb", "keys", "hourStemEntersTomb", getConditionKeys(onlyHourStemTomb).join(","));
 
@@ -6803,6 +6811,7 @@ function runQimenTimeSpecialConditionsTests() {
   assertEqual("qimen-time-special-tian-fu-and-five", "keys", "tianFuHour,fiveNotEncounterHour", getConditionKeys(tianFuAndFive).join(","));
   assertEqual("qimen-time-special-tian-fu-and-five", "count", 2, tianFuAndFive.conditions.length);
   assertEqual("qimen-time-special-tian-wang-and-five", "keys", "tianWangFourSpread,fiveNotEncounterHour", getConditionKeys(tianWangAndFive).join(","));
+  assertEqual("qimen-time-special-tian-wang-and-five", "labels", "天網,五不遇時", tianWangAndFive.conditions.map((condition) => condition.label).join(","));
   assertEqual("qimen-time-special-tian-wang-and-five", "count", 2, tianWangAndFive.conditions.length);
 
   const noConditions = resolveQimenTimeSpecialConditions({ dayPillar: "乙巳", hourPillar: "丙午" });
