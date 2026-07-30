@@ -6097,6 +6097,82 @@ function runQimenPlateMarkersTests() {
   assertEqual("qimen-plate-markers-heaven-stem-invalid-palace", "marker", null, getQimenHeavenStemMarker(null, "丙"));
   assertEqual("qimen-plate-markers-heaven-stem-invalid-stem", "marker", null, getQimenHeavenStemMarker("kan", null));
 
+  const sixInstrumentPunishmentCases = [
+    ["ren-xun", "xun", "壬", "刑"],
+    ["gui-xun", "xun", "癸", "刑"],
+    ["geng-xun", "xun", "庚", "刑"],
+    ["xin-li", "li", "辛", "刑"],
+    ["ji-kun", "kun", "己", "刑"],
+    ["gui-kun", "kun", "癸", "刑"],
+    ["wu-zhen", "zhen", "戊", "刑"],
+    ["geng-gen", "gen", "庚", "刑"],
+    ["ji-gen", "gen", "己", "刑"],
+  ];
+  for (const [id, palaceKey, heavenStem, expected] of sixInstrumentPunishmentCases) {
+    qimenPlateMarkersVerifiedCaseCount += 1;
+    assertEqual(
+      `qimen-six-instrument-punishment-${id}`,
+      "marker",
+      expected,
+      getQimenHeavenStemMarker(palaceKey, heavenStem)
+    );
+  }
+
+  const sixInstrumentMultiPalaceCases = [
+    ["gui-xun", "xun", "癸", "刑"], ["gui-kun", "kun", "癸", "刑"], ["gui-li", "li", "癸", null],
+    ["geng-gen", "gen", "庚", "刑"], ["geng-xun", "xun", "庚", "刑"], ["geng-kun", "kun", "庚", null],
+    ["ji-kun", "kun", "己", "刑"], ["ji-gen", "gen", "己", "刑"], ["ji-zhen", "zhen", "己", null],
+  ];
+  for (const [id, palaceKey, heavenStem, expected] of sixInstrumentMultiPalaceCases) {
+    qimenPlateMarkersVerifiedCaseCount += 1;
+    assertEqual(
+      `qimen-six-instrument-punishment-multi-palace-${id}`,
+      "marker",
+      expected,
+      getQimenHeavenStemMarker(palaceKey, heavenStem)
+    );
+  }
+
+  const sixInstrumentPunishmentNegativeCases = [
+    ["ren-kun", "kun", "壬"], ["xin-xun", "xun", "辛"], ["wu-gen", "gen", "戊"],
+    ["gui-kan", "kan", "癸"], ["geng-li", "li", "庚"], ["ji-qian", "qian", "己"],
+    ["unknown-palace", "unknown", "癸"], ["missing-stem", "kun", undefined], ["invalid-stem", "kun", {}],
+  ];
+  for (const [id, palaceKey, heavenStem] of sixInstrumentPunishmentNegativeCases) {
+    qimenPlateMarkersVerifiedCaseCount += 1;
+    assertEqual(
+      `qimen-six-instrument-punishment-negative-${id}`,
+      "marker",
+      null,
+      getQimenHeavenStemMarker(palaceKey, heavenStem)
+    );
+  }
+
+  const sixInstrumentPunishmentViewModelCases = [
+    ["gui-kun", "kun", "癸"],
+    ["geng-xun", "xun", "庚"],
+    ["ji-gen", "gen", "己"],
+  ];
+  for (const [id, palaceKey, heavenStem] of sixInstrumentPunishmentViewModelCases) {
+    const plate = createQimenMarkerFixturePlate();
+    for (const key of QIMEN_PALACE_KEYS) {
+      plate.palaces[key].heavenStem = "甲";
+      plate.palaces[key].earthStem = "甲";
+    }
+    plate.palaces[palaceKey].heavenStem = heavenStem;
+    plate.palaces[palaceKey].earthStem = "丙";
+    const markers = decorateQimenPlateMarkers(plate);
+    qimenPlateMarkersVerifiedCaseCount += 1;
+    assertEqual(`qimen-six-instrument-punishment-view-model-${id}`, "heavenStemMarker", "刑", markers.palaces[palaceKey].heavenStemMarker);
+    assertEqual(`qimen-six-instrument-punishment-view-model-${id}`, "punishmentMarkerCount", 1, Object.values(markers.palaces).filter((marker) => marker.heavenStemMarker === "刑").length);
+    assertEqual(`qimen-six-instrument-punishment-view-model-${id}`, "earthStemDoesNotDriveMarker", null, getQimenHeavenStemMarker(palaceKey, plate.palaces[palaceKey].earthStem));
+  }
+
+  qimenPlateMarkersVerifiedCaseCount += 1;
+  const missingPalaceMarkers = decorateQimenPlateMarkers({ palaces: {} });
+  assertEqual("qimen-six-instrument-punishment-missing-palace-view-model", "kun.heavenStemMarker", null, missingPalaceMarkers.palaces.kun.heavenStemMarker);
+  assertEqual("qimen-six-instrument-punishment-missing-plate-view-model", "kun.heavenStemMarker", null, decorateQimenPlateMarkers(null).palaces.kun.heavenStemMarker);
+
   qimenPlateMarkersVerifiedCaseCount += 1;
   assertEqual("qimen-plate-markers-door-po-li-xiu", "marker", "迫", getQimenDoorPoMarker("li", "休"));
   assertEqual("qimen-plate-markers-door-po-kun-shang", "marker", "迫", getQimenDoorPoMarker("kun", "傷"));

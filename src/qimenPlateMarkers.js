@@ -21,11 +21,11 @@ export const QIMEN_BRANCH_POSITIONS = Object.freeze({
 
 export const QIMEN_HEAVEN_STEM_MARKERS = Object.freeze({
   kan: Object.freeze({ 丙: "制", 丁: "制" }),
-  gen: Object.freeze({ 丁: "墓", 庚: "刑" }),
+  gen: Object.freeze({ 丁: "墓", 庚: "刑", 己: "刑" }),
   zhen: Object.freeze({ 戊: "刑" }),
-  xun: Object.freeze({ 壬: "刑", 癸: "刑" }),
+  xun: Object.freeze({ 壬: "刑", 癸: "刑", 庚: "刑" }),
   li: Object.freeze({ 辛: "刑" }),
-  kun: Object.freeze({ 乙: "墓", 己: "刑" }),
+  kun: Object.freeze({ 乙: "墓", 己: "刑", 癸: "刑" }),
   dui: Object.freeze({ 乙: "制" }),
   qian: Object.freeze({ 乙: "制", 丙: "墓", 丁: "墓" }),
   center: Object.freeze({}),
