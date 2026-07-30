@@ -4,6 +4,21 @@ export const QIMEN_EARTHLY_BRANCHES = Object.freeze([
   "子", "丑", "寅", "卯", "辰", "巳", "午", "未", "申", "酉", "戌", "亥",
 ]);
 
+export const QIMEN_BRANCH_POSITIONS = Object.freeze({
+  子: Object.freeze({ palaceKey: "kan", position: "kan-bottom", edge: "bottom" }),
+  丑: Object.freeze({ palaceKey: "gen", position: "gen-bottom", edge: "bottom" }),
+  寅: Object.freeze({ palaceKey: "gen", position: "gen-left", edge: "left" }),
+  卯: Object.freeze({ palaceKey: "zhen", position: "zhen-left", edge: "left" }),
+  辰: Object.freeze({ palaceKey: "xun", position: "xun-left", edge: "left" }),
+  巳: Object.freeze({ palaceKey: "xun", position: "xun-top", edge: "top" }),
+  午: Object.freeze({ palaceKey: "li", position: "li-top", edge: "top" }),
+  未: Object.freeze({ palaceKey: "kun", position: "kun-top", edge: "top" }),
+  申: Object.freeze({ palaceKey: "kun", position: "kun-right", edge: "right" }),
+  酉: Object.freeze({ palaceKey: "dui", position: "dui-right", edge: "right" }),
+  戌: Object.freeze({ palaceKey: "qian", position: "qian-right", edge: "right" }),
+  亥: Object.freeze({ palaceKey: "qian", position: "qian-bottom", edge: "bottom" }),
+});
+
 export const QIMEN_HEAVEN_STEM_MARKERS = Object.freeze({
   kan: Object.freeze({ 丙: "制", 丁: "制" }),
   gen: Object.freeze({ 丁: "墓", 庚: "刑" }),

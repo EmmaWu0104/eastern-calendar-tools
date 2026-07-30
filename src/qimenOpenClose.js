@@ -1,14 +1,12 @@
 import { QIMEN_PALACE_KEYS } from "./qimenPlateValidation.js";
 import { normalizeQimenStarName } from "./qimenPlateMarkers.js";
+import { resolveQimenJiaXun } from "./qimenJiaXun.js";
 
-export const QIMEN_JIA_HOUR_RESOLVED_STEMS = Object.freeze({
-  子: "戊",
-  戌: "己",
-  申: "庚",
-  午: "辛",
-  辰: "壬",
-  寅: "癸",
-});
+export {
+  QIMEN_JIA_HOUR_RESOLVED_STEMS,
+  QIMEN_JIA_XUN_DEFINITIONS,
+  resolveQimenJiaXun,
+} from "./qimenJiaXun.js";
 
 export const QIMEN_OPEN_CLOSE_BY_STAR = Object.freeze({
   天蓬: Object.freeze({ type: "open", label: "開" }),
@@ -34,7 +32,7 @@ export function resolveQimenOpenCloseStem(hourPillar) {
     return sourceStem;
   }
 
-  return QIMEN_JIA_HOUR_RESOLVED_STEMS[hourPillar[1]] ?? null;
+  return resolveQimenJiaXun(hourPillar)?.chiefStem ?? null;
 }
 
 export function resolveQimenOpenClose(plate) {

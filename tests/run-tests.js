@@ -127,10 +127,12 @@ const {
   QIMEN_JIA_HOUR_RESOLVED_STEMS,
   QIMEN_OPEN_CLOSE_BY_STAR,
   createQimenOpenCloseViewModel,
+  resolveQimenJiaXun,
   resolveQimenOpenClose,
   resolveQimenOpenCloseStem,
 } = await import("../src/qimenOpenClose.js");
 const {
+  QIMEN_BRANCH_POSITIONS,
   decorateQimenPlateMarkers,
   findQimenDisplayZhiFuPalaceKey,
   findQimenTianRuiPalaceKey,
@@ -145,6 +147,12 @@ const {
   findQimenTianYiStarPalaceKey,
   normalizeQimenStarName,
 } = await import("../src/qimenPlateMarkers.js");
+const {
+  QIMEN_SOLAR_TERM_VIRTUE_PUNISHMENT_BY_TERM,
+  createQimenSolarTermVirtuePunishmentViewModel,
+  normalizeQimenSolarTermName,
+  resolveQimenSolarTermVirtuePunishment,
+} = await import("../src/qimenSolarTermVirtuePunishment.js");
 const {
   getCurrentHouBySolarTermRange,
   getHouBySolarTerm,
@@ -269,6 +277,7 @@ let qimenPlateLookupVerifiedCaseCount = 0;
 let qimenPlateValidationVerifiedCaseCount = 0;
 let qimenPlateMarkersVerifiedCaseCount = 0;
 let qimenOpenCloseVerifiedCaseCount = 0;
+let qimenSolarTermVirtuePunishmentVerifiedCaseCount = 0;
 let qimen1080MarkdownParserVerifiedCaseCount = 0;
 let qimen1080SequenceDiagnosticsVerifiedCaseCount = 0;
 let qimen1080ConverterDryRunVerifiedCaseCount = 0;
@@ -602,6 +611,7 @@ runQimenFullTermCycleDraftResolverFormatterCacheReplacementTests();
 runQimenPlateLookupTests();
 runQimenPlateMarkersTests();
 runQimenOpenCloseTests();
+runQimenSolarTermVirtuePunishmentTests();
 runHexagramTests();
 await runQimenPlateValidationTests();
 runQimen1080MarkdownParserTests();
@@ -684,6 +694,7 @@ if (failures.length > 0) {
   console.log(`奇門1080盤面lookup測試通過：${qimenPlateLookupVerifiedCaseCount} cases`);
   console.log(`奇門盤面標記規則測試通過：${qimenPlateMarkersVerifiedCaseCount} cases`);
   console.log(`奇門九星加時定開闔測試通過：${qimenOpenCloseVerifiedCaseCount} cases`);
+  console.log(`奇門節氣德刑測試通過：${qimenSolarTermVirtuePunishmentVerifiedCaseCount} cases`);
   console.log(`奇門1080盤面schema validation測試通過：${qimenPlateValidationVerifiedCaseCount} cases`);
   console.log(`奇門1080.md parser diagnostics測試通過：${qimen1080MarkdownParserVerifiedCaseCount} cases`);
   console.log(`奇門1080.md 排盤序列 diagnostics測試通過：${qimen1080SequenceDiagnosticsVerifiedCaseCount} cases`);
@@ -6435,13 +6446,193 @@ function runQimenOpenCloseTests() {
     "qimen-open-close-ui-header-and-badge",
     "implementation",
     true,
-    mainModuleRaw.includes("createQimenOpenCloseViewModel(plateResult.plate)")
+    mainModuleRaw.includes("createQimenOpenCloseViewModel(plate)")
       && mainModuleRaw.includes("createQimenOpenCloseBadge(openClose)")
       && mainModuleRaw.includes("formatQimenPalaceHeader(palace, palaceMeta, openClose)")
       && mainCssRaw.includes(".qimen-open-close-badge")
       && mainCssRaw.includes(".qimen-open-close-badge.is-open")
       && mainCssRaw.includes(".qimen-open-close-badge.is-close")
   );
+}
+
+function runQimenSolarTermVirtuePunishmentTests() {
+  const expectedXunKeys = ["jiaZi", "jiaXu", "jiaShen", "jiaWu", "jiaChen", "jiaYin"];
+  const expectedXunLabels = ["甲子旬", "甲戌旬", "甲申旬", "甲午旬", "甲辰旬", "甲寅旬"];
+  const expectedChiefStems = ["戊", "己", "庚", "辛", "壬", "癸"];
+  const resolvedPillars = new Set();
+  const xunCounts = Object.fromEntries(expectedXunKeys.map((key) => [key, 0]));
+  for (const [index, hourPillar] of SEXAGENARY_CYCLE.entries()) {
+    const xun = resolveQimenJiaXun(hourPillar);
+    const xunIndex = Math.floor(index / 10);
+    qimenSolarTermVirtuePunishmentVerifiedCaseCount += 1;
+    assertEqual(`qimen-jia-xun-${hourPillar}`, "key", expectedXunKeys[xunIndex], xun?.key);
+    assertEqual(`qimen-jia-xun-${hourPillar}`, "label", expectedXunLabels[xunIndex], xun?.label);
+    assertEqual(`qimen-jia-xun-${hourPillar}`, "chiefStem", expectedChiefStems[xunIndex], xun?.chiefStem);
+    resolvedPillars.add(hourPillar);
+    if (xun?.key) {
+      xunCounts[xun.key] += 1;
+    }
+  }
+  assertEqual("qimen-jia-xun-completeness", "uniquePillars", 60, resolvedPillars.size);
+  for (const key of expectedXunKeys) {
+    assertEqual(`qimen-jia-xun-count-${key}`, "count", 10, xunCounts[key]);
+  }
+  assertEqual("qimen-jia-xun-invalid-empty", "result", null, resolveQimenJiaXun(""));
+  assertEqual("qimen-jia-xun-invalid-pillar", "result", null, resolveQimenJiaXun("甲丑"));
+
+  const solarTermMappingCases = [
+    [["冬至", "小寒", "大寒"], "甲子", "卯", "酉"],
+    [["夏至", "小暑", "大暑"], "甲子", "酉", "卯"],
+    [["立春", "雨水", "驚蟄"], "甲戌", "辰", "戌"],
+    [["立秋", "處暑", "白露"], "甲戌", "戌", "辰"],
+    [["春分", "清明", "穀雨"], "甲子", "午", "子"],
+    [["秋分", "寒露", "霜降"], "甲子", "子", "午"],
+    [["立夏", "小滿", "芒種"], "甲子", "未", "丑"],
+    [["立冬", "小雪", "大雪"], "甲子", "丑", "未"],
+  ];
+  for (const [solarTermsInGroup, hourPillar, virtueBranch, punishmentBranch] of solarTermMappingCases) {
+    for (const solarTerm of solarTermsInGroup) {
+      const resolution = resolveQimenSolarTermVirtuePunishment({ solarTerm, hourPillar });
+      const virtueMarkers = resolution.markers.filter((marker) => marker.type === "virtue");
+      const punishmentMarkers = resolution.markers.filter((marker) => marker.type === "punishment");
+      qimenSolarTermVirtuePunishmentVerifiedCaseCount += 1;
+      assertEqual(`qimen-solar-term-virtue-punishment-${solarTerm}`, "knownTerm", true, Object.hasOwn(QIMEN_SOLAR_TERM_VIRTUE_PUNISHMENT_BY_TERM, solarTerm));
+      assertEqual(`qimen-solar-term-virtue-punishment-${solarTerm}`, "markerCount", 2, resolution.markers.length);
+      assertEqual(`qimen-solar-term-virtue-punishment-${solarTerm}`, "virtueCount", 1, virtueMarkers.length);
+      assertEqual(`qimen-solar-term-virtue-punishment-${solarTerm}`, "virtueBranch", virtueBranch, virtueMarkers[0]?.branch);
+      assertEqual(`qimen-solar-term-virtue-punishment-${solarTerm}`, "punishmentCount", 1, punishmentMarkers.length);
+      assertEqual(`qimen-solar-term-virtue-punishment-${solarTerm}`, "punishmentBranch", punishmentBranch, punishmentMarkers[0]?.branch);
+      assertEqual(`qimen-solar-term-virtue-punishment-${solarTerm}`, "maxTwo", true, resolution.markers.length <= 2);
+    }
+  }
+
+  const suppressionCases = [
+    ["冬至", "甲辰", ["punishment"]],
+    ["冬至", "甲戌", ["virtue"]],
+    ["冬至", "甲子", ["virtue", "punishment"]],
+    ["立春", "甲午", ["punishment"]],
+    ["立春", "甲子", ["virtue"]],
+    ["立春", "甲戌", ["virtue", "punishment"]],
+    ["春分", "甲申", ["punishment"]],
+    ["春分", "甲寅", ["virtue"]],
+    ["春分", "甲子", ["virtue", "punishment"]],
+    ["立夏", "甲申", ["punishment"]],
+    ["立夏", "甲寅", ["virtue"]],
+    ["立夏", "甲子", ["virtue", "punishment"]],
+  ];
+  for (const [solarTerm, hourPillar, expectedTypes] of suppressionCases) {
+    const resolution = resolveQimenSolarTermVirtuePunishment({ solarTerm, hourPillar });
+    const actualTypes = resolution.markers.map((marker) => marker.type);
+    qimenSolarTermVirtuePunishmentVerifiedCaseCount += 1;
+    assertEqual(`qimen-solar-term-suppression-${solarTerm}-${hourPillar}`, "types", expectedTypes.join(","), actualTypes.join(","));
+    assertEqual(`qimen-solar-term-suppression-${solarTerm}-${hourPillar}`, "uniqueTypes", actualTypes.length, new Set(actualTypes).size);
+  }
+
+  qimenSolarTermVirtuePunishmentVerifiedCaseCount += 1;
+  assertEqual("qimen-solar-term-normalize-guyu", "term", "穀雨", normalizeQimenSolarTermName("谷雨"));
+  assertEqual("qimen-solar-term-normalize-jingzhe", "term", "驚蟄", normalizeQimenSolarTermName("惊蛰"));
+  assertEqual("qimen-solar-term-normalize-chushu", "term", "處暑", normalizeQimenSolarTermName("处暑"));
+
+  const actualTermPlate = createQimenMarkerFixturePlate();
+  const actualTermViewModel = createQimenSolarTermVirtuePunishmentViewModel({
+    actualSolarTerm: "冬至",
+    qimenSolarTerm: "大雪",
+    hourPillar: "甲子",
+  }, actualTermPlate);
+  qimenSolarTermVirtuePunishmentVerifiedCaseCount += 1;
+  assertEqual("qimen-solar-term-actual-not-qimen-term", "solarTerm", "冬至", actualTermViewModel.solarTerm);
+  assertEqual("qimen-solar-term-actual-not-qimen-term", "branches", "卯,酉", actualTermViewModel.markers.map((marker) => marker.branch).join(","));
+  assertEqual("qimen-solar-term-actual-not-qimen-term", "zhenCount", 1, actualTermViewModel.palaces.zhen.length);
+  assertEqual("qimen-solar-term-actual-not-qimen-term", "duiCount", 1, actualTermViewModel.palaces.dui.length);
+  for (const palaceKey of QIMEN_PALACE_KEYS.filter((key) => !["zhen", "dui"].includes(key))) {
+    assertEqual(`qimen-solar-term-view-model-empty-${palaceKey}`, "markerCount", 0, actualTermViewModel.palaces[palaceKey].length);
+  }
+
+  const safetyCases = [
+    ["missing-term", { hourPillar: "甲子" }, "ACTUAL_SOLAR_TERM_NOT_FOUND"],
+    ["unknown-term", { solarTerm: "未知節氣", hourPillar: "甲子" }, "SOLAR_TERM_RULE_NOT_FOUND"],
+    ["missing-hour", { solarTerm: "冬至" }, "JIA_XUN_NOT_RESOLVED"],
+    ["invalid-hour", { solarTerm: "冬至", hourPillar: "甲丑" }, "JIA_XUN_NOT_RESOLVED"],
+  ];
+  for (const [id, input, expectedCode] of safetyCases) {
+    const resolution = resolveQimenSolarTermVirtuePunishment(input);
+    qimenSolarTermVirtuePunishmentVerifiedCaseCount += 1;
+    assertEqual(`qimen-solar-term-safe-${id}`, "markerCount", 0, resolution.markers.length);
+    assertEqual(`qimen-solar-term-safe-${id}`, "diagnostic", expectedCode, resolution.diagnostics[0]?.code);
+  }
+
+  const missingPalacePlate = createQimenMarkerFixturePlate();
+  delete missingPalacePlate.palaces.zhen;
+  const missingPalace = createQimenSolarTermVirtuePunishmentViewModel({
+    actualSolarTerm: "冬至",
+    hourPillar: "甲子",
+  }, missingPalacePlate);
+  qimenSolarTermVirtuePunishmentVerifiedCaseCount += 1;
+  assertEqual("qimen-solar-term-safe-missing-palace", "markerCount", 1, missingPalace.markers.length);
+  assertEqual("qimen-solar-term-safe-missing-palace", "diagnostic", "MARKER_PALACE_NOT_FOUND", missingPalace.diagnostics[0]?.code);
+
+  const expectedBranchPositions = {
+    卯: ["zhen", "zhen-left", "left"], 酉: ["dui", "dui-right", "right"],
+    辰: ["xun", "xun-left", "left"], 戌: ["qian", "qian-right", "right"],
+    午: ["li", "li-top", "top"], 子: ["kan", "kan-bottom", "bottom"],
+    未: ["kun", "kun-top", "top"], 丑: ["gen", "gen-bottom", "bottom"],
+  };
+  for (const [branch, [palaceKey, position, edge]] of Object.entries(expectedBranchPositions)) {
+    qimenSolarTermVirtuePunishmentVerifiedCaseCount += 1;
+    assertEqual(`qimen-solar-term-branch-position-${branch}`, "palaceKey", palaceKey, QIMEN_BRANCH_POSITIONS[branch]?.palaceKey);
+    assertEqual(`qimen-solar-term-branch-position-${branch}`, "position", position, QIMEN_BRANCH_POSITIONS[branch]?.position);
+    assertEqual(`qimen-solar-term-branch-position-${branch}`, "edge", edge, QIMEN_BRANCH_POSITIONS[branch]?.edge);
+  }
+
+  qimenSolarTermVirtuePunishmentVerifiedCaseCount += 1;
+  assertEqual(
+    "qimen-solar-term-ui-flow",
+    "implementation",
+    true,
+    mainModuleRaw.includes("createQimenPlateAnnotations(plateResult.plate, qimen)")
+      && mainModuleRaw.includes("createQimenVirtuePunishmentBadges(palaceMeta.key, virtuePunishment)")
+      && mainModuleRaw.includes('"qimen-virtue-punishment-badge"')
+      && mainModuleRaw.includes('marker.hasGuXuMarker ? "has-gu-xu-marker" : ""')
+      && !/headerLabel\.append\(createQimenVirtuePunishmentBadge/.test(mainModuleRaw)
+      && mainCssRaw.includes(".qimen-virtue-punishment-badge.is-virtue")
+      && mainCssRaw.includes(".qimen-virtue-punishment-badge.is-punishment")
+  );
+
+  for (const edge of ["left", "right", "top", "bottom"]) {
+    qimenSolarTermVirtuePunishmentVerifiedCaseCount += 1;
+    const positions = Object.values(expectedBranchPositions)
+      .filter(([, , candidateEdge]) => candidateEdge === edge)
+      .map(([, position]) => position);
+    assertEqual(
+      `qimen-solar-term-gu-xu-offset-${edge}`,
+      "cssModifier",
+      true,
+      positions.every((position) => mainCssRaw.includes(`.qimen-virtue-punishment-pos-${position}.has-gu-xu-marker`))
+    );
+  }
+
+  for (const [solarTermsInGroup, hourPillar] of solarTermMappingCases) {
+    const collisionViewModel = createQimenSolarTermVirtuePunishmentViewModel({
+      actualSolarTerm: solarTermsInGroup[0],
+      hourPillar,
+    }, createQimenMarkerFixturePlate(), {
+      gu: ["卯", "辰", "午", "未"],
+      xu: ["酉", "戌", "子", "丑"],
+    });
+    for (const marker of collisionViewModel.markers) {
+      qimenSolarTermVirtuePunishmentVerifiedCaseCount += 1;
+      assertEqual(
+        `qimen-solar-term-gu-xu-collision-${marker.branch}`,
+        "hasGuXuMarker",
+        true,
+        marker.hasGuXuMarker
+      );
+    }
+  }
+
+  qimenSolarTermVirtuePunishmentVerifiedCaseCount += 1;
+  assertEqual("qimen-solar-term-open-close-preserved", "openCloseRender", true, mainModuleRaw.includes("createQimenOpenCloseBadge(openClose)"));
+  assertEqual("qimen-solar-term-gu-xu-preserved", "guXuRender", true, mainModuleRaw.includes("createQimenGuXuBadges(palaceMeta.key, guXu)"));
 }
 
 function createQimenDisplayZhiFuFixturePlate(options = {}) {

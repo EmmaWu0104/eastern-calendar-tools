@@ -40,11 +40,15 @@ import { getNaYinByPillar } from "./nayin.js";
 import { getQimenPlate } from "./qimenPlateLookup.js";
 import { createQimenOpenCloseViewModel } from "./qimenOpenClose.js";
 import {
+  QIMEN_BRANCH_POSITIONS,
   decorateQimenPlateMarkers,
   findQimenDisplayZhiFuPalaceKey,
   getQimenGuXuByHourBranch,
 } from "./qimenPlateMarkers.js";
 import { resolveQimenJuFromFullTermCycleDraft } from "./qimenResolver.js";
+import {
+  createQimenSolarTermVirtuePunishmentViewModel,
+} from "./qimenSolarTermVirtuePunishment.js";
 import {
   formatSolarTermDateTime,
   getSolarTermOnDate,
@@ -65,21 +69,6 @@ const PALACE_DIRECTION_LABELS = {
   kan: "北",
   qian: "西北",
 };
-
-const QIMEN_GUXU_BRANCH_POSITIONS = Object.freeze({
-  子: Object.freeze({ palaceKey: "kan", position: "kan-bottom" }),
-  丑: Object.freeze({ palaceKey: "gen", position: "gen-bottom" }),
-  寅: Object.freeze({ palaceKey: "gen", position: "gen-left" }),
-  卯: Object.freeze({ palaceKey: "zhen", position: "zhen-left" }),
-  辰: Object.freeze({ palaceKey: "xun", position: "xun-left" }),
-  巳: Object.freeze({ palaceKey: "xun", position: "xun-top" }),
-  午: Object.freeze({ palaceKey: "li", position: "li-top" }),
-  未: Object.freeze({ palaceKey: "kun", position: "kun-top" }),
-  申: Object.freeze({ palaceKey: "kun", position: "kun-right" }),
-  酉: Object.freeze({ palaceKey: "dui", position: "dui-right" }),
-  戌: Object.freeze({ palaceKey: "qian", position: "qian-right" }),
-  亥: Object.freeze({ palaceKey: "qian", position: "qian-bottom" }),
-});
 
 const JINHAN_PALACE_LAYOUT = Object.freeze([
   Object.freeze(["巽", "離", "坤"]),
@@ -1338,7 +1327,7 @@ function renderQimenSection(dateTimeText) {
 
       if (plate.status === "found") {
         qimenElements.summary.replaceChildren(...createQimenSummaryRows(qimen, plate.plate));
-        renderQimenPlateResult(plate);
+        renderQimenPlateResult(plate, qimen);
         qimenElements.fallback.textContent = "";
       } else {
         clearQimenPlateDisplay();
@@ -1457,18 +1446,26 @@ function clearQimenPlateDisplay() {
   qimenElements.plateSection.replaceChildren();
 }
 
-function renderQimenPlateResult(plateResult) {
-  const markers = decorateQimenPlateMarkers(plateResult.plate);
-  const openCloseViewModel = createQimenOpenCloseViewModel(plateResult.plate);
-  const displayZhiFuPalaceKey = findQimenDisplayZhiFuPalaceKey(plateResult.plate);
-  const guXu = getQimenGuXuByHourBranch(getQimenHourBranch(plateResult.plate?.hourPillar));
+function renderQimenPlateResult(plateResult, qimen) {
+  const annotations = createQimenPlateAnnotations(plateResult.plate, qimen);
   const gridWrap = document.createElement("div");
   gridWrap.className = "qimen-plate-grid-wrap";
-  gridWrap.append(renderQimenPlateGrid(plateResult.plate, markers, displayZhiFuPalaceKey, guXu, openCloseViewModel));
+  gridWrap.append(renderQimenPlateGrid(plateResult.plate, annotations));
   qimenElements.plateSection.replaceChildren(gridWrap);
 }
 
-function renderQimenPlateGrid(plate, markers, displayZhiFuPalaceKey, guXu, openCloseViewModel) {
+function createQimenPlateAnnotations(plate, qimen) {
+  const guXu = getQimenGuXuByHourBranch(getQimenHourBranch(plate?.hourPillar));
+  return {
+    plateMarkers: decorateQimenPlateMarkers(plate),
+    displayZhiFuPalaceKey: findQimenDisplayZhiFuPalaceKey(plate),
+    guXu,
+    openClose: createQimenOpenCloseViewModel(plate),
+    virtuePunishment: createQimenSolarTermVirtuePunishmentViewModel(qimen, plate, guXu),
+  };
+}
+
+function renderQimenPlateGrid(plate, annotations) {
   const grid = document.createElement("div");
   grid.className = "qimen-plate-grid";
   grid.setAttribute("aria-label", "奇門盤面九宮");
@@ -1477,10 +1474,7 @@ function renderQimenPlateGrid(plate, markers, displayZhiFuPalaceKey, guXu, openC
     grid.append(createQimenPalaceCell(
       plate?.palaces?.[palaceMeta.key],
       palaceMeta,
-      markers?.palaces?.[palaceMeta.key],
-      displayZhiFuPalaceKey,
-      guXu,
-      openCloseViewModel?.palaces?.[palaceMeta.key] ?? null
+      annotations
     ));
   }
 
@@ -1490,11 +1484,13 @@ function renderQimenPlateGrid(plate, markers, displayZhiFuPalaceKey, guXu, openC
 function createQimenPalaceCell(
   palace,
   palaceMeta,
-  palaceMarkers = {},
-  displayZhiFuPalaceKey = null,
-  guXu = null,
-  openClose = null
+  annotations = {}
 ) {
+  const palaceMarkers = annotations.plateMarkers?.palaces?.[palaceMeta.key] ?? {};
+  const displayZhiFuPalaceKey = annotations.displayZhiFuPalaceKey ?? null;
+  const guXu = annotations.guXu ?? null;
+  const openClose = annotations.openClose?.palaces?.[palaceMeta.key] ?? null;
+  const virtuePunishment = annotations.virtuePunishment?.palaces?.[palaceMeta.key] ?? [];
   const isDisplayZhiFuPalace = palaceMeta.key === displayZhiFuPalaceKey;
   const isZhiShiPalace = palace?.isZhiShiPalace === true;
   const cell = document.createElement("div");
@@ -1532,7 +1528,8 @@ function createQimenPalaceCell(
       header,
       lines,
       createQimenPalaceGuaCorner(palace, palaceMeta, palaceMarkers),
-      createQimenGuXuBadges(palaceMeta.key, guXu)
+      createQimenGuXuBadges(palaceMeta.key, guXu),
+      createQimenVirtuePunishmentBadges(palaceMeta.key, virtuePunishment)
     );
     return cell;
   }
@@ -1545,7 +1542,8 @@ function createQimenPalaceCell(
     header,
     content,
     createQimenPalaceGuaCorner(palace, palaceMeta, palaceMarkers),
-    createQimenGuXuBadges(palaceMeta.key, guXu)
+    createQimenGuXuBadges(palaceMeta.key, guXu),
+    createQimenVirtuePunishmentBadges(palaceMeta.key, virtuePunishment)
   );
   if (note) {
     cell.append(note);
@@ -1566,7 +1564,7 @@ function createQimenGuXuBadges(palaceKey, guXu) {
     }
 
     for (const branch of branches) {
-      const branchPosition = QIMEN_GUXU_BRANCH_POSITIONS[branch];
+      const branchPosition = QIMEN_BRANCH_POSITIONS[branch];
       if (branchPosition?.palaceKey !== palaceKey) {
         continue;
       }
@@ -1581,6 +1579,32 @@ function createQimenGuXuBadges(palaceKey, guXu) {
       badge.setAttribute("aria-label", `${branch}${badge.textContent}`);
       badges.append(badge);
     }
+  }
+
+  return badges;
+}
+
+function createQimenVirtuePunishmentBadges(palaceKey, markers) {
+  const badges = document.createDocumentFragment();
+  if (!Array.isArray(markers)) {
+    return badges;
+  }
+
+  for (const marker of markers) {
+    if (marker?.palaceKey !== palaceKey || !marker.position || !marker.branch) {
+      continue;
+    }
+
+    const badge = document.createElement("span");
+    badge.className = [
+      "qimen-virtue-punishment-badge",
+      marker.type === "virtue" ? "is-virtue" : "is-punishment",
+      `qimen-virtue-punishment-pos-${marker.position}`,
+      marker.hasGuXuMarker ? "has-gu-xu-marker" : "",
+    ].filter(Boolean).join(" ");
+    badge.textContent = marker.label;
+    badge.setAttribute("aria-label", `${marker.branch}${marker.label}`);
+    badges.append(badge);
   }
 
   return badges;

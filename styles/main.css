@@ -1396,6 +1396,73 @@ dd {
   transform: translateY(-50%);
 }
 
+.qimen-virtue-punishment-badge {
+  position: absolute;
+  z-index: 2;
+  display: grid;
+  width: 18px;
+  height: 18px;
+  place-items: center;
+  box-sizing: border-box;
+  border: 1px solid #1f2933;
+  border-radius: 2px;
+  font-size: 10px;
+  font-weight: 850;
+  line-height: 1;
+}
+
+.qimen-virtue-punishment-badge.is-virtue {
+  background: #ffffff;
+  color: #1f2933;
+}
+
+.qimen-virtue-punishment-badge.is-punishment {
+  background: #1f2933;
+  color: #ffffff;
+}
+
+.qimen-virtue-punishment-pos-li-top,
+.qimen-virtue-punishment-pos-kun-top {
+  top: -15px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.qimen-virtue-punishment-pos-kan-bottom,
+.qimen-virtue-punishment-pos-gen-bottom {
+  bottom: -15px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.qimen-virtue-punishment-pos-zhen-left,
+.qimen-virtue-punishment-pos-xun-left {
+  top: 50%;
+  left: -15px;
+  transform: translateY(-50%);
+}
+
+.qimen-virtue-punishment-pos-dui-right,
+.qimen-virtue-punishment-pos-qian-right {
+  top: 50%;
+  right: -15px;
+  transform: translateY(-50%);
+}
+
+.qimen-virtue-punishment-pos-zhen-left.has-gu-xu-marker,
+.qimen-virtue-punishment-pos-xun-left.has-gu-xu-marker,
+.qimen-virtue-punishment-pos-dui-right.has-gu-xu-marker,
+.qimen-virtue-punishment-pos-qian-right.has-gu-xu-marker {
+  top: calc(50% + 20px);
+}
+
+.qimen-virtue-punishment-pos-li-top.has-gu-xu-marker,
+.qimen-virtue-punishment-pos-kun-top.has-gu-xu-marker,
+.qimen-virtue-punishment-pos-kan-bottom.has-gu-xu-marker,
+.qimen-virtue-punishment-pos-gen-bottom.has-gu-xu-marker {
+  left: calc(50% + 20px);
+}
+
 .qimen-palace-zhi-marker,
 .qimen-palace-tian-yi {
   border-width: 2px;
