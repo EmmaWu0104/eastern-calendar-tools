@@ -1642,27 +1642,31 @@ function createQimenPalaceContent(
   ].filter(Boolean).join(" ");
   deity.textContent = formatNullableQimenValue(palace.deity);
 
+  const starBlock = document.createElement("div");
+  starBlock.className = "qimen-star-block";
+
   const star = document.createElement("div");
   star.className = [
     "qimen-palace-star",
     palaceMarkers.isTianYiStarPalace === true ? "qimen-palace-star-tian-yi" : "",
   ].filter(Boolean).join(" ");
   star.append(document.createTextNode(formatNullableQimenValue(palace.star)));
+  starBlock.append(star);
   if (qiResponse.starQiResponse?.state) {
-    star.append(createQimenInlineMarker(
+    starBlock.append(createQimenInlineMarker(
       qiResponse.starQiResponse.state,
-      [
-        "qimen-star-qi-response",
-        palaceMarkers.isTianYiStarPalace === true ? "is-inside-tian-yi-frame" : "",
-      ].filter(Boolean).join(" "),
+      "qimen-star-qi-response",
       `九星氣應：${qiResponse.starQiResponse.state}`
     ));
   }
 
-  left.append(deity, star);
+  left.append(deity, starBlock);
 
   const center = document.createElement("div");
   center.className = "qimen-palace-center-main";
+
+  const doorBlock = document.createElement("div");
+  doorBlock.className = "qimen-door-block";
 
   const door = document.createElement("div");
   door.className = [
@@ -1670,23 +1674,33 @@ function createQimenPalaceContent(
     palace.isZhiShiPalace === true ? "qimen-palace-door-zhi-shi" : "",
   ].filter(Boolean).join(" ");
   door.append(document.createTextNode(formatNullableQimenValue(palace.door)));
-  if (palaceMarkers.doorPo) {
-    door.append(createQimenInlineMarker(palaceMarkers.doorPo, "qimen-door-po-marker"));
-  } else if (palaceMarkers.doorGeneratePalace) {
-    door.append(createQimenInlineMarker(
-      palaceMarkers.doorGeneratePalace,
-      "qimen-door-generate-palace-marker"
-    ));
-  }
+
+  const doorStatusRow = document.createElement("div");
+  doorStatusRow.className = "qimen-door-status-row";
   if (qiResponse.doorQiResponse?.state) {
-    door.append(createQimenInlineMarker(
+    doorStatusRow.append(createQimenInlineMarker(
       qiResponse.doorQiResponse.state,
       "qimen-door-qi-response",
       `八門氣應：${qiResponse.doorQiResponse.state}`
     ));
   }
+  if (palaceMarkers.doorPo) {
+    doorStatusRow.append(createQimenInlineMarker(
+      palaceMarkers.doorPo,
+      "qimen-door-po-marker qimen-door-relation-marker"
+    ));
+  } else if (palaceMarkers.doorGeneratePalace) {
+    doorStatusRow.append(createQimenInlineMarker(
+      palaceMarkers.doorGeneratePalace,
+      "qimen-door-generate-palace-marker qimen-door-relation-marker"
+    ));
+  }
+  doorBlock.append(door);
+  if (doorStatusRow.childNodes.length > 0) {
+    doorBlock.append(doorStatusRow);
+  }
 
-  center.append(door);
+  center.append(doorBlock);
 
   const right = document.createElement("div");
   right.className = "qimen-palace-right";

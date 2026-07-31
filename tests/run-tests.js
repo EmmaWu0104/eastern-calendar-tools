@@ -6985,16 +6985,73 @@ function runQimenQiResponseTests() {
       && mainModuleRaw.includes("monthPillar: currentCalendarResult?.monthPillar")
       && mainModuleRaw.includes("actualSolarTerm: qimen?.actualSolarTerm")
       && mainModuleRaw.includes("annotations.qiResponse?.palaces?.[palaceMeta.key]")
-      && mainModuleRaw.includes('"qimen-star-qi-response"')
-      && mainModuleRaw.includes('"is-inside-tian-yi-frame"')
-      && mainModuleRaw.includes('"qimen-door-qi-response"')
-      && mainModuleRaw.includes("palaceMarkers.doorPo")
-      && mainModuleRaw.includes("palaceMarkers.doorGeneratePalace")
-      && mainCssRaw.includes(".qimen-star-qi-response.is-inside-tian-yi-frame")
-      && mainCssRaw.includes(".qimen-door-qi-response")
-      && mainCssRaw.includes("top: -5px")
-      && mainCssRaw.includes("bottom: -5px")
+      && mainModuleRaw.includes('"qimen-star-block"')
+      && mainModuleRaw.includes('"qimen-door-block"')
+      && mainModuleRaw.includes('"qimen-door-status-row"')
+      && !mainModuleRaw.includes('"is-inside-tian-yi-frame"')
+      && mainCssRaw.includes(".qimen-star-block")
+      && mainCssRaw.includes(".qimen-door-status-row")
+      && mainCssRaw.includes("grid-auto-rows: minmax(var(--qimen-cell-min-height), 1fr)")
+      && /\.qimen-palace-door\s*\{[^}]*position: relative;[^}]*z-index: 1;/.test(mainCssRaw)
+      && /\.qimen-door-status-row\s*\{[^}]*position: relative;[^}]*z-index: 2;[^}]*margin-top: -2px;/.test(mainCssRaw)
+      && /\.qimen-door-block\s*\{[^}]*overflow: visible;/.test(mainCssRaw)
   );
+
+  const renderPalaceContent = loadQimenPalaceContentRenderer(mainModuleRaw);
+  const qiAndPoContent = renderPalaceContent(
+    { deity: "九天", star: "天心", door: "傷", heavenStem: "乙", earthStem: "丙" },
+    { doorPo: "迫" },
+    false,
+    { starQiResponse: { state: "廢" }, doorQiResponse: { state: "休" } }
+  );
+  const [starBlock, doorBlock] = [qiAndPoContent.childNodes[0].childNodes[1], qiAndPoContent.childNodes[1].childNodes[0]];
+  qimenQiResponseVerifiedCaseCount += 1;
+  assertEqual("qimen-qi-star-block-order", "children", "qimen-palace-star,qimen-star-qi-response", starBlock.childNodes.map((node) => node.className).join(","));
+  qimenQiResponseVerifiedCaseCount += 1;
+  assertEqual("qimen-qi-general-star-has-no-frame", "classes", "qimen-star-block", starBlock.className);
+  qimenQiResponseVerifiedCaseCount += 1;
+  assertEqual("qimen-qi-door-status-order", "children", "qimen-palace-door,qimen-door-status-row", doorBlock.childNodes.map((node) => node.className).join(","));
+  qimenQiResponseVerifiedCaseCount += 1;
+  assertEqual("qimen-qi-door-status-marker-order", "children", "qimen-door-qi-response,qimen-door-po-marker qimen-door-relation-marker", doorBlock.childNodes[1].childNodes.map((node) => node.className).join(","));
+
+  const qiAndGenerateContent = renderPalaceContent(
+    { deity: "九地", star: "天任", door: "生", heavenStem: "丁", earthStem: "己" },
+    { doorGeneratePalace: "生" },
+    false,
+    { starQiResponse: { state: "旺" }, doorQiResponse: { state: "囚" } }
+  );
+  qimenQiResponseVerifiedCaseCount += 1;
+  assertEqual("qimen-qi-door-status-generate-order", "children", "qimen-door-qi-response,qimen-door-generate-palace-marker qimen-door-relation-marker", qiAndGenerateContent.childNodes[1].childNodes[0].childNodes[1].childNodes.map((node) => node.className).join(","));
+
+  const qiOnlyContent = renderPalaceContent(
+    { deity: "九地", star: "天任", door: "開", heavenStem: "丁", earthStem: "己" },
+    {},
+    false,
+    { doorQiResponse: { state: "沒" } }
+  );
+  qimenQiResponseVerifiedCaseCount += 1;
+  assertEqual("qimen-qi-door-status-only-qi", "children", "qimen-door-qi-response", qiOnlyContent.childNodes[1].childNodes[0].childNodes[1].childNodes.map((node) => node.className).join(","));
+
+  const tianYiContent = renderPalaceContent(
+    { deity: "直符", star: "天芮", door: "生", heavenStem: "辛", earthStem: "癸" },
+    { isTianYiStarPalace: true, doorGeneratePalace: "生" },
+    true,
+    { starQiResponse: { state: "相" }, doorQiResponse: { state: "囚" } }
+  );
+  const tianYiStarBlock = tianYiContent.childNodes[0].childNodes[1];
+  qimenQiResponseVerifiedCaseCount += 1;
+  assertEqual("qimen-qi-tian-yi-frame-is-star-only", "classes", "qimen-star-block", tianYiStarBlock.className);
+  qimenQiResponseVerifiedCaseCount += 1;
+  assertEqual("qimen-qi-tian-yi-response-is-frame-sibling", "children", "qimen-palace-star qimen-palace-star-tian-yi,qimen-star-qi-response", tianYiStarBlock.childNodes.map((node) => node.className).join(","));
+
+  const noQiContent = renderPalaceContent(
+    { deity: "九地", star: "天柱", door: "杜", heavenStem: "庚", earthStem: "壬" },
+    {},
+    false,
+    {}
+  );
+  qimenQiResponseVerifiedCaseCount += 1;
+  assertEqual("qimen-qi-no-empty-markers", "children", "qimen-palace-door", noQiContent.childNodes[1].childNodes[0].childNodes.map((node) => node.className).join(","));
 }
 
 function runQimenTimeSpecialConditionsTests() {
@@ -10404,6 +10461,51 @@ function extractNamedFunctionSource(source, name) {
   }
 
   throw new Error(`Cannot find the end of ${declaration} in src/main.js`);
+}
+
+function loadQimenPalaceContentRenderer(mainModuleRaw) {
+  const documentFixture = createQimenDomFixtureDocument();
+  const rendererStart = mainModuleRaw.indexOf("function createQimenPalaceContent(");
+  const rendererEnd = mainModuleRaw.indexOf("\n}\n\nfunction createQimenPalaceGuaCorner", rendererStart);
+  if (rendererStart === -1 || rendererEnd === -1) {
+    throw new Error("Cannot load createQimenPalaceContent from src/main.js");
+  }
+  const rendererSource = mainModuleRaw.slice(rendererStart, rendererEnd + 2);
+  return Function("document", `
+    const formatNullableQimenValue = (value) => value ?? "—";
+    const createQimenInlineMarker = (text, className, ariaLabel = null) => {
+      const marker = document.createElement("span");
+      marker.className = className;
+      marker.textContent = text;
+      if (ariaLabel) {
+        marker.setAttribute("aria-label", ariaLabel);
+      }
+      return marker;
+    };
+    ${rendererSource}
+    return createQimenPalaceContent;
+  `)(documentFixture);
+}
+
+function createQimenDomFixtureDocument() {
+  const createElement = (tagName) => ({
+    tagName,
+    className: "",
+    childNodes: [],
+    attributes: {},
+    append(...nodes) {
+      this.childNodes.push(...nodes);
+    },
+    setAttribute(name, value) {
+      this.attributes[name] = value;
+    },
+  });
+  return {
+    createElement,
+    createTextNode(textContent) {
+      return { nodeType: 3, textContent };
+    },
+  };
 }
 
 function findSolarTermForTest(solarTerms, name, year) {
