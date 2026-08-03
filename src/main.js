@@ -997,7 +997,7 @@ function createDailyInfoPanelLines(dailyInfo) {
   }
 
   if (dailyInfo?.suiPo?.isSuiPo) {
-    lines.push(createPillarExtraPanelLine(`☠️ ${dailyInfo.suiPo.label}`, "daily-info-line"));
+    lines.push(createPillarExtraPanelLine(`💀 ${dailyInfo.suiPo.label}`, "daily-info-line"));
   }
 
   if (dailyInfo?.tianShe?.isTianShe) {
@@ -1009,7 +1009,7 @@ function createDailyInfoPanelLines(dailyInfo) {
   }
 
   if (dailyInfo?.seasonalMarker) {
-    lines.push(createPillarExtraPanelLine(`☠️ ${dailyInfo.seasonalMarker.label}`, "daily-info-line"));
+    lines.push(createPillarExtraPanelLine(`💀 ${dailyInfo.seasonalMarker.label}`, "daily-info-line"));
   }
 
   return lines;
