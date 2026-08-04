@@ -9,7 +9,7 @@ export const QIMEN_FIVE_NOT_ENCOUNTER_HOUR_BY_DAY_STEM = Object.freeze({
   戊: "甲寅",
   己: "乙丑",
   庚: "丙子",
-  辛: "丁丑",
+  辛: "丁酉",
   壬: "戊申",
   癸: "己未",
 });
