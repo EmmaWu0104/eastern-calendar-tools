@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "datasetName": "日曆資料",
+  "datasetId": "157677",
+  "resourceId": "A-A0087-001",
+  "resourceName": "國農曆日期對照",
+  "sourceUrl": "https://opendata.cwa.gov.tw/fileapi/v1/opendataapi/A-A0087-001?Authorization=rdec-key-123-45678-011121314&format=CSV",
+  "sourceFilename": "A-A0087-001.bin",
+  "sourceFormat": "UTF-8 CSV",
+  "sourceSha256": "1977895ede93d8cac33355fa5d51cd021f384c1298e46c075b81d8be99d576be",
+  "retrievedAt": "2026-08-03T05:39:11.801Z",
+  "sourceRange": {
+    "start": "2022-01-01",
+    "end": "2050-12-31"
+  },
+  "sourceRows": 10592,
+  "sourceColumns": [
+    "日期",
+    "民國年",
+    "農曆年",
+    "農曆月",
+    "農曆日",
+    "星期"
+  ],
+  "generator": "scripts/build-cwa-lunar-calendar-data.js",
+  "generatorVersion": 1,
+  "outputFormat": "month-starts-with-boundary-segments"
+}

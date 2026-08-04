@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "sourceSha256": "1977895ede93d8cac33355fa5d51cd021f384c1298e46c075b81d8be99d576be",
+  "supportedRange": {
+    "start": "2022-01-01",
+    "end": "2050-12-31"
+  },
+  "sourceRows": 10592,
+  "generatedMonthStarts": 358,
+  "leadingSegmentDays": 2,
+  "trailingSegmentDays": 18,
+  "validation": {
+    "dailyRows": 10592,
+    "mismatch": 0,
+    "missing": 0,
+    "duplicate": 0,
+    "invalidMonthLength": 0
+  },
+  "dataSizeBytes": {
+    "pretty": 53175,
+    "minified": 35157,
+    "gzip": 3185
+  }
+}

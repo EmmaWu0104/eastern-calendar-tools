@@ -1,6 +1,7 @@
 const TEST_TIME_ZONE = "Asia/Taipei";
 process.env.TZ = TEST_TIME_ZONE;
 
+const { execFileSync } = await import("node:child_process");
 const {
   createFlyingStarAfflictionViewModel,
   createSanShaByLayer,
@@ -10,6 +11,7 @@ const {
   getSanShaDirection,
 } = await import("../src/annualAfflictions.js");
 const { access, readdir, readFile } = await import("node:fs/promises");
+const { fileURLToPath } = await import("node:url");
 const { calculateBaziFromSolarTerms } = await import("../src/bazi.js");
 const { getDailyGodsByStem } = await import("../src/dailyGods.js");
 const {
@@ -55,6 +57,12 @@ const {
   getJinhanYujingDayPan,
 } = await import("../src/jinhanYujing.js");
 const { getNaYinByPillar } = await import("../src/nayin.js");
+const {
+  formatLunarCalendarAccessibleLabel,
+  formatLunarCalendarLabel,
+  getLunarDateForSolarDate,
+  isLunarCalendarDateSupported,
+} = await import("../src/lunarCalendar.js");
 const {
   parseQimen1080Markdown,
 } = await import("../src/qimen1080MarkdownParser.js");
@@ -227,6 +235,7 @@ const [
   dongGongModuleRaw,
   mainModuleRaw,
   mainCssRaw,
+  cwaLunarValidationRaw,
 ] = await Promise.all([
   readFile(new URL("../data/solar_terms_1899_2101.json", import.meta.url), "utf8"),
   readFile(new URL("./testcases.json", import.meta.url), "utf8"),
@@ -238,6 +247,7 @@ const [
   readFile(new URL("../src/dongGongDaySelection.js", import.meta.url), "utf8"),
   readFile(new URL("../src/main.js", import.meta.url), "utf8"),
   readFile(new URL("../styles/main.css", import.meta.url), "utf8"),
+  readFile(new URL("../data/cwa_lunar_calendar_validation_2022_2050.json", import.meta.url), "utf8"),
 ]);
 
 const solarTerms = normalizeSolarTerms(JSON.parse(termsRaw));
@@ -245,6 +255,7 @@ const testCases = JSON.parse(casesRaw);
 const flyingStarsTestCases = JSON.parse(flyingStarsCasesRaw);
 const jinhanYujingData = JSON.parse(jinhanYujingRaw);
 const qimenYuanJuTableData = JSON.parse(qimenYuanJuTableRaw);
+const cwaLunarValidation = JSON.parse(cwaLunarValidationRaw);
 const failures = [];
 const pendingCases = [];
 let verifiedCaseCount = 0;
@@ -253,6 +264,8 @@ let dailyGodsVerifiedCaseCount = 0;
 let dailyInfoVerifiedCaseCount = 0;
 let naYinVerifiedCaseCount = 0;
 let jianchuVerifiedCaseCount = 0;
+let lunarCalendarVerifiedCaseCount = 0;
+let lunarCalendarUiVerifiedCaseCount = 0;
 let jinhanDayPillarCount = 0;
 let jinhanPanCount = 0;
 let jinhanBlackYellowHourCount = 0;
@@ -322,6 +335,7 @@ let queryPickerVerifiedCaseCount = 0;
 let flyingStarRenderFlowVerifiedCaseCount = 0;
 let hexagramVerifiedCaseCount = 0;
 const queryPickerHelpers = loadQueryPickerHelpersForTest(mainModuleRaw);
+const queryCalendarDayDetail = loadQueryCalendarDayDetailForTest(mainModuleRaw);
 
 const parsedLocalDateTime = parseLocalDateTime("2026-06-05T09:08:07.123");
 const localDateTimeExpected = {
@@ -660,6 +674,8 @@ runGuiDengTests();
 runFlyingStarSanShaTests(solarTerms);
 runAnnualAfflictionsTests();
 runDongGongDaySelectionTests();
+runLunarCalendarTests();
+runLunarCalendarUiTests();
 
 if (failures.length > 0) {
   console.error("測試失敗：");
@@ -676,6 +692,8 @@ if (failures.length > 0) {
   console.log(`每日資訊測試通過：${dailyInfoVerifiedCaseCount} cases`);
   console.log(`納音測試通過：${naYinVerifiedCaseCount} cases`);
   console.log(`建除十二神測試通過：${jianchuVerifiedCaseCount} cases`);
+  console.log(`CWA 農曆資料測試通過：${lunarCalendarVerifiedCaseCount} cases`);
+  console.log(`CWA 農曆月曆 UI 測試通過：${lunarCalendarUiVerifiedCaseCount} cases`);
   console.log(
     `金函玉鏡資料檢查通過：${jinhanDayPillarCount} day pillars, ${jinhanPanCount} pans, ${jinhanBlackYellowHourCount} blackYellowHours`
   );
@@ -10403,6 +10421,172 @@ function runDongGongDaySelectionTests() {
   }
 }
 
+function runLunarCalendarTests() {
+  const expectedCases = [
+    ["cwa-leading-boundary", [2022, 1, 1], { lunarYear: 2021, lunarMonth: 11, lunarDay: 29, isLeapMonth: false }],
+    ["cwa-2022-new-year", [2022, 2, 1], { lunarYear: 2022, lunarMonth: 1, lunarDay: 1, isLeapMonth: false }],
+    ["cwa-2023-new-year", [2023, 1, 22], { lunarYear: 2023, lunarMonth: 1, lunarDay: 1, isLeapMonth: false }],
+    ["cwa-2024-new-year", [2024, 2, 10], { lunarYear: 2024, lunarMonth: 1, lunarDay: 1, isLeapMonth: false }],
+    ["cwa-2025-new-year", [2025, 1, 29], { lunarYear: 2025, lunarMonth: 1, lunarDay: 1, isLeapMonth: false }],
+    ["cwa-2026-new-year", [2026, 2, 17], { lunarYear: 2026, lunarMonth: 1, lunarDay: 1, isLeapMonth: false }],
+    ["cwa-2050-representative", [2050, 6, 20], { lunarYear: 2050, lunarMonth: 5, lunarDay: 2, isLeapMonth: false }],
+    ["cwa-day-2", [2022, 1, 4], { lunarYear: 2021, lunarMonth: 12, lunarDay: 2, isLeapMonth: false }],
+    ["cwa-day-10", [2022, 1, 12], { lunarYear: 2021, lunarMonth: 12, lunarDay: 10, isLeapMonth: false }],
+    ["cwa-day-15", [2022, 1, 17], { lunarYear: 2021, lunarMonth: 12, lunarDay: 15, isLeapMonth: false }],
+    ["cwa-day-20", [2022, 1, 22], { lunarYear: 2021, lunarMonth: 12, lunarDay: 20, isLeapMonth: false }],
+    ["cwa-day-21", [2022, 1, 23], { lunarYear: 2021, lunarMonth: 12, lunarDay: 21, isLeapMonth: false }],
+    ["cwa-day-29", [2022, 1, 31], { lunarYear: 2021, lunarMonth: 12, lunarDay: 29, isLeapMonth: false }],
+    ["cwa-small-month-end", [2022, 1, 31], { lunarYear: 2021, lunarMonth: 12, lunarDay: 29, isLeapMonth: false }],
+    ["cwa-leap-month-start", [2023, 3, 22], { lunarYear: 2023, lunarMonth: 2, lunarDay: 1, isLeapMonth: true }],
+    ["cwa-leap-month-middle", [2023, 4, 5], { lunarYear: 2023, lunarMonth: 2, lunarDay: 15, isLeapMonth: true }],
+    ["cwa-leap-month-end", [2023, 4, 19], { lunarYear: 2023, lunarMonth: 2, lunarDay: 29, isLeapMonth: true }],
+    ["cwa-gregorian-year-cross", [2023, 1, 21], { lunarYear: 2022, lunarMonth: 12, lunarDay: 30, isLeapMonth: false }],
+    ["cwa-lunar-year-cross", [2023, 1, 22], { lunarYear: 2023, lunarMonth: 1, lunarDay: 1, isLeapMonth: false }],
+    ["cwa-trailing-boundary", [2050, 12, 31], { lunarYear: 2050, lunarMonth: 11, lunarDay: 18, isLeapMonth: false }],
+  ];
+  for (const [id, [year, month, day], expected] of expectedCases) {
+    const actual = getLunarDateForSolarDate(year, month, day);
+    lunarCalendarVerifiedCaseCount += 1;
+    assertEqual(id, "lunar", JSON.stringify(expected), JSON.stringify({
+      lunarYear: actual?.lunarYear,
+      lunarMonth: actual?.lunarMonth,
+      lunarDay: actual?.lunarDay,
+      isLeapMonth: actual?.isLeapMonth,
+    }));
+  }
+
+  for (const [id, date, expected] of [
+    ["cwa-before-supported", [2021, 12, 31], null],
+    ["cwa-after-supported", [2051, 1, 1], null],
+  ]) {
+    lunarCalendarVerifiedCaseCount += 1;
+    assertEqual(id, "result", expected, getLunarDateForSolarDate(...date));
+  }
+  lunarCalendarVerifiedCaseCount += 1;
+  assertEqual("cwa-supported-start", "supported", true, isLunarCalendarDateSupported(2022, 1, 1));
+  lunarCalendarVerifiedCaseCount += 1;
+  assertEqual("cwa-supported-end", "supported", true, isLunarCalendarDateSupported(2050, 12, 31));
+  lunarCalendarVerifiedCaseCount += 1;
+  assertEqual("cwa-unsupported", "supported", false, isLunarCalendarDateSupported(2051, 1, 1));
+
+  for (const [id, date] of [
+    ["cwa-invalid-non-leap-february", [2023, 2, 29]],
+    ["cwa-invalid-february-30", [2026, 2, 30]],
+    ["cwa-invalid-month-zero", [2024, 0, 1]],
+    ["cwa-invalid-month-13", [2024, 13, 1]],
+    ["cwa-invalid-non-integer", [2024, 2.5, 1]],
+  ]) {
+    lunarCalendarVerifiedCaseCount += 1;
+    try {
+      getLunarDateForSolarDate(...date);
+      failures.push({ id, key: "error", expected: "throw", actual: "no throw" });
+    } catch (error) {
+      if (!(error instanceof TypeError || error instanceof RangeError)) {
+        failures.push({ id, key: "error", expected: "TypeError or RangeError", actual: error?.name });
+      }
+    }
+  }
+  lunarCalendarVerifiedCaseCount += 1;
+  assertEqual("cwa-valid-leap-day", "lunarDay", 20, getLunarDateForSolarDate(2024, 2, 29)?.lunarDay);
+
+  for (const [id, input, expected] of [
+    ["lunar-format-first-month", { lunarMonth: 1, lunarDay: 1, isLeapMonth: false }, "正月"],
+    ["lunar-format-winter-month", { lunarMonth: 11, lunarDay: 1, isLeapMonth: false }, "冬月"],
+    ["lunar-format-last-month", { lunarMonth: 12, lunarDay: 1, isLeapMonth: false }, "臘月"],
+    ["lunar-format-leap-month", { lunarMonth: 6, lunarDay: 1, isLeapMonth: true }, "閏六月"],
+    ["lunar-format-day-10", { lunarMonth: 1, lunarDay: 10, isLeapMonth: false }, "初十"],
+    ["lunar-format-day-11", { lunarMonth: 1, lunarDay: 11, isLeapMonth: false }, "十一"],
+    ["lunar-format-day-20", { lunarMonth: 1, lunarDay: 20, isLeapMonth: false }, "二十"],
+    ["lunar-format-day-21", { lunarMonth: 1, lunarDay: 21, isLeapMonth: false }, "廿一"],
+    ["lunar-format-day-29", { lunarMonth: 1, lunarDay: 29, isLeapMonth: false }, "廿九"],
+    ["lunar-format-day-30", { lunarMonth: 1, lunarDay: 30, isLeapMonth: false }, "三十"],
+    ["lunar-format-null", null, ""],
+  ]) {
+    lunarCalendarVerifiedCaseCount += 1;
+    assertEqual(id, "label", expected, formatLunarCalendarLabel(input));
+  }
+
+  lunarCalendarVerifiedCaseCount += 1;
+  assertEqual("cwa-validation-rows", "rows", 10592, cwaLunarValidation.validation?.dailyRows);
+  for (const [key, expected] of Object.entries({ mismatch: 0, missing: 0, duplicate: 0, invalidMonthLength: 0 })) {
+    lunarCalendarVerifiedCaseCount += 1;
+    assertEqual("cwa-validation", key, expected, cwaLunarValidation.validation?.[key]);
+  }
+
+  const timezoneWorker = fileURLToPath(new URL("./lunar-calendar-timezone-check.js", import.meta.url));
+  const timezoneResults = ["Asia/Taipei", "UTC", "America/Los_Angeles"].map((TZ) => JSON.parse(execFileSync(
+    process.execPath,
+    [timezoneWorker],
+    { encoding: "utf8", env: { ...process.env, TZ } }
+  )));
+  lunarCalendarVerifiedCaseCount += 1;
+  assertEqual("cwa-timezone-contract", "results", JSON.stringify([timezoneResults[0], timezoneResults[0], timezoneResults[0]]), JSON.stringify(timezoneResults));
+}
+
+function runLunarCalendarUiTests() {
+  const regularDay = queryCalendarDayDetail(2026, 7, 4, []);
+  lunarCalendarUiVerifiedCaseCount += 1;
+  assertEqual("lunar-ui-regular-label", "label", "廿二", regularDay.lunarLabel);
+  lunarCalendarUiVerifiedCaseCount += 1;
+  assertEqual("lunar-ui-regular-aria", "aria", "2026年8月4日，農曆六月廿二", regularDay.ariaLabel);
+
+  const solarTermDay = queryCalendarDayDetail(2026, 7, 7, [{ name: "立秋" }]);
+  lunarCalendarUiVerifiedCaseCount += 1;
+  assertEqual("lunar-ui-solar-term-text", "text", "立秋", solarTermDay.solarTermText);
+  lunarCalendarUiVerifiedCaseCount += 1;
+  assertEqual("lunar-ui-solar-term-keeps-lunar-aria", "aria", "2026年8月7日，立秋，農曆六月廿五", solarTermDay.ariaLabel);
+  lunarCalendarUiVerifiedCaseCount += 1;
+  assertEqual("lunar-ui-solar-term-data-still-available", "label", "廿五", solarTermDay.lunarLabel);
+
+  for (const [id, year, month, day, expected] of [
+    ["lunar-ui-before-range", 2021, 11, 31, "2021年12月31日"],
+    ["lunar-ui-start-range", 2022, 0, 1, "2022年1月1日，農曆冬月廿九"],
+    ["lunar-ui-end-range", 2050, 11, 31, "2050年12月31日，農曆冬月十八"],
+    ["lunar-ui-after-range", 2051, 0, 1, "2051年1月1日"],
+  ]) {
+    const detail = queryCalendarDayDetail(year, month, day, []);
+    lunarCalendarUiVerifiedCaseCount += 1;
+    assertEqual(id, "aria", expected, detail.ariaLabel);
+  }
+
+  for (const [id, year, month, day, expected] of [
+    ["lunar-ui-first-day", 2026, 1, 17, "正月"],
+    ["lunar-ui-leap-first-day", 2023, 2, 22, "閏二月"],
+    ["lunar-ui-day-15", 2023, 3, 5, "十五"],
+    ["lunar-ui-day-20", 2022, 0, 22, "二十"],
+    ["lunar-ui-day-21", 2022, 0, 23, "廿一"],
+  ]) {
+    lunarCalendarUiVerifiedCaseCount += 1;
+    assertEqual(id, "label", expected, queryCalendarDayDetail(year, month, day, []).lunarLabel);
+  }
+
+  lunarCalendarUiVerifiedCaseCount += 1;
+  assertEqual("lunar-ui-accessible-first-day", "label", "正月初一", formatLunarCalendarAccessibleLabel(getLunarDateForSolarDate(2026, 2, 17)));
+  lunarCalendarUiVerifiedCaseCount += 1;
+  assertEqual("lunar-ui-accessible-leap-day", "label", "閏二月十五", formatLunarCalendarAccessibleLabel(getLunarDateForSolarDate(2023, 4, 5)));
+  lunarCalendarUiVerifiedCaseCount += 1;
+  assertEqual("lunar-ui-accessible-null", "label", "", formatLunarCalendarAccessibleLabel(null));
+
+  const lunarUiSource = mainModuleRaw;
+  lunarCalendarUiVerifiedCaseCount += 1;
+  assertEqual("lunar-ui-dom-mutual-exclusive", "source", true, /if \(solarTerms\.length > 0\)[\s\S]*?query-calendar-solar-term[\s\S]*?else if \(calendarDayDetail\.lunarLabel\)[\s\S]*?query-calendar-lunar/.test(lunarUiSource));
+  lunarCalendarUiVerifiedCaseCount += 1;
+  assertEqual("lunar-ui-blank-cells-no-subtitle", "source", true, /is-blank[\s\S]*?aria-hidden[\s\S]*?for \(let day = 1/.test(lunarUiSource));
+  lunarCalendarUiVerifiedCaseCount += 1;
+  assertEqual("lunar-ui-rerender-replaces-cells", "source", true, lunarUiSource.includes("elements.calendarDays.replaceChildren(...cells);"));
+  lunarCalendarUiVerifiedCaseCount += 1;
+  assertEqual("lunar-ui-uses-helper-not-json", "source", true, lunarUiSource.includes("getLunarDateForSolarDate(year, month + 1, day)") && !lunarUiSource.includes("cwa_lunar_month_starts"));
+  lunarCalendarUiVerifiedCaseCount += 1;
+  assertEqual("lunar-ui-no-per-cell-fetch", "source", false, lunarUiSource.includes("fetch("));
+
+  lunarCalendarUiVerifiedCaseCount += 1;
+  assertEqual("lunar-ui-css-class", "rule", true, /\.query-calendar-lunar\s*\{[\s\S]*?white-space:\s*nowrap;/.test(mainCssRaw));
+  lunarCalendarUiVerifiedCaseCount += 1;
+  assertEqual("lunar-ui-css-selected-contrast", "rule", true, mainCssRaw.includes(".query-calendar-day.is-selected .query-calendar-lunar"));
+  lunarCalendarUiVerifiedCaseCount += 1;
+  assertEqual("lunar-ui-css-not-solar-term-box", "rule", false, /\.query-calendar-lunar\s*\{[^}]*border/.test(mainCssRaw));
+}
+
 function formatAnnualAfflictionBadgeLabels(badges) {
   return Array.isArray(badges) ? badges.map((badge) => badge.label).join("") : "";
 }
@@ -10438,6 +10622,20 @@ function loadQueryPickerHelpersForTest(mainModuleRaw) {
     ${definitions}
     return { buildDateTimeValueFromDateAndChineseHour, getSelectedCalendarDateFromDateTime };
   `)();
+}
+
+function loadQueryCalendarDayDetailForTest(mainModuleRaw) {
+  const definition = extractNamedFunctionSource(mainModuleRaw, "getQueryCalendarDayDetail");
+  return Function(
+    "getLunarDateForSolarDate",
+    "formatLunarCalendarLabel",
+    "formatLunarCalendarAccessibleLabel",
+    `${definition}\nreturn getQueryCalendarDayDetail;`
+  )(
+    getLunarDateForSolarDate,
+    formatLunarCalendarLabel,
+    formatLunarCalendarAccessibleLabel
+  );
 }
 
 function extractNamedFunctionSource(source, name) {

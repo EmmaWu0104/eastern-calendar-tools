@@ -57,6 +57,11 @@ import {
   getSolarTermsInMonth,
   loadSolarTerms,
 } from "./solarTerms.js";
+import {
+  formatLunarCalendarAccessibleLabel,
+  formatLunarCalendarLabel,
+  getLunarDateForSolarDate,
+} from "./lunarCalendar.js";
 
 const AUTO_NOW_REFRESH_MS = 30_000;
 
@@ -363,6 +368,12 @@ function renderMonthCalendarDays() {
     const isSelected = selectedDate
       && isSameCalendarDate(selectedDate, visibleCalendarYear, visibleCalendarMonth, day);
     const solarTerms = solarTermsByDay.get(day) ?? [];
+    const calendarDayDetail = getQueryCalendarDayDetail(
+      visibleCalendarYear,
+      visibleCalendarMonth,
+      day,
+      solarTerms
+    );
     button.type = "button";
     button.className = [
       "query-calendar-day",
@@ -372,17 +383,32 @@ function renderMonthCalendarDays() {
     ].filter(Boolean).join(" ");
     button.append(createBlockSpan(String(day), "query-calendar-day-number"));
     if (solarTerms.length > 0) {
-      button.append(createBlockSpan(solarTerms.map((term) => term.name).join("／"), "query-calendar-solar-term"));
+      button.append(createBlockSpan(calendarDayDetail.solarTermText, "query-calendar-solar-term"));
+    } else if (calendarDayDetail.lunarLabel) {
+      button.append(createBlockSpan(calendarDayDetail.lunarLabel, "query-calendar-lunar"));
     }
     button.setAttribute("role", "gridcell");
     button.setAttribute("aria-selected", String(Boolean(isSelected)));
-    const solarTermLabel = solarTerms.length > 0 ? `，交節氣：${solarTerms.map((term) => term.name).join("、")}` : "";
-    button.setAttribute("aria-label", `${visibleCalendarYear}年${visibleCalendarMonth + 1}月${day}日${solarTermLabel}`);
+    button.setAttribute("aria-label", calendarDayDetail.ariaLabel);
     button.addEventListener("click", () => selectQueryCalendarDate(visibleCalendarYear, visibleCalendarMonth, day));
     cells.push(button);
   }
 
   elements.calendarDays.replaceChildren(...cells);
+}
+
+function getQueryCalendarDayDetail(year, month, day, solarTerms) {
+  const solarTermText = solarTerms.map((term) => term.name).join("／");
+  const lunarDate = getLunarDateForSolarDate(year, month + 1, day);
+  const lunarLabel = lunarDate ? formatLunarCalendarLabel(lunarDate) : "";
+  const lunarAccessibleLabel = lunarDate ? formatLunarCalendarAccessibleLabel(lunarDate) : "";
+  const solarTermAriaLabel = solarTermText ? `，${solarTerms.map((term) => term.name).join("、")}` : "";
+  const lunarAriaLabel = lunarAccessibleLabel ? `，農曆${lunarAccessibleLabel}` : "";
+  return {
+    solarTermText,
+    lunarLabel,
+    ariaLabel: `${year}年${month + 1}月${day}日${solarTermAriaLabel}${lunarAriaLabel}`,
+  };
 }
 
 function getSolarTermsByDayInVisibleMonth() {
