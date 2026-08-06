@@ -8794,7 +8794,9 @@ function runTrueSolarTimeUiTests() {
   assertUi("true-solar-time-ui-tab-order", true, /id="tab-true-solar-time"[\s\S]*?真太陽時[\s\S]*?id="tab-bazi"[\s\S]*?is-active/.test(indexHtmlRaw));
   assertUi("true-solar-time-ui-panel", true, indexHtmlRaw.includes('id="panel-true-solar-time"') && indexHtmlRaw.includes('id="true-solar-time-coordinate"'));
   assertUi("true-solar-time-ui-actions", true, indexHtmlRaw.includes('id="true-solar-time-calculate"') && indexHtmlRaw.includes('id="true-solar-time-geolocate"'));
-  assertUi("true-solar-time-ui-no-future-actions", false, /套用真太陽時至全部排盤|太陽高度|太陽方位/.test(indexHtmlRaw));
+  assertUi("true-solar-time-ui-no-future-actions", false, /太陽高度|太陽方位|時區選擇/.test(indexHtmlRaw));
+  assertUi("true-solar-time-ui-chart-time-controls", true, indexHtmlRaw.includes('id="true-solar-time-apply"') && indexHtmlRaw.includes('id="chart-time-restore"') && mainModuleRaw.includes("resolveEffectiveChartDateTimeValue"));
+  assertUi("true-solar-time-ui-chart-time-status-lines", true, mainModuleRaw.includes('`手錶時間：${formatDateTimeParts') && mainModuleRaw.includes('`真太陽時：${formatDateTimeParts') && !mainModuleRaw.includes("；排盤時間：") && mainModuleRaw.includes('className = "chart-time-status-detail-line"') && mainCssRaw.includes(".chart-time-status-detail-line { display: block; }"));
   assertUi("true-solar-time-ui-solar-events", true, indexHtmlRaw.includes('id="true-solar-time-solar-events"') && /日出[\s\S]*?中天[\s\S]*?日落/.test(indexHtmlRaw));
   assertUi("true-solar-time-ui-solar-events-helper", true, mainModuleRaw.includes('from "./solarEvents.js"') && mainModuleRaw.includes("calculateSolarEvents"));
   assertUi("true-solar-time-clock-no-solar-events", false, extractNamedFunctionSource(mainModuleRaw, "refreshTrueSolarTimeClock").includes("calculateSolarEvents"));

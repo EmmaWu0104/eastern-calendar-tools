@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>曆術排盤工具</title>
     <link rel="icon" href="data:,">
-    <link rel="stylesheet" href="./styles/main.css?v=20260804">
+    <link rel="stylesheet" href="./styles/main.css?v=20260806">
   </head>
   <body>
     <main class="app">
@@ -48,6 +48,8 @@
         <button id="tab-qimen" class="tab-button" type="button" role="tab" aria-selected="false" aria-controls="panel-qimen">奇門遁甲</button>
       </div>
 
+      <section id="chart-time-status" class="chart-time-status" aria-live="polite"><strong id="chart-time-status-title"></strong><span id="chart-time-status-detail"></span><button id="chart-time-restore" type="button" hidden>恢復手錶時間排盤</button></section>
+
       <div id="panel-true-solar-time" class="tab-panel" role="tabpanel" aria-labelledby="tab-true-solar-time" hidden>
         <section class="panel true-solar-time-panel" aria-labelledby="true-solar-time-title">
           <h2 id="true-solar-time-title">真太陽時</h2>
@@ -66,6 +68,7 @@
             <div class="true-solar-time-solar-events-grid"><div><span>日出</span><strong id="true-solar-time-sunrise">--</strong></div><div><span>中天</span><strong id="true-solar-time-solar-noon">--</strong></div><div><span>日落</span><strong id="true-solar-time-sunset">--</strong></div></div>
             <p id="true-solar-time-solar-events-message" role="status" aria-live="polite"></p>
           </section>
+          <div id="true-solar-time-apply-actions" class="true-solar-time-apply-actions" hidden><button id="true-solar-time-apply" type="button">套用真太陽時至全部排盤</button></div>
         </section>
       </div>
 
@@ -152,6 +155,6 @@
       <p class="site-credit">Emma 製作 @ 2026，版權沒有，歡迎使用</p>
     </main>
 
-    <script type="module" src="./src/main.js?v=20260804"></script>
+    <script type="module" src="./src/main.js?v=20260806"></script>
   </body>
 </html>
