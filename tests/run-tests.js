@@ -9502,6 +9502,8 @@ function runBaziJianchuTests(solarTerms) {
 }
 
 function runBaziDailyInfoTests(solarTerms) {
+  runSeasonalMarkerRenderTests();
+
   const july22 = calculateBaziFromSolarTerms("2026-07-22T12:00:00", solarTerms);
   baziDailyInfoVerifiedCaseCount += 1;
   assertEqual(
@@ -9612,6 +9614,55 @@ function runBaziDailyInfoTests(solarTerms) {
       actual: beforeSwitch.dailyInfo?.clash?.label,
     });
   }
+}
+
+function runSeasonalMarkerRenderTests() {
+  const renderers = loadSeasonalMarkerRenderers(mainModuleRaw);
+  const departure = renderers.createPillar({
+    seasonalMarker: { type: "離日", name: "金離日", label: "離日：金離日" },
+  })[0];
+  const separation = renderers.createPanel({
+    seasonalMarker: { type: "絕日", name: "金旺土絕", label: "絕日：金旺土絕" },
+  })[0];
+  const withClash = renderers.createPillar({
+    clash: { label: "衝煞：鼠" },
+    seasonalMarker: { type: "離日", name: "金離日", label: "離日：金離日" },
+  });
+
+  for (const [id, line, prefixText, valueText, ariaLabel] of [
+    ["daily-info-seasonal-marker-departure-dom", departure, "離日：", "金離日", "離日：金離日"],
+    ["daily-info-seasonal-marker-separation-dom", separation, "絕日：", "金旺土絕", "絕日：金旺土絕"],
+  ]) {
+    baziDailyInfoVerifiedCaseCount += 1;
+    assertEqual(id, "aria-label", ariaLabel, line?.attributes?.["aria-label"]);
+    assertEqual(id, "title", ariaLabel, line?.title);
+    assertEqual(id, "prefix.class", "seasonal-day-label-prefix", line?.childNodes?.[1]?.className);
+    assertEqual(id, "prefix.text", prefixText, line?.childNodes?.[1]?.textContent);
+    assertEqual(id, "value.class", "seasonal-day-label-value", line?.childNodes?.[2]?.className);
+    assertEqual(id, "value.text", valueText, line?.childNodes?.[2]?.textContent);
+  }
+
+  baziDailyInfoVerifiedCaseCount += 1;
+  assertEqual(
+    "daily-info-seasonal-marker-css-desktop",
+    "prefix.hidden",
+    true,
+    /\.seasonal-day-label-prefix\s*\{\s*display:\s*none;\s*\}/.test(mainCssRaw)
+  );
+  baziDailyInfoVerifiedCaseCount += 1;
+  assertEqual(
+    "daily-info-seasonal-marker-css-mobile",
+    "prefix.visible",
+    true,
+    /@media \(max-width: 760px\)[\s\S]*?\.seasonal-day-label-prefix\s*\{\s*display:\s*inline;\s*\}/.test(mainCssRaw)
+  );
+  baziDailyInfoVerifiedCaseCount += 1;
+  assertEqual(
+    "daily-info-seasonal-marker-other-prompt-unchanged",
+    "clash.text",
+    "❌ 衝煞：鼠",
+    withClash[0]?.textContent
+  );
 }
 
 function runSeventyTwoHouTests() {
@@ -10683,6 +10734,17 @@ function loadQimenPalaceContentRenderer(mainModuleRaw) {
     ${rendererSource}
     return createQimenPalaceContent;
   `)(documentFixture);
+}
+
+function loadSeasonalMarkerRenderers(mainModuleRaw) {
+  const documentFixture = createQimenDomFixtureDocument();
+  const start = mainModuleRaw.indexOf("function createPillarExtraPanelLine(");
+  const end = mainModuleRaw.indexOf("\n}\n\nfunction renderDailyGods", start);
+  if (start === -1 || end === -1) {
+    throw new Error("Cannot load seasonal marker renderers from src/main.js");
+  }
+  const source = mainModuleRaw.slice(start, end + 2);
+  return Function("document", `${source}\nreturn { createPillar: createDailyInfoPillarParts, createPanel: createDailyInfoPanelLines };`)(documentFixture);
 }
 
 function createQimenDomFixtureDocument() {

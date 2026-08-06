@@ -708,6 +708,10 @@ dd {
   font-weight: 800;
 }
 
+.seasonal-day-label-prefix {
+  display: none;
+}
+
 .pillar-clash-line {
   color: #52616f;
   font-size: 11px;
@@ -2282,6 +2286,10 @@ dd {
 }
 
 @media (max-width: 760px) {
+  .seasonal-day-label-prefix {
+    display: inline;
+  }
+
   .chinese-hour-range {
     font-size: 8px;
     letter-spacing: -0.2px;

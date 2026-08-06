@@ -978,6 +978,40 @@ function createPillarExtraPanelLine(text, className = "") {
   return line;
 }
 
+function appendSeasonalMarkerContent(line, seasonalMarker) {
+  line.setAttribute("aria-label", seasonalMarker.label);
+  line.title = seasonalMarker.label;
+
+  const icon = document.createElement("span");
+  icon.setAttribute("aria-hidden", "true");
+  icon.textContent = "💀 ";
+
+  const prefix = document.createElement("span");
+  prefix.className = "seasonal-day-label-prefix";
+  prefix.textContent = `${seasonalMarker.type}：`;
+
+  const value = document.createElement("span");
+  value.className = "seasonal-day-label-value";
+  value.textContent = seasonalMarker.name;
+
+  line.append(icon, prefix, value);
+  return line;
+}
+
+function createSeasonalMarkerPillarPart(seasonalMarker) {
+  return appendSeasonalMarkerContent(
+    createPillarPart("", "pillar-extra daily-info-line"),
+    seasonalMarker
+  );
+}
+
+function createSeasonalMarkerPanelLine(seasonalMarker) {
+  return appendSeasonalMarkerContent(
+    createPillarExtraPanelLine("", "daily-info-line"),
+    seasonalMarker
+  );
+}
+
 function createPillarPart(text, className) {
   const part = document.createElement("span");
   part.className = className;
@@ -1009,7 +1043,7 @@ function createDailyInfoPillarParts(dailyInfo) {
   }
 
   if (dailyInfo?.seasonalMarker) {
-    lines.push(createPillarPart(`💀 ${dailyInfo.seasonalMarker.label}`, "pillar-extra daily-info-line"));
+    lines.push(createSeasonalMarkerPillarPart(dailyInfo.seasonalMarker));
   }
 
   return lines;
@@ -1035,7 +1069,7 @@ function createDailyInfoPanelLines(dailyInfo) {
   }
 
   if (dailyInfo?.seasonalMarker) {
-    lines.push(createPillarExtraPanelLine(`💀 ${dailyInfo.seasonalMarker.label}`, "daily-info-line"));
+    lines.push(createSeasonalMarkerPanelLine(dailyInfo.seasonalMarker));
   }
 
   return lines;
