@@ -44,4 +44,6 @@ The Equation of Time core remains separate from SunCalc and charting formulas.
 
 ## Shared solar events
 
-`src/solarEvents.js` uses the NOAA/Meeus-style solar geometry used by the true-solar-time core for sunrise, solar noon, and sunset. Sunrise/sunset use NOAA's 90.833° zenith (standard refraction plus solar radius); solar noon is the apparent solar noon. 登貴 and the true-solar-time panel share this helper. UI shows truncated `HH:mm`, while 登貴 keeps the underlying second-level Date values. No external API is called, and selected coordinates are not yet applied to charting or 登貴.
+`src/solarEvents.js` uses the NOAA/Meeus-style solar geometry used by the true-solar-time core for sunrise, solar noon, and sunset. Sunrise/sunset use NOAA's 90.833° zenith (standard refraction plus solar radius); solar noon is the apparent solar noon. 登貴 and the true-solar-time panel share this helper. UI shows truncated `HH:mm`, while 登貴 keeps the underlying second-level Date values. When the user explicitly applies true solar time, the charting views and 登貴 share the selected coordinate; otherwise 登貴 uses its default location.
+
+Browser Geolocation is requested only after the user presses the location button. Coordinates are not stored in localStorage or sent to an external service. The first version fixes the watch-time basis at Taiwan UTC+8; overseas historical time zones and daylight saving time are not inferred. The vendored SunCalc remains in the repository for other functionality, but is not the formal sunrise/sunset source.

@@ -59,7 +59,7 @@
             <input id="true-solar-time-coordinate" type="text" autocomplete="off" spellcheck="false" placeholder="24°58'37.1&quot;N 121°32'45.3&quot;E">
             <div class="true-solar-time-actions"><button id="true-solar-time-calculate" type="button">依經緯度取得真太陽時</button><button id="true-solar-time-geolocate" type="button">自動取得真太陽時</button></div>
             <p id="true-solar-time-location-value" class="true-solar-time-detail"></p>
-            <p class="true-solar-time-timezone">目前以臺灣手錶時間 UTC+8 計算。</p>
+            <p class="true-solar-time-timezone">目前時間基準固定為臺灣 UTC+8；輸入海外座標時，不會自動換算當地時區或夏令時間。</p>
           </div>
           <p id="true-solar-time-status" class="section-message" role="status" aria-live="polite"></p>
           <div id="true-solar-time-result" class="true-solar-time-result" hidden></div>
@@ -106,7 +106,7 @@
             <li>立春換年</li>
             <li>12 節換月</li>
             <li>23:00 起換日</li>
-            <li>目前使用輸入的手錶時間／瀏覽器本機時間，未套用真太陽時</li>
+            <li>預設使用手錶時間排盤；可於真太陽時頁籤手動套用或恢復。</li>
           </ul>
         </section>
       </div>
