@@ -44,7 +44,9 @@ import {
   getDeviceTimeZone,
   getZonedDateTimeParts,
   resolveLocalDateTimeInTimeZone,
+  validateTimeZone,
 } from "./timeZone.js";
+import { searchTimeZones } from "./timeZoneCatalog.js";
 import { getQimenPlate } from "./qimenPlateLookup.js";
 import { createQimenOpenCloseViewModel } from "./qimenOpenClose.js";
 import {
@@ -190,6 +192,11 @@ const elements = {
   trueSolarTimeLocalDate: getElement("#true-solar-time-local-date"),
   trueSolarTimeLocalTime: getElement("#true-solar-time-local-time"),
   trueSolarTimeTimeZone: getElement("#true-solar-time-time-zone"),
+  trueSolarTimeTimeZonePicker: getElement("#true-solar-time-time-zone-picker"),
+  trueSolarTimeTimeZoneCurrentDevice: getElement("#true-solar-time-time-zone-current-device"),
+  trueSolarTimeTimeZoneCurrentDeviceLabel: getElement("#true-solar-time-time-zone-current-device-label"),
+  trueSolarTimeTimeZoneSearchStatus: getElement("#true-solar-time-time-zone-search-status"),
+  trueSolarTimeTimeZoneSearchResults: getElement("#true-solar-time-time-zone-search-results"),
   trueSolarTimeTimeZoneStatus: getElement("#true-solar-time-time-zone-status"),
   trueSolarTimeDisambiguation: getElement("#true-solar-time-disambiguation"),
   trueSolarTimeDisambiguationEarlier: getElement("#true-solar-time-disambiguation-earlier"),
@@ -252,6 +259,9 @@ let trueSolarTimeLocation = null;
 let trueSolarTimeSolarEventsKey = null;
 let trueSolarTimeSource = TRUE_SOLAR_TIME_SOURCE.QUERY;
 let trueSolarTimeCustomDisambiguation = null;
+let trueSolarTimeTimeZoneSearchResults = [];
+let trueSolarTimeTimeZoneSearchActiveIndex = -1;
+const trueSolarTimeTimeZoneOffsetCache = new Map();
 let chartTimeState = { mode: CHART_TIME_MODE.WATCH, watchDateTimeValue: null, effectiveDateTimeValue: null, trueSolarResult: null, location: null };
 const solarTermDayPanel = createSolarTermDayPanel();
 const pillarExtraPanel = createPillarExtraPanel();
@@ -302,11 +312,16 @@ for (const sourceControl of [
 for (const customControl of [
   elements.trueSolarTimeLocalDate,
   elements.trueSolarTimeLocalTime,
-  elements.trueSolarTimeTimeZone,
 ]) {
   customControl.addEventListener("input", handleTrueSolarTimeCustomInput);
   customControl.addEventListener("change", handleTrueSolarTimeCustomInput);
 }
+elements.trueSolarTimeTimeZone.addEventListener("input", handleTrueSolarTimeTimeZoneInput);
+elements.trueSolarTimeTimeZone.addEventListener("change", handleTrueSolarTimeTimeZoneInput);
+elements.trueSolarTimeTimeZone.addEventListener("keydown", handleTrueSolarTimeTimeZoneKeydown);
+elements.trueSolarTimeTimeZone.addEventListener("focus", renderTrueSolarTimeTimeZoneSearchResults);
+elements.trueSolarTimeTimeZoneCurrentDevice.addEventListener("click", useDeviceTimeZoneForCustomInput);
+document.addEventListener("click", handleTrueSolarTimeTimeZoneDocumentClick);
 elements.trueSolarTimeDisambiguationEarlier.addEventListener("change", handleTrueSolarTimeDisambiguationChange);
 elements.trueSolarTimeDisambiguationLater.addEventListener("change", handleTrueSolarTimeDisambiguationChange);
 elements.chartTimeRestore.addEventListener("click", () => restoreWatchChartTime());
@@ -1710,19 +1725,160 @@ function handleTrueSolarTimeSourceChange(event) {
   trueSolarTimeSource = event.target.value;
   trueSolarTimeCustomDisambiguation = null;
   clearTrueSolarTimeCustomDisambiguation();
+  closeTrueSolarTimeTimeZoneSearch();
   clearTrueSolarTimePresentation();
   elements.trueSolarTimeDeviceFields.hidden = trueSolarTimeSource !== TRUE_SOLAR_TIME_SOURCE.DEVICE;
   elements.trueSolarTimeCustomFields.hidden = trueSolarTimeSource !== TRUE_SOLAR_TIME_SOURCE.CUSTOM;
   elements.trueSolarTimeQueryOnlyNote.hidden = trueSolarTimeSource === TRUE_SOLAR_TIME_SOURCE.QUERY;
-  if (trueSolarTimeSource === TRUE_SOLAR_TIME_SOURCE.CUSTOM) initializeTrueSolarTimeCustomInputs();
+  if (trueSolarTimeSource === TRUE_SOLAR_TIME_SOURCE.CUSTOM) {
+    initializeTrueSolarTimeCustomInputs();
+    renderTrueSolarTimeTimeZoneSearchResults();
+  }
   syncTrueSolarTimeClockRefresh();
   renderActiveTrueSolarTime();
 }
 
 function handleTrueSolarTimeCustomInput() {
   trueSolarTimeCustomDisambiguation = null;
+  trueSolarTimeTimeZoneOffsetCache.clear();
   clearTrueSolarTimeCustomDisambiguation();
   renderTrueSolarTimeForCustomInput();
+  if (!elements.trueSolarTimeTimeZoneSearchResults.hidden) {
+    renderTrueSolarTimeTimeZoneSearchResults();
+  }
+}
+
+function handleTrueSolarTimeTimeZoneInput() {
+  trueSolarTimeCustomDisambiguation = null;
+  trueSolarTimeTimeZoneSearchActiveIndex = -1;
+  clearTrueSolarTimeCustomDisambiguation();
+  renderTrueSolarTimeTimeZoneSearchResults();
+  const timeZone = elements.trueSolarTimeTimeZone.value.trim();
+  if (!timeZone || !validateTimeZone(timeZone)) {
+    clearTrueSolarTimePresentation();
+    setTrueSolarTimeTimeZoneStatus(
+      timeZone
+        ? trueSolarTimeTimeZoneSearchResults.length ? "請從建議中選擇正式時區。" : "找不到符合的時區；可輸入完整 IANA 名稱，例如 Europe/Oslo。"
+        : "請輸入 IANA 時區，或從建議中選擇。",
+      "error"
+    );
+    return;
+  }
+  closeTrueSolarTimeTimeZoneSearch();
+  renderTrueSolarTimeForCustomInput();
+}
+
+function handleTrueSolarTimeTimeZoneKeydown(event) {
+  if (event.key === "Escape") {
+    closeTrueSolarTimeTimeZoneSearch();
+    return;
+  }
+  if (!["ArrowDown", "ArrowUp", "Enter"].includes(event.key)) return;
+  if (trueSolarTimeTimeZoneSearchResults.length === 0) {
+    renderTrueSolarTimeTimeZoneSearchResults();
+  }
+  if (trueSolarTimeTimeZoneSearchResults.length === 0) return;
+  event.preventDefault();
+  if (event.key === "Enter") {
+    selectTrueSolarTimeTimeZone(trueSolarTimeTimeZoneSearchResults[Math.max(0, trueSolarTimeTimeZoneSearchActiveIndex)]?.timeZone);
+    return;
+  }
+  const direction = event.key === "ArrowDown" ? 1 : -1;
+  trueSolarTimeTimeZoneSearchActiveIndex = trueSolarTimeTimeZoneSearchActiveIndex < 0
+    ? direction > 0 ? 0 : trueSolarTimeTimeZoneSearchResults.length - 1
+    : (trueSolarTimeTimeZoneSearchActiveIndex + direction + trueSolarTimeTimeZoneSearchResults.length) % trueSolarTimeTimeZoneSearchResults.length;
+  renderTrueSolarTimeTimeZoneSearchResults();
+}
+
+function useDeviceTimeZoneForCustomInput() {
+  const timeZone = getDeviceTimeZone() || "UTC";
+  elements.trueSolarTimeTimeZone.value = timeZone;
+  selectTrueSolarTimeTimeZone(timeZone);
+}
+
+function selectTrueSolarTimeTimeZone(timeZone) {
+  if (!timeZone || !validateTimeZone(timeZone)) return;
+  elements.trueSolarTimeTimeZone.value = timeZone;
+  trueSolarTimeCustomDisambiguation = null;
+  clearTrueSolarTimeCustomDisambiguation();
+  closeTrueSolarTimeTimeZoneSearch();
+  renderTrueSolarTimeForCustomInput();
+}
+
+function renderTrueSolarTimeTimeZoneSearchResults() {
+  if (trueSolarTimeSource !== TRUE_SOLAR_TIME_SOURCE.CUSTOM) return;
+  const query = elements.trueSolarTimeTimeZone.value;
+  trueSolarTimeTimeZoneSearchResults = searchTimeZones(query, { limit: 12 });
+  if (trueSolarTimeTimeZoneSearchActiveIndex >= trueSolarTimeTimeZoneSearchResults.length) {
+    trueSolarTimeTimeZoneSearchActiveIndex = -1;
+  }
+  const isEmptyQuery = query.trim() === "";
+  const hasMultipleTimeZonesInRegion = trueSolarTimeTimeZoneSearchResults.some((entry) => entry.regionLabel
+    && trueSolarTimeTimeZoneSearchResults.filter((candidate) => candidate.regionLabel === entry.regionLabel).length > 1);
+  elements.trueSolarTimeTimeZoneSearchStatus.textContent = isEmptyQuery
+    ? "常用時區"
+    : trueSolarTimeTimeZoneSearchResults.length
+      ? `找到 ${trueSolarTimeTimeZoneSearchResults.length} 個時區${hasMultipleTimeZonesInRegion ? "；此地區包含多個時區，請依城市或地區選擇。" : ""}`
+      : "找不到符合的時區；可輸入完整 IANA 名稱，例如 Europe/Oslo。";
+  elements.trueSolarTimeTimeZoneSearchResults.replaceChildren(
+    ...trueSolarTimeTimeZoneSearchResults.map((entry, index) => createTrueSolarTimeTimeZoneSearchOption(entry, index))
+  );
+  const isOpen = trueSolarTimeTimeZoneSearchResults.length > 0;
+  elements.trueSolarTimeTimeZoneSearchResults.hidden = !isOpen;
+  elements.trueSolarTimeTimeZone.setAttribute("aria-expanded", String(isOpen));
+  elements.trueSolarTimeTimeZone.setAttribute(
+    "aria-activedescendant",
+    trueSolarTimeTimeZoneSearchActiveIndex >= 0 ? `true-solar-time-time-zone-option-${trueSolarTimeTimeZoneSearchActiveIndex}` : ""
+  );
+}
+
+function createTrueSolarTimeTimeZoneSearchOption(entry, index) {
+  const option = document.createElement("button");
+  option.type = "button";
+  option.id = `true-solar-time-time-zone-option-${index}`;
+  option.className = "true-solar-time-time-zone-option";
+  option.setAttribute("role", "option");
+  option.setAttribute("aria-selected", String(index === trueSolarTimeTimeZoneSearchActiveIndex));
+  option.append(
+    createBlockSpan(entry.label || entry.timeZone, "true-solar-time-time-zone-option-label"),
+    createBlockSpan(entry.timeZone, "true-solar-time-time-zone-option-name"),
+    createBlockSpan(formatTrueSolarTimeTimeZoneSearchOffset(entry.timeZone), "true-solar-time-time-zone-option-offset")
+  );
+  option.addEventListener("click", () => selectTrueSolarTimeTimeZone(entry.timeZone));
+  return option;
+}
+
+function formatTrueSolarTimeTimeZoneSearchOffset(timeZone) {
+  const dateValue = elements.trueSolarTimeLocalDate.value;
+  const timeValue = elements.trueSolarTimeLocalTime.value;
+  const cacheKey = `${timeZone}|${dateValue}|${timeValue}`;
+  if (trueSolarTimeTimeZoneOffsetCache.has(cacheKey)) return trueSolarTimeTimeZoneOffsetCache.get(cacheKey);
+  const localParts = parseTrueSolarTimeCustomLocalParts(dateValue, timeValue);
+  const resolved = resolveLocalDateTimeInTimeZone({ localParts, timeZone });
+  const text = resolved.status === "resolved"
+    ? `指定日期：${formatUtcOffset(resolved.utcOffsetMinutes)}`
+    : resolved.status === "ambiguous"
+      ? `需選擇重複時間：${resolved.candidates.map((candidate) => formatUtcOffset(candidate.utcOffsetMinutes)).join(" / ")}`
+      : resolved.status === "nonexistent"
+        ? "指定日期時間不存在"
+        : "請先輸入有效日期時間";
+  trueSolarTimeTimeZoneOffsetCache.set(cacheKey, text);
+  return text;
+}
+
+function closeTrueSolarTimeTimeZoneSearch() {
+  trueSolarTimeTimeZoneSearchResults = [];
+  trueSolarTimeTimeZoneSearchActiveIndex = -1;
+  elements.trueSolarTimeTimeZoneSearchResults.replaceChildren();
+  elements.trueSolarTimeTimeZoneSearchResults.hidden = true;
+  elements.trueSolarTimeTimeZone.setAttribute("aria-expanded", "false");
+  elements.trueSolarTimeTimeZone.setAttribute("aria-activedescendant", "");
+}
+
+function handleTrueSolarTimeTimeZoneDocumentClick(event) {
+  if (!elements.trueSolarTimeTimeZonePicker.contains(event.target)) {
+    closeTrueSolarTimeTimeZoneSearch();
+  }
 }
 
 function handleTrueSolarTimeDisambiguationChange(event) {
@@ -1732,11 +1888,12 @@ function handleTrueSolarTimeDisambiguationChange(event) {
 }
 
 function initializeTrueSolarTimeCustomInputs() {
-  if (elements.trueSolarTimeLocalDate.value && elements.trueSolarTimeLocalTime.value && elements.trueSolarTimeTimeZone.value.trim()) return;
   const now = new Date();
   const timeZone = getDeviceTimeZone() || "UTC";
   const zoned = getZonedDateTimeParts(now, timeZone) ?? getZonedDateTimeParts(now, "UTC");
   if (!zoned) return;
+  elements.trueSolarTimeTimeZoneCurrentDeviceLabel.textContent = `目前裝置：${zoned.timeZone}`;
+  if (elements.trueSolarTimeLocalDate.value && elements.trueSolarTimeLocalTime.value && elements.trueSolarTimeTimeZone.value.trim()) return;
   elements.trueSolarTimeLocalDate.value ||= formatDateInput(zoned.localParts);
   elements.trueSolarTimeLocalTime.value ||= formatTimeInput(zoned.localParts);
   elements.trueSolarTimeTimeZone.value ||= zoned.timeZone;

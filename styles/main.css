@@ -62,6 +62,17 @@ h2 {
 .true-solar-time-device-fields p { margin: 0; overflow-wrap: anywhere; }
 .true-solar-time-custom-fields label { display: grid; gap: 4px; color: #52616f; font-size: 13px; font-weight: 700; min-width: 0; }
 .true-solar-time-custom-fields input { min-width: 0; box-sizing: border-box; }
+.true-solar-time-custom-field { display: grid; gap: 4px; min-width: 0; }
+.true-solar-time-time-zone-picker { display: grid; gap: 6px; min-width: 0; }
+.true-solar-time-time-zone-picker input { width: 100%; min-width: 0; box-sizing: border-box; }
+.true-solar-time-time-zone-picker > button { justify-self: start; padding: 5px 9px; font-size: 13px; }
+.true-solar-time-time-zone-current-device, .true-solar-time-time-zone-search-status { margin: 0; color: #52616f; font-size: 12px; font-weight: 600; overflow-wrap: anywhere; }
+.true-solar-time-time-zone-search-results { display: grid; gap: 4px; max-height: 45vh; overflow-y: auto; min-width: 0; padding: 4px; border: 1px solid #b8c2cc; border-radius: 6px; background: #ffffff; }
+.true-solar-time-time-zone-search-results[hidden] { display: none !important; }
+.true-solar-time-time-zone-option { display: grid; gap: 2px; width: 100%; min-height: 44px; padding: 7px 9px; border: 1px solid transparent; border-radius: 5px; background: #f6f8fa; color: #1f2933; text-align: left; }
+.true-solar-time-time-zone-option:hover, .true-solar-time-time-zone-option[aria-selected="true"] { border-color: #1f6feb; background: #eaf2ff; }
+.true-solar-time-time-zone-option-label { font-weight: 800; overflow-wrap: anywhere; }
+.true-solar-time-time-zone-option-name, .true-solar-time-time-zone-option-offset { color: #52616f; font-size: 12px; font-weight: 600; overflow-wrap: anywhere; }
 .true-solar-time-disambiguation { display: grid; gap: 8px; margin: 0; padding: 10px; border: 1px solid #b8c2cc; border-radius: 6px; }
 .true-solar-time-disambiguation[hidden] { display: none !important; }
 .true-solar-time-disambiguation-options { display: grid; gap: 6px; }

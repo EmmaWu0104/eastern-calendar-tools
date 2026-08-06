@@ -59,6 +59,7 @@ const {
 const { getNaYinByPillar } = await import("../src/nayin.js");
 const { calculateSolarEvents } = await import("../src/solarEvents.js");
 const { formatUtcOffset, getDeviceTimeZone, getZonedDateTimeParts, resolveLocalDateTimeInTimeZone, validateTimeZone } = await import("../src/timeZone.js");
+const { getCommonTimeZones, getSupportedTimeZones, getTimeZoneSearchEntry, searchTimeZones } = await import("../src/timeZoneCatalog.js");
 const {
   calculateEquationOfTime,
   calculateTrueSolarTime,
@@ -277,6 +278,7 @@ let trueSolarTimeVerifiedCaseCount = 0;
 let trueSolarTimeUiVerifiedCaseCount = 0;
 let solarEventsVerifiedCaseCount = 0;
 let timeZoneVerifiedCaseCount = 0;
+let timeZoneCatalogVerifiedCaseCount = 0;
 let jianchuVerifiedCaseCount = 0;
 let lunarCalendarVerifiedCaseCount = 0;
 let lunarCalendarUiVerifiedCaseCount = 0;
@@ -681,6 +683,7 @@ runTrueSolarTimeTests();
 runTrueSolarTimeUiTests();
 await runSolarEventsTests();
 await runTimeZoneTests();
+runTimeZoneCatalogTests();
 runSolarTermCalendarTests(solarTerms);
 runQueryPickerTests(solarTerms);
 runFlyingStarRenderFlowTests(solarTerms);
@@ -713,6 +716,7 @@ if (failures.length > 0) {
   console.log(`真太陽時 UI 測試通過：${trueSolarTimeUiVerifiedCaseCount} cases`);
   console.log(`太陽事件測試通過：${solarEventsVerifiedCaseCount} cases`);
   console.log(`時區核心測試通過：${timeZoneVerifiedCaseCount} cases`);
+  console.log(`時區搜尋 catalog 測試通過：${timeZoneCatalogVerifiedCaseCount} cases`);
   console.log(`建除十二神測試通過：${jianchuVerifiedCaseCount} cases`);
   console.log(`CWA 農曆資料測試通過：${lunarCalendarVerifiedCaseCount} cases`);
   console.log(`CWA 農曆月曆 UI 測試通過：${lunarCalendarUiVerifiedCaseCount} cases`);
@@ -8886,7 +8890,18 @@ function runTrueSolarTimeUiTests() {
   assertUi("true-solar-time-device-fields", true, ["device-fields", "device-local-time", "device-time-zone", "device-offset"].every((id) => indexHtmlRaw.includes(`id=\"true-solar-time-${id}\"`)));
   assertUi("true-solar-time-custom-fields", true, ["local-date", "local-time", "time-zone", "time-zone-status", "disambiguation"].every((id) => indexHtmlRaw.includes(`id=\"true-solar-time-${id}\"`)));
   assertUi("true-solar-time-custom-seconds", true, /id="true-solar-time-local-time"[^>]*step="1"/.test(indexHtmlRaw));
-  assertUi("true-solar-time-time-zone-datalist", true, indexHtmlRaw.includes('id="true-solar-time-time-zones"') && ["Australia/Lord_Howe", "Asia/Kathmandu", "America/Los_Angeles"].every((zone) => indexHtmlRaw.includes(`value="${zone}"`)));
+  assertUi("true-solar-time-time-zone-combobox", true, /id="true-solar-time-time-zone"[^>]*role="combobox"/.test(indexHtmlRaw) && indexHtmlRaw.includes('id="true-solar-time-time-zone-search-results"') && indexHtmlRaw.includes('role="listbox"') && !indexHtmlRaw.includes('true-solar-time-time-zones'));
+  assertUi("true-solar-time-time-zone-label-structure", true, /<div class="true-solar-time-custom-field">\s*<label for="true-solar-time-time-zone">IANA 時區<\/label>\s*<div id="true-solar-time-time-zone-picker"/.test(indexHtmlRaw) && mainCssRaw.includes(".true-solar-time-custom-field { display: grid; gap: 4px; min-width: 0; }"));
+  assertUi("true-solar-time-time-zone-picker-outside-label", true, !indexHtmlRaw.includes("<label>IANA 時區") && indexHtmlRaw.includes('id="true-solar-time-time-zone-current-device"') && indexHtmlRaw.includes('role="listbox"'));
+  assertUi("true-solar-time-time-zone-device-shortcut", true, indexHtmlRaw.includes('id="true-solar-time-time-zone-current-device"') && mainModuleRaw.includes("useDeviceTimeZoneForCustomInput"));
+  assertUi("true-solar-time-time-zone-keyboard", true, ["ArrowDown", "ArrowUp", "Enter", "Escape"].every((key) => extractNamedFunctionSource(mainModuleRaw, "handleTrueSolarTimeTimeZoneKeydown").includes(key)));
+  assertUi("true-solar-time-time-zone-keyboard-bounds", true, extractNamedFunctionSource(mainModuleRaw, "handleTrueSolarTimeTimeZoneKeydown").includes("trueSolarTimeTimeZoneSearchActiveIndex < 0") && mainModuleRaw.includes("trueSolarTimeTimeZoneSearchResults.length - 1"));
+  assertUi("true-solar-time-time-zone-input-resets-active-option", true, /function handleTrueSolarTimeTimeZoneInput\(\) \{[\s\S]*?trueSolarTimeTimeZoneSearchActiveIndex = -1;[\s\S]*?renderTrueSolarTimeTimeZoneSearchResults\(\);/.test(mainModuleRaw));
+  assertUi("true-solar-time-time-zone-arrow-render-keeps-active-option", true, extractNamedFunctionSource(mainModuleRaw, "handleTrueSolarTimeTimeZoneKeydown").includes("trueSolarTimeTimeZoneSearchActiveIndex = trueSolarTimeTimeZoneSearchActiveIndex < 0") && /if \(trueSolarTimeTimeZoneSearchActiveIndex >= trueSolarTimeTimeZoneSearchResults\.length\) \{\s*trueSolarTimeTimeZoneSearchActiveIndex = -1;/.test(extractNamedFunctionSource(mainModuleRaw, "renderTrueSolarTimeTimeZoneSearchResults")));
+  assertUi("true-solar-time-time-zone-country-status", true, extractNamedFunctionSource(mainModuleRaw, "renderTrueSolarTimeTimeZoneSearchResults").includes("hasMultipleTimeZonesInRegion") && mainModuleRaw.includes("此地區包含多個時區，請依城市或地區選擇。"));
+  assertUi("true-solar-time-time-zone-selection", true, extractNamedFunctionSource(mainModuleRaw, "selectTrueSolarTimeTimeZone").includes("elements.trueSolarTimeTimeZone.value = timeZone") && extractNamedFunctionSource(mainModuleRaw, "selectTrueSolarTimeTimeZone").includes("renderTrueSolarTimeForCustomInput") && !extractNamedFunctionSource(mainModuleRaw, "selectTrueSolarTimeTimeZone").includes("chartTimeState"));
+  assertUi("true-solar-time-time-zone-alias-not-calculated", true, extractNamedFunctionSource(mainModuleRaw, "handleTrueSolarTimeTimeZoneInput").includes("請從建議中選擇正式時區") && extractNamedFunctionSource(mainModuleRaw, "handleTrueSolarTimeTimeZoneInput").includes("validateTimeZone"));
+  assertUi("true-solar-time-time-zone-search-bounded", true, mainModuleRaw.includes("searchTimeZones(query, { limit: 12 })") && mainCssRaw.includes("max-height: 45vh"));
   assertUi("true-solar-time-dst-controls", true, ["disambiguation-earlier", "disambiguation-later"].every((id) => indexHtmlRaw.includes(`id=\"true-solar-time-${id}\"`)));
   assertUi("true-solar-time-source-radio-layout", true, indexHtmlRaw.includes('class="true-solar-time-source-option"') && mainCssRaw.includes(".true-solar-time-source-option, .true-solar-time-disambiguation-option { display: flex") && mainCssRaw.includes('.true-solar-time-source-option input[type="radio"]') && mainCssRaw.includes("width: auto"));
   assertUi("true-solar-time-disambiguation-radio-layout", true, indexHtmlRaw.includes('class="true-solar-time-disambiguation-option"') && indexHtmlRaw.includes('id="true-solar-time-disambiguation-earlier-label"') && mainModuleRaw.includes('`第一次：${formatUtcOffset(earlier.utcOffsetMinutes)}`'));
@@ -9062,6 +9077,51 @@ async function runTimeZoneFormatterCacheTest(check) {
   } finally {
     Intl.DateTimeFormat = originalDateTimeFormat;
   }
+}
+
+function runTimeZoneCatalogTests() {
+  const check = (id, expected, actual) => {
+    timeZoneCatalogVerifiedCaseCount += 1;
+    assertEqual(id, "result", expected, actual);
+  };
+  const supported = getSupportedTimeZones();
+  check("time-zone-catalog-supported-nonempty", true, supported.length > 0);
+  check("time-zone-catalog-supported-unique", supported.length, new Set(supported).size);
+  for (const timeZone of ["Asia/Taipei", "America/Los_Angeles", "Europe/Oslo"]) {
+    check("time-zone-catalog-supported-required", true, supported.includes(timeZone));
+  }
+  const fallback = getSupportedTimeZones({ forceFallback: true });
+  check("time-zone-catalog-fallback-required", true, fallback.includes("Australia/Lord_Howe") && fallback.includes("Asia/Kathmandu"));
+  const copy = getSupportedTimeZones({ forceFallback: true });
+  copy.pop();
+  check("time-zone-catalog-return-not-mutated", true, getSupportedTimeZones({ forceFallback: true }).length > copy.length);
+  check("time-zone-catalog-common", "Asia/Taipei", getCommonTimeZones()[0]);
+  check("time-zone-catalog-entry", "挪威／奧斯陸、Tromsø", getTimeZoneSearchEntry("Europe/Oslo").label);
+  for (const [query, expected] of [
+    ["Europe/Oslo", "Europe/Oslo"], ["Oslo", "Europe/Oslo"], ["Tromsø", "Europe/Oslo"],
+    ["Tromso", "Europe/Oslo"], ["特羅姆瑟", "Europe/Oslo"], ["挪威", "Europe/Oslo"],
+    ["洛杉磯", "America/Los_Angeles"], ["Los Angeles", "America/Los_Angeles"],
+    ["東京", "Asia/Tokyo"], ["Kathmandu", "Asia/Kathmandu"], ["los_angeles", "America/Los_Angeles"],
+  ]) {
+    check("time-zone-catalog-search", expected, searchTimeZones(query)[0]?.timeZone);
+  }
+  const limited = searchTimeZones("a", { limit: 3 });
+  check("time-zone-catalog-limit", true, limited.length <= 3);
+  check("time-zone-catalog-search-unique", limited.length, new Set(limited.map((entry) => entry.timeZone)).size);
+  check("time-zone-catalog-empty-common", "Asia/Taipei", searchTimeZones("")[0]?.timeZone);
+  for (const query of ["澳洲", "Australia"]) {
+    const results = searchTimeZones(query);
+    check("time-zone-catalog-australia-multiple", true, ["Australia/Sydney", "Australia/Perth", "Australia/Adelaide", "Australia/Lord_Howe"].every((timeZone) => results.some((entry) => entry.timeZone === timeZone)));
+    check("time-zone-catalog-australia-unique", results.length, new Set(results.map((entry) => entry.timeZone)).size);
+  }
+  check("time-zone-catalog-sydney-first", "Australia/Sydney", searchTimeZones("Sydney")[0]?.timeZone);
+  const unitedStates = searchTimeZones("美國");
+  check("time-zone-catalog-united-states-multiple", true, ["America/Los_Angeles", "America/Denver", "America/Chicago", "America/New_York"].every((timeZone) => unitedStates.some((entry) => entry.timeZone === timeZone)));
+  check("time-zone-catalog-usa-multiple", true, ["America/Los_Angeles", "America/Denver", "America/Chicago", "America/New_York"].every((timeZone) => searchTimeZones("USA").some((entry) => entry.timeZone === timeZone)));
+  check("time-zone-catalog-united-states-english", true, ["America/Los_Angeles", "America/Denver", "America/Chicago", "America/New_York"].every((timeZone) => searchTimeZones("United States").some((entry) => entry.timeZone === timeZone)));
+  const canada = searchTimeZones("加拿大");
+  check("time-zone-catalog-canada-multiple", true, ["America/Vancouver", "America/Toronto"].every((timeZone) => canada.some((entry) => entry.timeZone === timeZone)));
+  check("time-zone-catalog-country-query-is-not-iana", false, validateTimeZone("澳洲"));
 }
 
 function runDailyInfoTests() {

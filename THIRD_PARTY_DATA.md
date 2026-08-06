@@ -53,3 +53,5 @@ Browser Geolocation is requested only after the user presses the location button
 The device and custom true-solar-time query modes use the browser's built-in `Intl.DateTimeFormat` implementation and its bundled IANA time-zone data. No external time-zone API is called, and Temporal is not a required runtime dependency. Custom IANA zones are resolved for the requested local date so that applicable daylight-saving offsets, nonexistent local times, and ambiguous repeated local times can be handled explicitly.
 
 The available rules depend on the browser and operating system's included IANA data. Future government policy changes are therefore not guaranteed to appear immediately. Coordinates do not infer a time zone; the selected device or custom IANA zone remains the source of the clock offset.
+
+The time-zone picker uses `Intl.supportedValuesOf("timeZone")` when it is available, with a limited project-maintained fallback for older environments. Its Chinese and city-name aliases are project-authored UI assistance data, not a third-party city database; they only select an IANA zone and never infer or modify latitude/longitude.
