@@ -50,6 +50,16 @@ h2 {
   color: #ffffff;
 }
 
+.true-solar-time-panel { display: grid; gap: 16px; }
+.true-solar-time-watch, .true-solar-time-location, .true-solar-time-result { padding: 12px; border: 1px solid #d8dee6; border-radius: 8px; background: #fbfcfe; }
+.true-solar-time-watch p { margin: 6px 0 2px; font-size: 18px; font-weight: 800; }
+.true-solar-time-watch small, .true-solar-time-timezone, .true-solar-time-detail { margin: 6px 0 0; color: #52616f; font-size: 13px; }
+.true-solar-time-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.true-solar-time-result { display: grid; gap: 8px; }
+.true-solar-time-result dl { display: grid; grid-template-columns: max-content 1fr; gap: 6px 12px; }
+.true-solar-time-result dt { color: #52616f; font-weight: 700; }
+.true-solar-time-result dd { margin: 0; font-size: 18px; font-weight: 800; }
+
 .tab-panel[hidden] {
   display: none;
 }
@@ -2286,6 +2296,12 @@ dd {
 }
 
 @media (max-width: 760px) {
+  .tabs { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); overflow-x: visible; }
+  .tab-button { min-width: 0; white-space: nowrap; }
+  .tab-button:nth-child(1), .tab-button:nth-child(2) { grid-column: span 3; }
+  .tab-button:nth-child(3), .tab-button:nth-child(4), .tab-button:nth-child(5) { grid-column: span 2; }
+  .true-solar-time-actions { display: grid; grid-template-columns: 1fr; }
+
   .seasonal-day-label-prefix {
     display: inline;
   }

@@ -241,6 +241,7 @@ const [
   dongGongModuleRaw,
   mainModuleRaw,
   mainCssRaw,
+  indexHtmlRaw,
   cwaLunarValidationRaw,
 ] = await Promise.all([
   readFile(new URL("../data/solar_terms_1899_2101.json", import.meta.url), "utf8"),
@@ -253,6 +254,7 @@ const [
   readFile(new URL("../src/dongGongDaySelection.js", import.meta.url), "utf8"),
   readFile(new URL("../src/main.js", import.meta.url), "utf8"),
   readFile(new URL("../styles/main.css", import.meta.url), "utf8"),
+  readFile(new URL("../index.html", import.meta.url), "utf8"),
   readFile(new URL("../data/cwa_lunar_calendar_validation_2022_2050.json", import.meta.url), "utf8"),
 ]);
 
@@ -270,6 +272,7 @@ let dailyGodsVerifiedCaseCount = 0;
 let dailyInfoVerifiedCaseCount = 0;
 let naYinVerifiedCaseCount = 0;
 let trueSolarTimeVerifiedCaseCount = 0;
+let trueSolarTimeUiVerifiedCaseCount = 0;
 let jianchuVerifiedCaseCount = 0;
 let lunarCalendarVerifiedCaseCount = 0;
 let lunarCalendarUiVerifiedCaseCount = 0;
@@ -671,6 +674,7 @@ runQimenTimelineFromYearSeedRecommendationTests();
 runQimenResolverTests();
 runDailyInfoTests();
 runTrueSolarTimeTests();
+runTrueSolarTimeUiTests();
 runSolarTermCalendarTests(solarTerms);
 runQueryPickerTests(solarTerms);
 runFlyingStarRenderFlowTests(solarTerms);
@@ -700,6 +704,7 @@ if (failures.length > 0) {
   console.log(`每日資訊測試通過：${dailyInfoVerifiedCaseCount} cases`);
   console.log(`納音測試通過：${naYinVerifiedCaseCount} cases`);
   console.log(`真太陽時核心測試通過：${trueSolarTimeVerifiedCaseCount} cases`);
+  console.log(`真太陽時 UI 測試通過：${trueSolarTimeUiVerifiedCaseCount} cases`);
   console.log(`建除十二神測試通過：${jianchuVerifiedCaseCount} cases`);
   console.log(`CWA 農曆資料測試通過：${lunarCalendarVerifiedCaseCount} cases`);
   console.log(`CWA 農曆月曆 UI 測試通過：${lunarCalendarUiVerifiedCaseCount} cases`);
@@ -8778,6 +8783,25 @@ function runTrueSolarTimeTests() {
     trueSolarTimeVerifiedCaseCount += 1;
     assertEqual("true-solar-time-invalid-options", "throws", true, threw);
   }
+}
+
+function runTrueSolarTimeUiTests() {
+  const assertUi = (id, expected, actual) => { trueSolarTimeUiVerifiedCaseCount += 1; assertEqual(id, "source", expected, actual); };
+  assertUi("true-solar-time-ui-tab-order", true, /id="tab-true-solar-time"[\s\S]*?真太陽時[\s\S]*?id="tab-bazi"[\s\S]*?is-active/.test(indexHtmlRaw));
+  assertUi("true-solar-time-ui-panel", true, indexHtmlRaw.includes('id="panel-true-solar-time"') && indexHtmlRaw.includes('id="true-solar-time-coordinate"'));
+  assertUi("true-solar-time-ui-actions", true, indexHtmlRaw.includes('id="true-solar-time-calculate"') && indexHtmlRaw.includes('id="true-solar-time-geolocate"'));
+  assertUi("true-solar-time-ui-no-future-actions", false, /套用真太陽時至全部排盤|日出|中天|日落/.test(indexHtmlRaw));
+  assertUi("true-solar-time-ui-main-import", true, mainModuleRaw.includes('from "./trueSolarTime.js"') && mainModuleRaw.includes("parseCoordinateInput") && mainModuleRaw.includes("calculateTrueSolarTime"));
+  assertUi("true-solar-time-ui-geolocation-click-only", true, /trueSolarTimeGeolocate\.addEventListener\("click", requestTrueSolarTimeGeolocation\)[\s\S]*?function requestTrueSolarTimeGeolocation\(\)[\s\S]*?navigator\.geolocation\.getCurrentPosition/.test(mainModuleRaw));
+  assertUi("true-solar-time-ui-no-watch-position", false, mainModuleRaw.includes("watchPosition"));
+  assertUi("true-solar-time-ui-no-storage-or-suncalc", false, mainModuleRaw.includes("localStorage") || mainModuleRaw.includes("SunCalc"));
+  assertUi("true-solar-time-ui-parts-formatting", true, mainModuleRaw.includes("formatDateTimeParts(result.watchDateParts)") && mainModuleRaw.includes("formatDateTimeParts(result.trueSolarParts)"));
+  assertUi("true-solar-time-ui-mobile-grid", true, /@media \(max-width: 760px\)[\s\S]*?\.tabs\s*\{\s*display:\s*grid;[\s\S]*?grid-template-columns:\s*repeat\(6, minmax\(0, 1fr\)\)[\s\S]*?nth-child\(1\).*span 3[\s\S]*?nth-child\(3\).*span 2/.test(mainCssRaw));
+  assertUi("true-solar-time-clock-interval", true, mainModuleRaw.includes("const TRUE_SOLAR_TIME_CLOCK_REFRESH_MS = 1_000;") && /setInterval\(\s*refreshTrueSolarTimeClock,\s*TRUE_SOLAR_TIME_CLOCK_REFRESH_MS/.test(mainModuleRaw));
+  assertUi("true-solar-time-clock-keeps-main-interval", true, mainModuleRaw.includes("const AUTO_NOW_REFRESH_MS = 30_000;"));
+  assertUi("true-solar-time-clock-lightweight", false, extractNamedFunctionSource(mainModuleRaw, "refreshTrueSolarTimeClock").includes("renderByDateTime"));
+  assertUi("true-solar-time-clock-auto-now", true, /function refreshTrueSolarTimeClock\(\)[\s\S]*?if \(!isAutoNowMode\)[\s\S]*?new Date\(\)/.test(mainModuleRaw));
+  assertUi("true-solar-time-clock-lifecycle", true, /function pauseAutoNowMode\(\)[\s\S]*?stopTrueSolarTimeClockRefresh\(\)/.test(mainModuleRaw) && /pagehide[\s\S]*?stopTrueSolarTimeClockRefresh/.test(mainModuleRaw));
 }
 
 function runDailyInfoTests() {

@@ -41,10 +41,27 @@
       </section>
 
       <div class="tabs" role="tablist" aria-label="首頁功能頁籤">
+        <button id="tab-true-solar-time" class="tab-button" type="button" role="tab" aria-selected="false" aria-controls="panel-true-solar-time">真太陽時</button>
         <button id="tab-bazi" class="tab-button is-active" type="button" role="tab" aria-selected="true" aria-controls="panel-bazi">四柱節氣</button>
         <button id="tab-jinhan" class="tab-button" type="button" role="tab" aria-selected="false" aria-controls="panel-jinhan">金函玉鏡</button>
         <button id="tab-flying-stars" class="tab-button" type="button" role="tab" aria-selected="false" aria-controls="panel-flying-stars">九宮飛星</button>
         <button id="tab-qimen" class="tab-button" type="button" role="tab" aria-selected="false" aria-controls="panel-qimen">奇門遁甲</button>
+      </div>
+
+      <div id="panel-true-solar-time" class="tab-panel" role="tabpanel" aria-labelledby="tab-true-solar-time" hidden>
+        <section class="panel true-solar-time-panel" aria-labelledby="true-solar-time-title">
+          <h2 id="true-solar-time-title">真太陽時</h2>
+          <div class="true-solar-time-watch"><strong>手錶日期時間</strong><p id="true-solar-time-watch-value">--</p><small>來自上方查詢時間</small></div>
+          <div class="true-solar-time-location">
+            <label for="true-solar-time-coordinate">地點座標</label>
+            <input id="true-solar-time-coordinate" type="text" autocomplete="off" spellcheck="false" placeholder="24°58'37.1&quot;N 121°32'45.3&quot;E">
+            <div class="true-solar-time-actions"><button id="true-solar-time-calculate" type="button">依經緯度取得真太陽時</button><button id="true-solar-time-geolocate" type="button">自動取得真太陽時</button></div>
+            <p id="true-solar-time-location-value" class="true-solar-time-detail"></p>
+            <p class="true-solar-time-timezone">目前以臺灣手錶時間 UTC+8 計算。</p>
+          </div>
+          <p id="true-solar-time-status" class="section-message" role="status" aria-live="polite"></p>
+          <div id="true-solar-time-result" class="true-solar-time-result" hidden></div>
+        </section>
       </div>
 
       <div id="panel-bazi" class="tab-panel" role="tabpanel" aria-labelledby="tab-bazi">
