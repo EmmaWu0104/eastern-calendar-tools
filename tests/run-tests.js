@@ -58,6 +58,7 @@ const {
 } = await import("../src/jinhanYujing.js");
 const { getNaYinByPillar } = await import("../src/nayin.js");
 const { calculateSolarEvents } = await import("../src/solarEvents.js");
+const { formatUtcOffset, getDeviceTimeZone, getZonedDateTimeParts, resolveLocalDateTimeInTimeZone, validateTimeZone } = await import("../src/timeZone.js");
 const {
   calculateEquationOfTime,
   calculateTrueSolarTime,
@@ -275,6 +276,7 @@ let naYinVerifiedCaseCount = 0;
 let trueSolarTimeVerifiedCaseCount = 0;
 let trueSolarTimeUiVerifiedCaseCount = 0;
 let solarEventsVerifiedCaseCount = 0;
+let timeZoneVerifiedCaseCount = 0;
 let jianchuVerifiedCaseCount = 0;
 let lunarCalendarVerifiedCaseCount = 0;
 let lunarCalendarUiVerifiedCaseCount = 0;
@@ -678,6 +680,7 @@ runDailyInfoTests();
 runTrueSolarTimeTests();
 runTrueSolarTimeUiTests();
 await runSolarEventsTests();
+await runTimeZoneTests();
 runSolarTermCalendarTests(solarTerms);
 runQueryPickerTests(solarTerms);
 runFlyingStarRenderFlowTests(solarTerms);
@@ -709,6 +712,7 @@ if (failures.length > 0) {
   console.log(`真太陽時核心測試通過：${trueSolarTimeVerifiedCaseCount} cases`);
   console.log(`真太陽時 UI 測試通過：${trueSolarTimeUiVerifiedCaseCount} cases`);
   console.log(`太陽事件測試通過：${solarEventsVerifiedCaseCount} cases`);
+  console.log(`時區核心測試通過：${timeZoneVerifiedCaseCount} cases`);
   console.log(`建除十二神測試通過：${jianchuVerifiedCaseCount} cases`);
   console.log(`CWA 農曆資料測試通過：${lunarCalendarVerifiedCaseCount} cases`);
   console.log(`CWA 農曆月曆 UI 測試通過：${lunarCalendarUiVerifiedCaseCount} cases`);
@@ -8776,6 +8780,25 @@ function runTrueSolarTimeTests() {
   trueSolarTimeVerifiedCaseCount += 1;
   assertEqual("true-solar-time-utc-carrier", "trueSolarDateUTCYear", 2025, nextYear.trueSolarDate.getUTCFullYear());
 
+  const overseasCarrier = new Date(Date.UTC(2027, 2, 14, 2, 30, 0));
+  const overseasCarrierResult = calculateTrueSolarTime({
+    date: overseasCarrier,
+    latitude: 34.0522,
+    longitude: -118.2437,
+    utcOffsetMinutes: -420,
+    useUtcComponents: true,
+  });
+  trueSolarTimeVerifiedCaseCount += 1;
+  assertEqual("true-solar-time-utc-carrier", "localParts", "2027-3-14 2:30:0", `${overseasCarrierResult.watchDateParts.year}-${overseasCarrierResult.watchDateParts.month}-${overseasCarrierResult.watchDateParts.day} ${overseasCarrierResult.watchDateParts.hour}:${overseasCarrierResult.watchDateParts.minute}:${overseasCarrierResult.watchDateParts.second}`);
+
+  const tokyoCarrier = new Date(Date.UTC(2026, 7, 6, 14, 21, 30));
+  const taiwanCoordinateTokyoClock = calculateTrueSolarTime({ date: tokyoCarrier, latitude: 24.984898, longitude: 121.540626, utcOffsetMinutes: 540, useUtcComponents: true });
+  const tokyoCoordinateTokyoClock = calculateTrueSolarTime({ date: tokyoCarrier, latitude: 35.68, longitude: 139.65, utcOffsetMinutes: 540, useUtcComponents: true });
+  trueSolarTimeVerifiedCaseCount += 1;
+  assertEqual("true-solar-time-tokyo-clock-taiwan-coordinate", "longitudeCorrectionSeconds", true, Math.abs(taiwanCoordinateTokyoClock.longitudeCorrectionSeconds + 3230.25) < 1);
+  trueSolarTimeVerifiedCaseCount += 1;
+  assertEqual("true-solar-time-tokyo-clock-tokyo-coordinate", "longitudeCorrectionSeconds", true, Math.abs(tokyoCoordinateTokyoClock.longitudeCorrectionSeconds - 1116) < 1);
+
   for (const invalidOptions of [
     { date: new Date("invalid"), latitude: 25, longitude: 120, utcOffsetMinutes: 480 },
     { date: new Date(2024, 0, 1), latitude: 91, longitude: 120, utcOffsetMinutes: 480 },
@@ -8787,6 +8810,53 @@ function runTrueSolarTimeTests() {
     trueSolarTimeVerifiedCaseCount += 1;
     assertEqual("true-solar-time-invalid-options", "throws", true, threw);
   }
+
+  runTrueSolarTimeTimeZoneProcessTests();
+}
+
+function runTrueSolarTimeTimeZoneProcessTests() {
+  const runProbe = (input, timeZone) => JSON.parse(execFileSync(
+    process.execPath,
+    ["tests/true-solar-time-timezone-probe.mjs", JSON.stringify(input)],
+    { cwd: process.cwd(), env: { ...process.env, TZ: timeZone }, encoding: "utf8" }
+  ));
+  const assertProbe = (id, expected, actual) => {
+    trueSolarTimeVerifiedCaseCount += 1;
+    assertEqual(id, "result", expected, actual);
+  };
+  const losAngelesSummer = {
+    localParts: { year: 2026, month: 8, day: 6, hour: 14, minute: 21, second: 30 },
+    latitude: 34.0522,
+    longitude: -118.2437,
+    utcOffsetMinutes: -420,
+  };
+  const summerProbes = ["Asia/Taipei", "UTC", "America/Los_Angeles"].map((timeZone) => runProbe(losAngelesSummer, timeZone));
+  assertProbe("true-solar-time-process-tz-summer", JSON.stringify(summerProbes[0]), JSON.stringify(summerProbes[1]));
+  assertProbe("true-solar-time-process-tz-summer", JSON.stringify(summerProbes[0]), JSON.stringify(summerProbes[2]));
+  assertProbe("true-solar-time-process-tz-summer", "2026-8-6", `${summerProbes[0].trueSolarParts.year}-${summerProbes[0].trueSolarParts.month}-${summerProbes[0].trueSolarParts.day}`);
+  assertProbe("true-solar-time-process-tz-summer", "13:22", `${summerProbes[0].trueSolarParts.hour}:${String(summerProbes[0].trueSolarParts.minute).padStart(2, "0")}`);
+  assertProbe("true-solar-time-process-tz-summer", false, summerProbes[0].crossedDateBoundary);
+  assertProbe("true-solar-time-process-tz-summer", "2026-08-06", summerProbes[0].solarEventDateKey);
+
+  for (const [id, input, expectedDateKey] of [
+    ["winter", { localParts: { year: 2026, month: 1, day: 6, hour: 14, minute: 21, second: 30 }, latitude: 34.0522, longitude: -118.2437, utcOffsetMinutes: -480 }, "2026-01-06"],
+    ["taipei", { localParts: { year: 2026, month: 8, day: 6, hour: 14, minute: 21, second: 30 }, latitude: 24.984898, longitude: 121.540626, utcOffsetMinutes: 480 }, "2026-08-06"],
+    ["kathmandu", { localParts: { year: 2026, month: 8, day: 6, hour: 14, minute: 21, second: 30 }, latitude: 27.7172, longitude: 85.324, utcOffsetMinutes: 345 }, "2026-08-06"],
+  ]) {
+    const probe = runProbe(input, "UTC");
+    assertProbe(`true-solar-time-process-tz-${id}`, expectedDateKey, probe.solarEventDateKey);
+    assertProbe(`true-solar-time-process-tz-${id}`, input.localParts.day, probe.trueSolarParts.day);
+  }
+
+  const genuineBoundary = runProbe({
+    localParts: { year: 2026, month: 8, day: 6, hour: 0, minute: 3, second: 0 },
+    latitude: 25,
+    longitude: 0,
+    utcOffsetMinutes: 480,
+  }, "America/Los_Angeles");
+  assertProbe("true-solar-time-process-tz-boundary", true, genuineBoundary.crossedDateBoundary);
+  assertProbe("true-solar-time-process-tz-boundary", "previous", genuineBoundary.dateBoundaryDirection);
+  assertProbe("true-solar-time-process-tz-boundary", 5, genuineBoundary.trueSolarParts.day);
 }
 
 function runTrueSolarTimeUiTests() {
@@ -8809,8 +8879,49 @@ function runTrueSolarTimeUiTests() {
   assertUi("true-solar-time-clock-interval", true, mainModuleRaw.includes("const TRUE_SOLAR_TIME_CLOCK_REFRESH_MS = 1_000;") && /setInterval\(\s*refreshTrueSolarTimeClock,\s*TRUE_SOLAR_TIME_CLOCK_REFRESH_MS/.test(mainModuleRaw));
   assertUi("true-solar-time-clock-keeps-main-interval", true, mainModuleRaw.includes("const AUTO_NOW_REFRESH_MS = 30_000;"));
   assertUi("true-solar-time-clock-lightweight", false, extractNamedFunctionSource(mainModuleRaw, "refreshTrueSolarTimeClock").includes("renderByDateTime"));
-  assertUi("true-solar-time-clock-auto-now", true, /function refreshTrueSolarTimeClock\(\)[\s\S]*?if \(!isAutoNowMode\)[\s\S]*?new Date\(\)/.test(mainModuleRaw));
-  assertUi("true-solar-time-clock-lifecycle", true, /function pauseAutoNowMode\(\)[\s\S]*?stopTrueSolarTimeClockRefresh\(\)/.test(mainModuleRaw) && /pagehide[\s\S]*?stopTrueSolarTimeClockRefresh/.test(mainModuleRaw));
+  assertUi("true-solar-time-clock-auto-now", true, /function refreshTrueSolarTimeClock\(\)[\s\S]*?trueSolarTimeSource === TRUE_SOLAR_TIME_SOURCE\.QUERY && isAutoNowMode[\s\S]*?new Date\(\)/.test(mainModuleRaw));
+  assertUi("true-solar-time-clock-lifecycle", true, /function pauseAutoNowMode\(\)[\s\S]*?syncTrueSolarTimeClockRefresh\(\)/.test(mainModuleRaw) && /pagehide[\s\S]*?stopTrueSolarTimeClockRefresh/.test(mainModuleRaw));
+  assertUi("true-solar-time-source-radios", true, ["query", "device", "custom"].every((source) => indexHtmlRaw.includes(`id=\"true-solar-time-source-${source}\"`)));
+  assertUi("true-solar-time-source-default-query", true, /id="true-solar-time-source-query"[^>]*checked/.test(indexHtmlRaw));
+  assertUi("true-solar-time-device-fields", true, ["device-fields", "device-local-time", "device-time-zone", "device-offset"].every((id) => indexHtmlRaw.includes(`id=\"true-solar-time-${id}\"`)));
+  assertUi("true-solar-time-custom-fields", true, ["local-date", "local-time", "time-zone", "time-zone-status", "disambiguation"].every((id) => indexHtmlRaw.includes(`id=\"true-solar-time-${id}\"`)));
+  assertUi("true-solar-time-custom-seconds", true, /id="true-solar-time-local-time"[^>]*step="1"/.test(indexHtmlRaw));
+  assertUi("true-solar-time-time-zone-datalist", true, indexHtmlRaw.includes('id="true-solar-time-time-zones"') && ["Australia/Lord_Howe", "Asia/Kathmandu", "America/Los_Angeles"].every((zone) => indexHtmlRaw.includes(`value="${zone}"`)));
+  assertUi("true-solar-time-dst-controls", true, ["disambiguation-earlier", "disambiguation-later"].every((id) => indexHtmlRaw.includes(`id=\"true-solar-time-${id}\"`)));
+  assertUi("true-solar-time-source-radio-layout", true, indexHtmlRaw.includes('class="true-solar-time-source-option"') && mainCssRaw.includes(".true-solar-time-source-option, .true-solar-time-disambiguation-option { display: flex") && mainCssRaw.includes('.true-solar-time-source-option input[type="radio"]') && mainCssRaw.includes("width: auto"));
+  assertUi("true-solar-time-disambiguation-radio-layout", true, indexHtmlRaw.includes('class="true-solar-time-disambiguation-option"') && indexHtmlRaw.includes('id="true-solar-time-disambiguation-earlier-label"') && mainModuleRaw.includes('`第一次：${formatUtcOffset(earlier.utcOffsetMinutes)}`'));
+  assertUi("true-solar-time-disambiguation-hidden-unless-ambiguous", true, extractNamedFunctionSource(mainModuleRaw, "renderTrueSolarTimeForCustomInput").includes("elements.trueSolarTimeDisambiguation.hidden = true") && extractNamedFunctionSource(mainModuleRaw, "configureTrueSolarTimeDisambiguation").includes("hidden = false"));
+  assertUi("true-solar-time-disambiguation-selected-dom", true, indexHtmlRaw.includes('id="true-solar-time-disambiguation-selected"') && mainModuleRaw.includes("trueSolarTimeDisambiguationSelected"));
+  assertUi("true-solar-time-disambiguation-option-layout", true, indexHtmlRaw.includes('class="true-solar-time-disambiguation-options"') && /\.true-solar-time-disambiguation-options\s*\{\s*display:\s*grid;\s*gap:\s*6px/.test(mainCssRaw) && /\.true-solar-time-disambiguation-option\s*\{\s*display:\s*flex;\s*align-items:\s*center;\s*gap:\s*6px/.test(mainCssRaw));
+  assertUi("true-solar-time-disambiguation-option-specificity", true, mainCssRaw.includes(".true-solar-time-custom-fields .true-solar-time-disambiguation-option { display: flex") && mainCssRaw.includes(".true-solar-time-custom-fields .true-solar-time-disambiguation-option input[type=\"radio\"]") && mainCssRaw.includes(".true-solar-time-custom-fields label { display: grid"));
+  assertUi("true-solar-time-disambiguation-option-compact", true, mainCssRaw.includes(".true-solar-time-disambiguation-option { width: 100%; align-items: center; min-height: auto; padding: 0; line-height: 1.4; }") && mainCssRaw.includes(".true-solar-time-disambiguation-selected { margin: 6px 0 0;"));
+  assertUi("true-solar-time-disambiguation-uses-initial-status", true, extractNamedFunctionSource(mainModuleRaw, "renderTrueSolarTimeForCustomInput").includes("const initialResolution") && extractNamedFunctionSource(mainModuleRaw, "renderTrueSolarTimeForCustomInput").includes('initialResolution.status === "ambiguous"'));
+  assertUi("true-solar-time-disambiguation-keeps-selected", true, extractNamedFunctionSource(mainModuleRaw, "configureTrueSolarTimeDisambiguation").includes('selected === "earlier"') && mainModuleRaw.includes("目前選擇：${selected === \"earlier\" ? \"第一次\" : \"第二次\"}"));
+  assertUi("true-solar-time-disambiguation-reset-selected", true, extractNamedFunctionSource(mainModuleRaw, "clearTrueSolarTimeCustomDisambiguation").includes('trueSolarTimeDisambiguationSelected.textContent = ""') && extractNamedFunctionSource(mainModuleRaw, "clearTrueSolarTimeCustomDisambiguation").includes("trueSolarTimeDisambiguationSelected.hidden = true"));
+  assertUi("true-solar-time-disambiguation-hidden-css", true, mainCssRaw.includes(".true-solar-time-disambiguation[hidden] { display: none !important; }"));
+  assertUi("true-solar-time-disambiguation-reset", true, extractNamedFunctionSource(mainModuleRaw, "clearTrueSolarTimeCustomDisambiguation").includes("checked = false") && extractNamedFunctionSource(mainModuleRaw, "handleTrueSolarTimeCustomInput").includes("clearTrueSolarTimeCustomDisambiguation"));
+  assertUi("true-solar-time-result-location-label", true, extractNamedFunctionSource(mainModuleRaw, "createTrueSolarTimeResultContent").includes('"計算座標"') && mainModuleRaw.includes("formatCoordinate(result.latitude"));
+  assertUi("true-solar-time-solar-events-context", true, indexHtmlRaw.includes('id="true-solar-time-solar-events-location"') && indexHtmlRaw.includes('id="true-solar-time-solar-events-time-zone"') && extractNamedFunctionSource(mainModuleRaw, "renderTrueSolarTimeSolarEvents").includes("trueSolarTimeSolarEventsLocation.textContent") && extractNamedFunctionSource(mainModuleRaw, "renderTrueSolarTimeSolarEvents").includes("trueSolarTimeSolarEventsTimeZone.textContent"));
+  assertUi("true-solar-time-coordinate-timezone-separation", true, indexHtmlRaw.includes("座標決定實際地點；時區只決定手錶時間制度，兩者不會自動互相轉換。"));
+  assertUi("true-solar-time-source-spacing", true, mainCssRaw.includes(".true-solar-time-source { gap: 3px; padding: 6px 8px; }") && mainCssRaw.includes(".true-solar-time-source-option { min-height: auto; padding: 0; line-height: 1.4; }") && mainCssRaw.includes("gap: 6px"));
+  assertUi("true-solar-time-source-radio-resets-global-sizing", true, mainCssRaw.includes('min-height: 0') && mainCssRaw.includes('padding: 0; border: initial; border-radius: initial;'));
+  assertUi("true-solar-time-solar-events-two-lines", true, mainCssRaw.includes(".true-solar-events-location-line, .true-solar-events-time-zone-line { display: block") && !extractNamedFunctionSource(mainModuleRaw, "renderTrueSolarTimeSolarEvents").includes("｜時區"));
+  assertUi("true-solar-time-solar-events-grid-preserved", true, /id="true-solar-time-sunrise"[\s\S]*?id="true-solar-time-solar-noon"[\s\S]*?id="true-solar-time-sunset"/.test(indexHtmlRaw));
+  assertUi("true-solar-time-solar-events-mobile-wrap", true, mainCssRaw.includes("overflow-wrap: anywhere"));
+  assertUi("true-solar-time-query-only-note", true, indexHtmlRaw.includes('id="true-solar-time-query-only-note"') && indexHtmlRaw.includes("下一階段才支援套用至全部排盤"));
+  assertUi("true-solar-time-timezone-core-import", true, mainModuleRaw.includes('from "./timeZone.js"') && mainModuleRaw.includes("getDeviceTimeZone") && mainModuleRaw.includes("resolveLocalDateTimeInTimeZone"));
+  assertUi("true-solar-time-carrier", true, /function createUtcCarrierFromLocalParts[\s\S]*?Date\.UTC/.test(mainModuleRaw) && mainModuleRaw.includes("useUtcComponents: true"));
+  assertUi("true-solar-time-no-custom-date-string-parse", false, mainModuleRaw.includes('new Date("YYYY-MM-DDTHH:mm:ss")'));
+  assertUi("true-solar-time-custom-dst-nonexistent", true, extractNamedFunctionSource(mainModuleRaw, "renderTrueSolarTimeForCustomInput").includes('initialResolution.status === "nonexistent"') && mainModuleRaw.includes("此當地時間因日光節約時間切換而不存在"));
+  assertUi("true-solar-time-custom-dst-ambiguous", true, extractNamedFunctionSource(mainModuleRaw, "renderTrueSolarTimeForCustomInput").includes('initialResolution.status === "ambiguous"') && mainModuleRaw.includes("請選擇實際使用的時間"));
+  assertUi("true-solar-time-device-dynamic-offset", true, extractNamedFunctionSource(mainModuleRaw, "renderTrueSolarTimeForDeviceNow").includes("getZonedDateTimeParts(now, timeZone)") && mainModuleRaw.includes("utcOffsetMinutes: zoned.utcOffsetMinutes"));
+  assertUi("true-solar-time-events-dynamic-cache-key", true, /function renderTrueSolarTimeSolarEvents[\s\S]*?\|\$\{utcOffsetMinutes\}/.test(mainModuleRaw) && extractNamedFunctionSource(mainModuleRaw, "renderTrueSolarTimeSolarEvents").includes("useUtcComponents: true"));
+  assertUi("true-solar-time-device-timer-only-panel", false, extractNamedFunctionSource(mainModuleRaw, "refreshTrueSolarTimeClock").includes("renderByDateTime"));
+  assertUi("true-solar-time-custom-no-timer", true, !extractNamedFunctionSource(mainModuleRaw, "refreshTrueSolarTimeClock").includes("renderTrueSolarTimeForCustomInput"));
+  assertUi("true-solar-time-bc-no-chart-state", true, !extractNamedFunctionSource(mainModuleRaw, "renderTrueSolarTimeForDeviceNow").includes("chartTimeState") && !extractNamedFunctionSource(mainModuleRaw, "renderTrueSolarTimeForCustomInput").includes("chartTimeState"));
+  assertUi("true-solar-time-apply-query-only", true, extractNamedFunctionSource(mainModuleRaw, "renderTrueSolarTimeForContext").includes("source === TRUE_SOLAR_TIME_SOURCE.QUERY") && extractNamedFunctionSource(mainModuleRaw, "renderTrueSolarTimeForContext").includes("source !== TRUE_SOLAR_TIME_SOURCE.QUERY"));
+  assertUi("true-solar-time-source-mobile-css", true, /@media \(max-width: 760px\)[\s\S]*?\.true-solar-time-custom-fields[\s\S]*?grid-template-columns:\s*1fr/.test(mainCssRaw));
+  assertUi("true-solar-time-no-external-timezone-api", false, /fetch\([^)]*(time.?zone|timezone)|localStorage|Temporal/.test(mainModuleRaw));
 }
 
 async function runSolarEventsTests() {
@@ -8827,6 +8938,130 @@ async function runSolarEventsTests() {
   let threw = false; try { await calculateSolarEvents({ date, latitude: 91, longitude: 121, utcOffsetMinutes: 480 }); } catch { threw = true; }
   solarEventsVerifiedCaseCount += 1;
   assertEqual("solar-events-invalid-coordinate", "throws", true, threw);
+  const overseasCarrier = new Date(Date.UTC(2027, 10, 7, 1, 30, 0));
+  const overseasEvents = await calculateSolarEvents({
+    date: overseasCarrier,
+    latitude: 34.0522,
+    longitude: -118.2437,
+    utcOffsetMinutes: -480,
+    useUtcComponents: true,
+  });
+  solarEventsVerifiedCaseCount += 1;
+  assertEqual("solar-events-utc-carrier", "dateKey", "2027-11-07", overseasEvents.dateKey);
+  const taiwanCarrier = new Date(Date.UTC(2026, 7, 6, 12, 0, 0));
+  const taiwanClockEvents = await calculateSolarEvents({ date: taiwanCarrier, latitude: 24.984898, longitude: 121.540626, utcOffsetMinutes: 480, useUtcComponents: true });
+  const tokyoClockEvents = await calculateSolarEvents({ date: taiwanCarrier, latitude: 24.984898, longitude: 121.540626, utcOffsetMinutes: 540, useUtcComponents: true });
+  solarEventsVerifiedCaseCount += 1;
+  assertEqual("solar-events-offset-display-only", "sunriseInstant", taiwanClockEvents.sunrise.getTime(), tokyoClockEvents.sunrise.getTime());
+  solarEventsVerifiedCaseCount += 1;
+  assertEqual("solar-events-offset-display-only", "sunriseClockHour", (taiwanClockEvents.sunriseParts.hour + 1) % 24, tokyoClockEvents.sunriseParts.hour);
+}
+
+async function runTimeZoneTests() {
+  const check = (id, expected, actual) => {
+    timeZoneVerifiedCaseCount += 1;
+    assertEqual(id, "result", expected, actual);
+  };
+  for (const zone of ["Asia/Taipei", "America/Los_Angeles", "Australia/Lord_Howe", "Asia/Kathmandu"]) {
+    check("time-zone-valid", true, validateTimeZone(zone));
+  }
+  for (const zone of ["America/Invalid", "UTC+8", ""]) {
+    check("time-zone-invalid", false, validateTimeZone(zone));
+  }
+  check("time-zone-device-valid", true, validateTimeZone(getDeviceTimeZone()));
+  const taipei = resolveLocalDateTimeInTimeZone({
+    localParts: { year: 2027, month: 8, day: 6, hour: 14, minute: 30, second: 25 },
+    timeZone: "Asia/Taipei",
+  });
+  check("time-zone-taipei", "resolved", taipei.status);
+  check("time-zone-taipei-offset", 480, taipei.utcOffsetMinutes);
+  const tokyo = resolveLocalDateTimeInTimeZone({
+    localParts: { year: 2026, month: 8, day: 6, hour: 14, minute: 21, second: 30 },
+    timeZone: "Asia/Tokyo",
+  });
+  check("time-zone-tokyo-resolved", "resolved", tokyo.status);
+  const winter = resolveLocalDateTimeInTimeZone({
+    localParts: { year: 2027, month: 1, day: 6, hour: 14, minute: 30, second: 0 },
+    timeZone: "America/Los_Angeles",
+  });
+  const summer = resolveLocalDateTimeInTimeZone({
+    localParts: { year: 2027, month: 8, day: 6, hour: 14, minute: 30, second: 0 },
+    timeZone: "America/Los_Angeles",
+  });
+  check("time-zone-la-winter", -480, winter.utcOffsetMinutes);
+  check("time-zone-la-summer", -420, summer.utcOffsetMinutes);
+  const missing = resolveLocalDateTimeInTimeZone({
+    localParts: { year: 2027, month: 3, day: 14, hour: 2, minute: 30, second: 0 },
+    timeZone: "America/Los_Angeles",
+  });
+  check("time-zone-nonexistent", "nonexistent", missing.status);
+  check("time-zone-nonexistent-candidates", 0, missing.candidates.length);
+  const repeatedLocalParts = { year: 2027, month: 11, day: 7, hour: 1, minute: 30, second: 0 };
+  const repeatedLocalPartsSnapshot = { ...repeatedLocalParts };
+  const repeated = resolveLocalDateTimeInTimeZone({
+    localParts: repeatedLocalParts,
+    timeZone: "America/Los_Angeles",
+  });
+  check("time-zone-ambiguous", "ambiguous", repeated.status);
+  check("time-zone-ambiguous-candidates", 2, repeated.candidates.length);
+  check("time-zone-ambiguous-offsets", true, repeated.candidates[0]?.utcOffsetMinutes !== repeated.candidates[1]?.utcOffsetMinutes);
+  check("time-zone-ambiguous-local-parts-unchanged", JSON.stringify(repeatedLocalPartsSnapshot), JSON.stringify(repeatedLocalParts));
+  check("time-zone-ambiguous-candidates-unique", repeated.candidates.length, new Set(repeated.candidates.map((candidate) => candidate.instant.getTime())).size);
+  check("time-zone-ambiguous-candidates-ordered", true, repeated.candidates.every((candidate, index) => index === 0 || repeated.candidates[index - 1].instant < candidate.instant));
+  const earlier = resolveLocalDateTimeInTimeZone({ localParts: repeatedLocalParts, timeZone: "America/Los_Angeles", disambiguation: "earlier" });
+  const later = resolveLocalDateTimeInTimeZone({ localParts: repeatedLocalParts, timeZone: "America/Los_Angeles", disambiguation: "later" });
+  check("time-zone-ambiguous-earlier", repeated.candidates[0].instant.getTime(), earlier.instant.getTime());
+  check("time-zone-ambiguous-later", repeated.candidates[1].instant.getTime(), later.instant.getTime());
+  const kathmandu = resolveLocalDateTimeInTimeZone({
+    localParts: { year: 2027, month: 8, day: 6, hour: 14, minute: 30, second: 0 },
+    timeZone: "Asia/Kathmandu",
+  });
+  check("time-zone-kathmandu", 345, kathmandu.utcOffsetMinutes);
+  const trimmed = resolveLocalDateTimeInTimeZone({
+    localParts: { year: 2027, month: 8, day: 6, hour: 14, minute: 30, second: 0 },
+    timeZone: "  America/Los_Angeles  ",
+  });
+  check("time-zone-trimmed", "America/Los_Angeles", trimmed.timeZone);
+  check("time-zone-trimmed-offset", -420, trimmed.utcOffsetMinutes);
+  check("time-zone-trimmed-parts", "America/Los_Angeles", getZonedDateTimeParts(new Date("2027-08-06T00:00:00Z"), "  America/Los_Angeles  ").timeZone);
+  const lordHowe = resolveLocalDateTimeInTimeZone({
+    localParts: { year: 2027, month: 4, day: 4, hour: 1, minute: 45, second: 0 },
+    timeZone: "Australia/Lord_Howe",
+  });
+  check("time-zone-lord-howe-ambiguous", "ambiguous", lordHowe.status);
+  check("time-zone-lord-howe-candidates", 2, lordHowe.candidates.length);
+  check("time-zone-lord-howe-30-minute", 30, Math.abs(lordHowe.candidates[0]?.utcOffsetMinutes - lordHowe.candidates[1]?.utcOffsetMinutes));
+  check("time-zone-lord-howe-order", true, lordHowe.candidates[0]?.instant < lordHowe.candidates[1]?.instant);
+  for (const [value, expected] of [[480, "UTC+08:00"], [-420, "UTC-07:00"], [345, "UTC+05:45"], [630, "UTC+10:30"], [Infinity, "UTC—"], [NaN, "UTC—"], [1.5, "UTC—"]]) {
+    check("time-zone-format", expected, formatUtcOffset(value));
+  }
+  const date = new Date("invalid");
+  check("time-zone-invalid-date", null, getZonedDateTimeParts(date, "Asia/Taipei"));
+  await runTimeZoneFormatterCacheTest(check);
+}
+
+async function runTimeZoneFormatterCacheTest(check) {
+  const originalDateTimeFormat = Intl.DateTimeFormat;
+  let formatterConstructionCount = 0;
+  Intl.DateTimeFormat = function DateTimeFormat(...args) {
+    formatterConstructionCount += 1;
+    return new originalDateTimeFormat(...args);
+  };
+
+  try {
+    const moduleUrl = new URL(`../src/timeZone.js?formatter-cache-test=${Date.now()}`, import.meta.url);
+    const freshTimeZoneModule = await import(moduleUrl.href);
+    freshTimeZoneModule.resolveLocalDateTimeInTimeZone({
+      localParts: { year: 2027, month: 8, day: 6, hour: 14, minute: 30, second: 0 },
+      timeZone: "America/Los_Angeles",
+    });
+    freshTimeZoneModule.validateTimeZone("  America/Los_Angeles  ");
+    freshTimeZoneModule.validateTimeZone("America/Invalid");
+    freshTimeZoneModule.validateTimeZone("  America/Invalid  ");
+    check("time-zone-formatter-cache-constructions", 2, formatterConstructionCount);
+  } finally {
+    Intl.DateTimeFormat = originalDateTimeFormat;
+  }
 }
 
 function runDailyInfoTests() {

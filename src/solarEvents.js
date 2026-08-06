@@ -2,14 +2,18 @@ const MS_PER_DAY = 86_400_000;
 const SUNRISE_ZENITH_DEGREES = 90.833; // NOAA: solar radius plus standard atmospheric refraction.
 
 /** NOAA/Meeus-style solar events. All returned parts use the explicit target offset. */
-export async function calculateSolarEvents({ date, latitude, longitude, utcOffsetMinutes } = {}) {
+export async function calculateSolarEvents({ date, latitude, longitude, utcOffsetMinutes, useUtcComponents = false } = {}) {
   if (!(date instanceof Date) || !Number.isFinite(date.getTime())) throw new TypeError("date 必須是有效的 Date");
   if (!Number.isFinite(latitude) || latitude < -90 || latitude > 90) throw new RangeError("latitude 必須介於 -90 到 90");
   if (!Number.isFinite(longitude) || longitude < -180 || longitude > 180) throw new RangeError("longitude 必須介於 -180 到 180");
   if (!Number.isFinite(utcOffsetMinutes)) throw new TypeError("utcOffsetMinutes 必須是有限數字");
-  const local = { year: date.getFullYear(), month: date.getMonth() + 1, day: date.getDate() };
+  const local = useUtcComponents
+    ? { year: date.getUTCFullYear(), month: date.getUTCMonth() + 1, day: date.getUTCDate() }
+    : { year: date.getFullYear(), month: date.getMonth() + 1, day: date.getDate() };
   const utcMidnight = Date.UTC(local.year, local.month - 1, local.day) - utcOffsetMinutes * 60_000;
-  const noonUtc = utcMidnight + 12 * 60 * 60_000;
+  // Solar geometry is anchored to the requested civil date, not its display offset.
+  // This keeps a location's physical event instants identical when only the clock zone changes.
+  const noonUtc = Date.UTC(local.year, local.month - 1, local.day, 12);
   const solar = solarGeometry(noonUtc);
   const solarNoonMinutes = 720 - 4 * longitude - solar.equationMinutes + utcOffsetMinutes;
   const hourAngle = sunriseHourAngle(latitude, solar.declinationDegrees);

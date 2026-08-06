@@ -53,22 +53,70 @@
       <div id="panel-true-solar-time" class="tab-panel" role="tabpanel" aria-labelledby="tab-true-solar-time" hidden>
         <section class="panel true-solar-time-panel" aria-labelledby="true-solar-time-title">
           <h2 id="true-solar-time-title">真太陽時</h2>
-          <div class="true-solar-time-watch"><strong>手錶日期時間</strong><p id="true-solar-time-watch-value">--</p><small>來自上方查詢時間</small></div>
+          <fieldset class="true-solar-time-source" aria-describedby="true-solar-time-source-note">
+            <legend>時間來源</legend>
+            <label class="true-solar-time-source-option"><input id="true-solar-time-source-query" type="radio" name="true-solar-time-source" value="query" checked><span>上方查詢時間（臺灣 UTC+8）</span></label>
+            <label class="true-solar-time-source-option"><input id="true-solar-time-source-device" type="radio" name="true-solar-time-source" value="device"><span>裝置目前時間與時區</span></label>
+            <label class="true-solar-time-source-option"><input id="true-solar-time-source-custom" type="radio" name="true-solar-time-source" value="custom"><span>自訂當地日期時間與時區</span></label>
+            <p id="true-solar-time-source-note" class="true-solar-time-detail true-solar-time-source-note">上方查詢時間可套用至全部排盤；其他來源僅供真太陽時查詢。</p>
+          </fieldset>
+          <div class="true-solar-time-watch"><strong id="true-solar-time-watch-title">手錶日期時間</strong><p id="true-solar-time-watch-value">--</p><small id="true-solar-time-watch-note">來自上方查詢時間（Asia/Taipei）</small></div>
+          <div id="true-solar-time-device-fields" class="true-solar-time-device-fields" hidden>
+            <p>裝置時間：<strong id="true-solar-time-device-local-time">--</strong></p>
+            <p>裝置時區：<strong id="true-solar-time-device-time-zone">--</strong></p>
+            <p>當下適用：<strong id="true-solar-time-device-offset">--</strong></p>
+          </div>
+          <div id="true-solar-time-custom-fields" class="true-solar-time-custom-fields" hidden>
+            <label>當地日期<input id="true-solar-time-local-date" type="date"></label>
+            <label>當地時間<input id="true-solar-time-local-time" type="time" step="1"></label>
+            <label>IANA 時區<input id="true-solar-time-time-zone" type="text" list="true-solar-time-time-zones" autocomplete="off" spellcheck="false" placeholder="America/Los_Angeles"></label>
+            <datalist id="true-solar-time-time-zones">
+              <option value="Asia/Taipei"></option>
+              <option value="Asia/Tokyo"></option>
+              <option value="Asia/Seoul"></option>
+              <option value="Asia/Hong_Kong"></option>
+              <option value="Asia/Shanghai"></option>
+              <option value="America/Los_Angeles"></option>
+              <option value="America/New_York"></option>
+              <option value="America/Chicago"></option>
+              <option value="America/Denver"></option>
+              <option value="Europe/London"></option>
+              <option value="Europe/Paris"></option>
+              <option value="Australia/Sydney"></option>
+              <option value="Australia/Lord_Howe"></option>
+              <option value="Pacific/Auckland"></option>
+              <option value="Asia/Kathmandu"></option>
+            </datalist>
+            <p id="true-solar-time-time-zone-status" class="section-message" role="status" aria-live="polite"></p>
+            <fieldset id="true-solar-time-disambiguation" class="true-solar-time-disambiguation" hidden>
+              <legend>重複時間</legend>
+              <div class="true-solar-time-disambiguation-options">
+                <label class="true-solar-time-disambiguation-option"><input id="true-solar-time-disambiguation-earlier" type="radio" name="true-solar-time-disambiguation" value="earlier"><span id="true-solar-time-disambiguation-earlier-label">第一次</span></label>
+                <label class="true-solar-time-disambiguation-option"><input id="true-solar-time-disambiguation-later" type="radio" name="true-solar-time-disambiguation" value="later"><span id="true-solar-time-disambiguation-later-label">第二次</span></label>
+              </div>
+              <p id="true-solar-time-disambiguation-selected" class="true-solar-time-disambiguation-selected" hidden></p>
+            </fieldset>
+          </div>
           <div class="true-solar-time-location">
             <label for="true-solar-time-coordinate">地點座標</label>
             <input id="true-solar-time-coordinate" type="text" autocomplete="off" spellcheck="false" placeholder="24°58'37.1&quot;N 121°32'45.3&quot;E">
             <div class="true-solar-time-actions"><button id="true-solar-time-calculate" type="button">依經緯度取得真太陽時</button><button id="true-solar-time-geolocate" type="button">自動取得真太陽時</button></div>
             <p id="true-solar-time-location-value" class="true-solar-time-detail"></p>
-            <p class="true-solar-time-timezone">目前時間基準固定為臺灣 UTC+8；輸入海外座標時，不會自動換算當地時區或夏令時間。</p>
+            <p class="true-solar-time-timezone">座標決定實際地點；時區只決定手錶時間制度，兩者不會自動互相轉換。</p>
           </div>
           <p id="true-solar-time-status" class="section-message" role="status" aria-live="polite"></p>
           <div id="true-solar-time-result" class="true-solar-time-result" hidden></div>
           <section id="true-solar-time-solar-events" class="true-solar-time-solar-events" hidden aria-labelledby="true-solar-time-solar-events-title">
             <h3 id="true-solar-time-solar-events-title"></h3>
+            <div id="true-solar-time-solar-events-context" class="true-solar-time-solar-events-context">
+              <p id="true-solar-time-solar-events-location" class="true-solar-events-location-line"></p>
+              <p id="true-solar-time-solar-events-time-zone" class="true-solar-events-time-zone-line"></p>
+            </div>
             <div class="true-solar-time-solar-events-grid"><div><span>日出</span><strong id="true-solar-time-sunrise">--</strong></div><div><span>中天</span><strong id="true-solar-time-solar-noon">--</strong></div><div><span>日落</span><strong id="true-solar-time-sunset">--</strong></div></div>
             <p id="true-solar-time-solar-events-message" role="status" aria-live="polite"></p>
           </section>
           <div id="true-solar-time-apply-actions" class="true-solar-time-apply-actions" hidden><button id="true-solar-time-apply" type="button">套用真太陽時至全部排盤</button></div>
+          <p id="true-solar-time-query-only-note" class="true-solar-time-query-only-note" hidden>此時間來源目前僅供真太陽時查詢；下一階段才支援套用至全部排盤。</p>
         </section>
       </div>
 

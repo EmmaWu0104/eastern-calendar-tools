@@ -62,8 +62,8 @@ export function convertDmsToDecimal(degrees, minutes, seconds, direction) {
  * solar time and must be added to local mean solar time. This is suitable for
  * general true-solar-time use, not a high-precision ephemeris claim.
  */
-export function calculateEquationOfTime({ date, utcOffsetMinutes } = {}) {
-  const watchParts = getWatchDateParts(date);
+export function calculateEquationOfTime({ date, utcOffsetMinutes, useUtcComponents = false } = {}) {
+  const watchParts = getWatchDateParts(date, useUtcComponents);
   validateUtcOffsetMinutes(utcOffsetMinutes);
   const utcMs = watchPartsToUtcMs(watchParts, utcOffsetMinutes);
   const julianDay = utcMs / MS_PER_DAY + 2_440_587.5;
@@ -91,15 +91,15 @@ export function calculateEquationOfTime({ date, utcOffsetMinutes } = {}) {
  * Returned Date values are UTC-carrier Dates: read their UTC getters (or the
  * accompanying *Parts) as target watch-zone wall-clock components.
  */
-export function calculateTrueSolarTime({ date, latitude, longitude, utcOffsetMinutes } = {}) {
-  const watchParts = getWatchDateParts(date);
+export function calculateTrueSolarTime({ date, latitude, longitude, utcOffsetMinutes, useUtcComponents = false } = {}) {
+  const watchParts = getWatchDateParts(date, useUtcComponents);
   validateLatitude(latitude);
   validateLongitude(longitude);
   validateUtcOffsetMinutes(utcOffsetMinutes);
 
   const standardMeridianDegrees = utcOffsetMinutes / 60 * 15;
   const longitudeCorrectionSeconds = (longitude - standardMeridianDegrees) * 240;
-  const equationOfTimeSeconds = calculateEquationOfTime({ date, utcOffsetMinutes });
+  const equationOfTimeSeconds = calculateEquationOfTime({ date, utcOffsetMinutes, useUtcComponents });
   const totalCorrectionSeconds = longitudeCorrectionSeconds + equationOfTimeSeconds;
   const meanSolarParts = addMillisecondsToParts(watchParts, longitudeCorrectionSeconds * 1000);
   const trueSolarParts = addMillisecondsToParts(watchParts, totalCorrectionSeconds * 1000);
@@ -199,18 +199,19 @@ function createCoordinateResult({ latitude, longitude }, sourceFormat) {
   };
 }
 
-function getWatchDateParts(date) {
+function getWatchDateParts(date, useUtcComponents) {
   if (!(date instanceof Date) || !Number.isFinite(date.getTime())) {
     throw new TypeError("date 必須是有效的 Date");
   }
+  const get = useUtcComponents ? "getUTC" : "get";
   return Object.freeze({
-    year: date.getFullYear(),
-    month: date.getMonth() + 1,
-    day: date.getDate(),
-    hour: date.getHours(),
-    minute: date.getMinutes(),
-    second: date.getSeconds(),
-    millisecond: date.getMilliseconds(),
+    year: date[`${get}FullYear`](),
+    month: date[`${get}Month`]() + 1,
+    day: date[`${get}Date`](),
+    hour: date[`${get}Hours`](),
+    minute: date[`${get}Minutes`](),
+    second: date[`${get}Seconds`](),
+    millisecond: date[`${get}Milliseconds`](),
   });
 }
 

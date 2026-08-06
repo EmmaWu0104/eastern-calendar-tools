@@ -46,4 +46,10 @@ The Equation of Time core remains separate from SunCalc and charting formulas.
 
 `src/solarEvents.js` uses the NOAA/Meeus-style solar geometry used by the true-solar-time core for sunrise, solar noon, and sunset. Sunrise/sunset use NOAA's 90.833° zenith (standard refraction plus solar radius); solar noon is the apparent solar noon. 登貴 and the true-solar-time panel share this helper. UI shows truncated `HH:mm`, while 登貴 keeps the underlying second-level Date values. When the user explicitly applies true solar time, the charting views and 登貴 share the selected coordinate; otherwise 登貴 uses its default location.
 
-Browser Geolocation is requested only after the user presses the location button. Coordinates are not stored in localStorage or sent to an external service. The first version fixes the watch-time basis at Taiwan UTC+8; overseas historical time zones and daylight saving time are not inferred. The vendored SunCalc remains in the repository for other functionality, but is not the formal sunrise/sunset source.
+Browser Geolocation is requested only after the user presses the location button. Coordinates are not stored in localStorage or sent to an external service. The vendored SunCalc remains in the repository for other functionality, but is not the formal sunrise/sunset source.
+
+## Time-zone data
+
+The device and custom true-solar-time query modes use the browser's built-in `Intl.DateTimeFormat` implementation and its bundled IANA time-zone data. No external time-zone API is called, and Temporal is not a required runtime dependency. Custom IANA zones are resolved for the requested local date so that applicable daylight-saving offsets, nonexistent local times, and ambiguous repeated local times can be handled explicitly.
+
+The available rules depend on the browser and operating system's included IANA data. Future government policy changes are therefore not guaranteed to appear immediately. Coordinates do not infer a time zone; the selected device or custom IANA zone remains the source of the clock offset.

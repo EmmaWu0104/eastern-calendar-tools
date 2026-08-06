@@ -39,6 +39,12 @@ import { getJinhanDunType } from "./jinhanDunType.js";
 import { getNaYinByPillar } from "./nayin.js";
 import { calculateTrueSolarTime, parseCoordinateInput } from "./trueSolarTime.js";
 import { calculateSolarEvents } from "./solarEvents.js";
+import {
+  formatUtcOffset,
+  getDeviceTimeZone,
+  getZonedDateTimeParts,
+  resolveLocalDateTimeInTimeZone,
+} from "./timeZone.js";
 import { getQimenPlate } from "./qimenPlateLookup.js";
 import { createQimenOpenCloseViewModel } from "./qimenOpenClose.js";
 import {
@@ -67,8 +73,9 @@ import {
 
 const AUTO_NOW_REFRESH_MS = 30_000;
 const TRUE_SOLAR_TIME_CLOCK_REFRESH_MS = 1_000;
-// 第一版真太陽時 UI 固定以臺灣手錶時間 UTC+8；不處理海外歷史時區或夏令時間。
+// 上方查詢時間維持臺灣 UTC+8；裝置／自訂來源另外以 IANA 時區解析。
 const TAIPEI_UTC_OFFSET_MINUTES = 480;
+const TRUE_SOLAR_TIME_SOURCE = Object.freeze({ QUERY: "query", DEVICE: "device", CUSTOM: "custom" });
 const CHART_TIME_MODE = Object.freeze({ WATCH: "watch", TRUE_SOLAR: "true-solar" });
 
 const PALACE_DIRECTION_LABELS = {
@@ -167,14 +174,35 @@ const elements = {
   tabPanels: Array.from(document.querySelectorAll(".tab-panel")),
   qimenTabPanel: getElement("#panel-qimen"),
   trueSolarTimeCoordinate: getElement("#true-solar-time-coordinate"),
+  trueSolarTimeSourceQuery: getElement("#true-solar-time-source-query"),
+  trueSolarTimeSourceDevice: getElement("#true-solar-time-source-device"),
+  trueSolarTimeSourceCustom: getElement("#true-solar-time-source-custom"),
   trueSolarTimeCalculate: getElement("#true-solar-time-calculate"),
   trueSolarTimeGeolocate: getElement("#true-solar-time-geolocate"),
   trueSolarTimeWatchValue: getElement("#true-solar-time-watch-value"),
+  trueSolarTimeWatchTitle: getElement("#true-solar-time-watch-title"),
+  trueSolarTimeWatchNote: getElement("#true-solar-time-watch-note"),
+  trueSolarTimeDeviceFields: getElement("#true-solar-time-device-fields"),
+  trueSolarTimeDeviceLocalTime: getElement("#true-solar-time-device-local-time"),
+  trueSolarTimeDeviceTimeZone: getElement("#true-solar-time-device-time-zone"),
+  trueSolarTimeDeviceOffset: getElement("#true-solar-time-device-offset"),
+  trueSolarTimeCustomFields: getElement("#true-solar-time-custom-fields"),
+  trueSolarTimeLocalDate: getElement("#true-solar-time-local-date"),
+  trueSolarTimeLocalTime: getElement("#true-solar-time-local-time"),
+  trueSolarTimeTimeZone: getElement("#true-solar-time-time-zone"),
+  trueSolarTimeTimeZoneStatus: getElement("#true-solar-time-time-zone-status"),
+  trueSolarTimeDisambiguation: getElement("#true-solar-time-disambiguation"),
+  trueSolarTimeDisambiguationEarlier: getElement("#true-solar-time-disambiguation-earlier"),
+  trueSolarTimeDisambiguationLater: getElement("#true-solar-time-disambiguation-later"),
+  trueSolarTimeDisambiguationEarlierLabel: getElement("#true-solar-time-disambiguation-earlier-label"),
+  trueSolarTimeDisambiguationLaterLabel: getElement("#true-solar-time-disambiguation-later-label"),
+  trueSolarTimeDisambiguationSelected: getElement("#true-solar-time-disambiguation-selected"),
   trueSolarTimeLocationValue: getElement("#true-solar-time-location-value"),
   trueSolarTimeStatus: getElement("#true-solar-time-status"),
   trueSolarTimeResult: getElement("#true-solar-time-result"),
-  trueSolarTimeSolarEvents: getElement("#true-solar-time-solar-events"), trueSolarTimeSolarEventsTitle: getElement("#true-solar-time-solar-events-title"), trueSolarTimeSunrise: getElement("#true-solar-time-sunrise"), trueSolarTimeSolarNoon: getElement("#true-solar-time-solar-noon"), trueSolarTimeSunset: getElement("#true-solar-time-sunset"), trueSolarTimeSolarEventsMessage: getElement("#true-solar-time-solar-events-message"),
+  trueSolarTimeSolarEvents: getElement("#true-solar-time-solar-events"), trueSolarTimeSolarEventsTitle: getElement("#true-solar-time-solar-events-title"), trueSolarTimeSolarEventsContext: getElement("#true-solar-time-solar-events-context"), trueSolarTimeSolarEventsLocation: getElement("#true-solar-time-solar-events-location"), trueSolarTimeSolarEventsTimeZone: getElement("#true-solar-time-solar-events-time-zone"), trueSolarTimeSunrise: getElement("#true-solar-time-sunrise"), trueSolarTimeSolarNoon: getElement("#true-solar-time-solar-noon"), trueSolarTimeSunset: getElement("#true-solar-time-sunset"), trueSolarTimeSolarEventsMessage: getElement("#true-solar-time-solar-events-message"),
   trueSolarTimeApplyActions: getElement("#true-solar-time-apply-actions"), trueSolarTimeApply: getElement("#true-solar-time-apply"), chartTimeStatusTitle: getElement("#chart-time-status-title"), chartTimeStatusDetail: getElement("#chart-time-status-detail"), chartTimeRestore: getElement("#chart-time-restore"),
+  trueSolarTimeQueryOnlyNote: getElement("#true-solar-time-query-only-note"),
   datetime: getElement("#datetime"),
   useNow: getElement("#use-now"),
   calendarPrevious: getElement("#calendar-previous"),
@@ -222,6 +250,8 @@ let qimenManualOverride = {
 };
 let trueSolarTimeLocation = null;
 let trueSolarTimeSolarEventsKey = null;
+let trueSolarTimeSource = TRUE_SOLAR_TIME_SOURCE.QUERY;
+let trueSolarTimeCustomDisambiguation = null;
 let chartTimeState = { mode: CHART_TIME_MODE.WATCH, watchDateTimeValue: null, effectiveDateTimeValue: null, trueSolarResult: null, location: null };
 const solarTermDayPanel = createSolarTermDayPanel();
 const pillarExtraPanel = createPillarExtraPanel();
@@ -262,6 +292,23 @@ elements.jinhanDunType.addEventListener("change", () => {
 elements.trueSolarTimeCalculate.addEventListener("click", calculateTrueSolarTimeFromCoordinateInput);
 elements.trueSolarTimeGeolocate.addEventListener("click", requestTrueSolarTimeGeolocation);
 elements.trueSolarTimeApply.addEventListener("click", applyTrueSolarTimeToCharts);
+for (const sourceControl of [
+  elements.trueSolarTimeSourceQuery,
+  elements.trueSolarTimeSourceDevice,
+  elements.trueSolarTimeSourceCustom,
+]) {
+  sourceControl.addEventListener("change", handleTrueSolarTimeSourceChange);
+}
+for (const customControl of [
+  elements.trueSolarTimeLocalDate,
+  elements.trueSolarTimeLocalTime,
+  elements.trueSolarTimeTimeZone,
+]) {
+  customControl.addEventListener("input", handleTrueSolarTimeCustomInput);
+  customControl.addEventListener("change", handleTrueSolarTimeCustomInput);
+}
+elements.trueSolarTimeDisambiguationEarlier.addEventListener("change", handleTrueSolarTimeDisambiguationChange);
+elements.trueSolarTimeDisambiguationLater.addEventListener("change", handleTrueSolarTimeDisambiguationChange);
 elements.chartTimeRestore.addEventListener("click", () => restoreWatchChartTime());
 qimenElements.manualToggle.addEventListener("change", handleQimenManualToggleChange);
 qimenElements.manualDunSelect.addEventListener("change", handleQimenManualDunChange);
@@ -278,7 +325,7 @@ function startAutoNowMode() {
   }
   isAutoNowMode = true;
   stopAutoNowRefresh();
-  startTrueSolarTimeClockRefresh();
+  syncTrueSolarTimeClockRefresh();
   refreshFromCurrentTime();
   autoNowTimerId = window.setInterval(refreshFromCurrentTime, AUTO_NOW_REFRESH_MS);
 }
@@ -290,7 +337,7 @@ function pauseAutoNowMode() {
 
   isAutoNowMode = false;
   stopAutoNowRefresh();
-  stopTrueSolarTimeClockRefresh();
+  syncTrueSolarTimeClockRefresh();
 }
 
 function stopAutoNowRefresh() {
@@ -301,6 +348,9 @@ function stopAutoNowRefresh() {
 }
 
 function startTrueSolarTimeClockRefresh() {
+  if (trueSolarTimeSource !== TRUE_SOLAR_TIME_SOURCE.DEVICE && !isAutoNowMode) {
+    return;
+  }
   if (trueSolarTimeClockTimerId !== null) {
     return;
   }
@@ -308,6 +358,17 @@ function startTrueSolarTimeClockRefresh() {
     refreshTrueSolarTimeClock,
     TRUE_SOLAR_TIME_CLOCK_REFRESH_MS
   );
+}
+
+function syncTrueSolarTimeClockRefresh() {
+  if (
+    trueSolarTimeSource === TRUE_SOLAR_TIME_SOURCE.DEVICE
+    || (trueSolarTimeSource === TRUE_SOLAR_TIME_SOURCE.QUERY && isAutoNowMode)
+  ) {
+    startTrueSolarTimeClockRefresh();
+  } else {
+    stopTrueSolarTimeClockRefresh();
+  }
 }
 
 function stopTrueSolarTimeClockRefresh() {
@@ -318,10 +379,13 @@ function stopTrueSolarTimeClockRefresh() {
 }
 
 function refreshTrueSolarTimeClock() {
-  if (!isAutoNowMode) {
+  if (trueSolarTimeSource === TRUE_SOLAR_TIME_SOURCE.DEVICE) {
+    renderTrueSolarTimeForDeviceNow();
     return;
   }
-  renderTrueSolarTimeForWatchDate(new Date());
+  if (trueSolarTimeSource === TRUE_SOLAR_TIME_SOURCE.QUERY && isAutoNowMode) {
+    renderTrueSolarTimeForWatchDate(new Date());
+  }
 }
 
 function refreshFromCurrentTime() {
@@ -1435,7 +1499,7 @@ function calculateTrueSolarTimeFromCoordinateInput() {
   }
   trueSolarTimeLocation = coordinate;
   elements.trueSolarTimeCoordinate.value = coordinate.normalizedText;
-  renderTrueSolarTimeForWatchDate(currentDateTimeValue ?? elements.datetime.value);
+  renderActiveTrueSolarTime();
 }
 
 function requestTrueSolarTimeGeolocation() {
@@ -1450,7 +1514,7 @@ function requestTrueSolarTimeGeolocation() {
       const { latitude, longitude, accuracy } = position.coords;
       trueSolarTimeLocation = { latitude, longitude, normalizedText: `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`, sourceFormat: "geolocation", accuracy };
       elements.trueSolarTimeCoordinate.value = trueSolarTimeLocation.normalizedText;
-      renderTrueSolarTimeForWatchDate(currentDateTimeValue ?? elements.datetime.value);
+      renderActiveTrueSolarTime();
       setTrueSolarTimeStatus(`定位精確度：約 ${Math.round(accuracy)} 公尺`, "");
       restoreTrueSolarTimeGeolocateButton();
     },
@@ -1474,44 +1538,258 @@ function restoreTrueSolarTimeGeolocateButton() {
 
 function renderTrueSolarTimeForWatchDate(dateTimeValue) {
   const watchDate = dateTimeValue instanceof Date ? new Date(dateTimeValue.getTime()) : parseDateTimeLocalValue(dateTimeValue);
-  if (!watchDate) return;
-  elements.trueSolarTimeWatchValue.textContent = formatDateTimeParts(getLocalDateParts(watchDate));
-  if (!trueSolarTimeLocation) return;
+  if (!watchDate || trueSolarTimeSource !== TRUE_SOLAR_TIME_SOURCE.QUERY) return;
+  const localParts = getLocalDateParts(watchDate);
+  renderTrueSolarTimeForContext({
+    source: TRUE_SOLAR_TIME_SOURCE.QUERY,
+    localParts,
+    timeZone: "Asia/Taipei",
+    utcOffsetMinutes: TAIPEI_UTC_OFFSET_MINUTES,
+    abbreviation: "",
+  });
+}
+
+function renderTrueSolarTimeForDeviceNow() {
+  if (trueSolarTimeSource !== TRUE_SOLAR_TIME_SOURCE.DEVICE) return;
+  const now = new Date();
+  const timeZone = getDeviceTimeZone() || "UTC";
+  const zoned = getZonedDateTimeParts(now, timeZone) ?? getZonedDateTimeParts(now, "UTC");
+  if (!zoned) {
+    clearTrueSolarTimePresentation();
+    setTrueSolarTimeStatus("目前無法讀取裝置時區。", "error");
+    return;
+  }
+  elements.trueSolarTimeDeviceLocalTime.textContent = formatDateTimeParts(zoned.localParts);
+  elements.trueSolarTimeDeviceTimeZone.textContent = zoned.timeZone;
+  elements.trueSolarTimeDeviceOffset.textContent = `${zoned.abbreviation ? `${zoned.abbreviation} ` : ""}(${zoned.offsetText})`;
+  renderTrueSolarTimeForContext({
+    source: TRUE_SOLAR_TIME_SOURCE.DEVICE,
+    localParts: zoned.localParts,
+    timeZone: zoned.timeZone,
+    utcOffsetMinutes: zoned.utcOffsetMinutes,
+    abbreviation: zoned.abbreviation,
+  });
+}
+
+function renderTrueSolarTimeForCustomInput() {
+  if (trueSolarTimeSource !== TRUE_SOLAR_TIME_SOURCE.CUSTOM) return;
+  const localParts = parseTrueSolarTimeCustomLocalParts(
+    elements.trueSolarTimeLocalDate.value,
+    elements.trueSolarTimeLocalTime.value
+  );
+  const initialResolution = resolveLocalDateTimeInTimeZone({
+    localParts,
+    timeZone: elements.trueSolarTimeTimeZone.value,
+  });
+  elements.trueSolarTimeDisambiguation.hidden = true;
+  if (initialResolution.status === "nonexistent") {
+    clearTrueSolarTimePresentation();
+    setTrueSolarTimeTimeZoneStatus("此當地時間因日光節約時間切換而不存在，請選擇其他時間。", "error");
+    return;
+  }
+  if (initialResolution.status === "ambiguous") {
+    configureTrueSolarTimeDisambiguation(initialResolution.candidates, trueSolarTimeCustomDisambiguation);
+    if (!trueSolarTimeCustomDisambiguation) {
+      clearTrueSolarTimePresentation();
+      setTrueSolarTimeTimeZoneStatus("此當地時間出現兩次，請選擇實際使用的時間。", "error");
+      return;
+    }
+  }
+  if (initialResolution.status !== "resolved" && initialResolution.status !== "ambiguous") {
+    clearTrueSolarTimePresentation();
+    setTrueSolarTimeTimeZoneStatus(
+      initialResolution.status === "invalid-time-zone" ? "請輸入有效的 IANA 時區。" : "請輸入有效的當地日期與時間。",
+      "error"
+    );
+    return;
+  }
+  const resolved = initialResolution.status === "ambiguous"
+    ? resolveLocalDateTimeInTimeZone({
+      localParts,
+      timeZone: elements.trueSolarTimeTimeZone.value,
+      disambiguation: trueSolarTimeCustomDisambiguation,
+    })
+    : initialResolution;
+  if (resolved.status !== "resolved") {
+    clearTrueSolarTimePresentation();
+    setTrueSolarTimeTimeZoneStatus("此當地時間無法解析，請重新選擇。", "error");
+    return;
+  }
+  setTrueSolarTimeTimeZoneStatus("", "");
+  renderTrueSolarTimeForContext({
+    source: TRUE_SOLAR_TIME_SOURCE.CUSTOM,
+    localParts: resolved.localParts,
+    timeZone: resolved.timeZone,
+    utcOffsetMinutes: resolved.utcOffsetMinutes,
+    abbreviation: resolved.abbreviation,
+  });
+}
+
+function renderActiveTrueSolarTime() {
+  if (trueSolarTimeSource === TRUE_SOLAR_TIME_SOURCE.DEVICE) {
+    renderTrueSolarTimeForDeviceNow();
+  } else if (trueSolarTimeSource === TRUE_SOLAR_TIME_SOURCE.CUSTOM) {
+    renderTrueSolarTimeForCustomInput();
+  } else {
+    renderTrueSolarTimeForWatchDate(elements.datetime.value);
+  }
+}
+
+function renderTrueSolarTimeForContext(context) {
+  const { source, localParts, timeZone, utcOffsetMinutes, abbreviation } = context;
+  renderTrueSolarTimeWatchSummary(context);
+  if (!trueSolarTimeLocation) {
+    clearTrueSolarTimePresentation();
+    return;
+  }
   try {
-    const result = calculateTrueSolarTime({ date: watchDate, latitude: trueSolarTimeLocation.latitude, longitude: trueSolarTimeLocation.longitude, utcOffsetMinutes: TAIPEI_UTC_OFFSET_MINUTES });
-    chartTimeState.trueSolarResult = result;
-    chartTimeState.location = { latitude: trueSolarTimeLocation.latitude, longitude: trueSolarTimeLocation.longitude };
-    elements.trueSolarTimeApplyActions.hidden = false;
+    const carrierDate = createUtcCarrierFromLocalParts(localParts);
+    const result = calculateTrueSolarTime({
+      date: carrierDate,
+      latitude: trueSolarTimeLocation.latitude,
+      longitude: trueSolarTimeLocation.longitude,
+      utcOffsetMinutes,
+      useUtcComponents: true,
+    });
+    if (source === TRUE_SOLAR_TIME_SOURCE.QUERY) {
+      chartTimeState.trueSolarResult = result;
+      chartTimeState.location = { latitude: trueSolarTimeLocation.latitude, longitude: trueSolarTimeLocation.longitude };
+    }
+    elements.trueSolarTimeApplyActions.hidden = source !== TRUE_SOLAR_TIME_SOURCE.QUERY;
+    elements.trueSolarTimeQueryOnlyNote.hidden = source === TRUE_SOLAR_TIME_SOURCE.QUERY;
     elements.trueSolarTimeLocationValue.textContent = `緯度：${formatCoordinate(result.latitude, "N", "S")}；經度：${formatCoordinate(result.longitude, "E", "W")}`;
-    elements.trueSolarTimeResult.replaceChildren(createTrueSolarTimeResultContent(result));
+    elements.trueSolarTimeResult.replaceChildren(createTrueSolarTimeResultContent(result, context));
     elements.trueSolarTimeResult.hidden = false;
     setTrueSolarTimeStatus(result.crossedDateBoundary ? `真太陽時已跨至${result.dateBoundaryDirection === "previous" ? "前一日" : "次一日"}` : "", "");
-    void renderTrueSolarTimeSolarEvents(watchDate);
+    void renderTrueSolarTimeSolarEvents(context, carrierDate);
   } catch {
+    clearTrueSolarTimePresentation();
     setTrueSolarTimeStatus("目前無法計算真太陽時，請確認查詢時間與座標。", "error");
   }
 }
 
-async function renderTrueSolarTimeSolarEvents(watchDate) {
-  const dateParts = getLocalDateParts(watchDate);
-  const key = `${dateParts.year}-${dateParts.month}-${dateParts.day}|${trueSolarTimeLocation.latitude}|${trueSolarTimeLocation.longitude}|${TAIPEI_UTC_OFFSET_MINUTES}`;
+function renderTrueSolarTimeWatchSummary({ source, localParts, timeZone, utcOffsetMinutes, abbreviation }) {
+  const sourceLabel = source === TRUE_SOLAR_TIME_SOURCE.DEVICE ? "裝置時間" : source === TRUE_SOLAR_TIME_SOURCE.CUSTOM ? "自訂當地時間" : "手錶日期時間";
+  elements.trueSolarTimeWatchTitle.textContent = sourceLabel;
+  elements.trueSolarTimeWatchValue.textContent = formatDateTimeParts(localParts);
+  elements.trueSolarTimeWatchNote.textContent = `${timeZone}｜${abbreviation ? `${abbreviation} ` : ""}${formatUtcOffset(utcOffsetMinutes)}`;
+}
+
+async function renderTrueSolarTimeSolarEvents(context, carrierDate) {
+  const { localParts, utcOffsetMinutes } = context;
+  const key = `${localParts.year}-${localParts.month}-${localParts.day}|${trueSolarTimeLocation.latitude}|${trueSolarTimeLocation.longitude}|${utcOffsetMinutes}`;
   if (key === trueSolarTimeSolarEventsKey) return;
   trueSolarTimeSolarEventsKey = key;
   try {
-    const events = await calculateSolarEvents({ date: watchDate, latitude: trueSolarTimeLocation.latitude, longitude: trueSolarTimeLocation.longitude, utcOffsetMinutes: TAIPEI_UTC_OFFSET_MINUTES });
+    const events = await calculateSolarEvents({
+      date: carrierDate,
+      latitude: trueSolarTimeLocation.latitude,
+      longitude: trueSolarTimeLocation.longitude,
+      utcOffsetMinutes,
+      useUtcComponents: true,
+    });
+    if (key !== trueSolarTimeSolarEventsKey) return;
     elements.trueSolarTimeSolarEvents.hidden = false;
     elements.trueSolarTimeSolarEventsTitle.textContent = `${events.dateKey.replaceAll("-", "/")} 太陽事件`;
+    elements.trueSolarTimeSolarEventsLocation.textContent = `地點：${formatCoordinate(events.latitude, "N", "S")}，${formatCoordinate(events.longitude, "E", "W")}`;
+    elements.trueSolarTimeSolarEventsTimeZone.textContent = `時區：${context.timeZone}（${formatUtcOffset(utcOffsetMinutes)}）`;
     if (events.daylightStatus !== "normal") { elements.trueSolarTimeSolarEventsMessage.textContent = "此日期與地點無法取得完整日出日落資料。"; return; }
     elements.trueSolarTimeSunrise.textContent = formatTimeParts(events.sunriseParts); elements.trueSolarTimeSolarNoon.textContent = formatTimeParts(events.solarNoonParts); elements.trueSolarTimeSunset.textContent = formatTimeParts(events.sunsetParts); elements.trueSolarTimeSolarEventsMessage.textContent = "";
   } catch { elements.trueSolarTimeSolarEvents.hidden = false; elements.trueSolarTimeSolarEventsMessage.textContent = "此日期與地點無法取得完整日出日落資料。"; }
 }
 
-function createTrueSolarTimeResultContent(result) {
-  const definitions = [["手錶時間", formatDateTimeParts(result.watchDateParts)], ["平太陽時", formatDateTimeParts(result.meanSolarParts)], ["真太陽時", formatDateTimeParts(result.trueSolarParts)], ["經度修正", formatSignedSeconds(result.longitudeCorrectionSeconds)], ["當日均時差", formatSignedSeconds(result.equationOfTimeSeconds)], ["合計修正", formatSignedSeconds(result.totalCorrectionSeconds)]];
+function createTrueSolarTimeResultContent(result, context) {
+  const sourceLabel = context.source === TRUE_SOLAR_TIME_SOURCE.DEVICE ? "裝置目前時間" : context.source === TRUE_SOLAR_TIME_SOURCE.CUSTOM ? "自訂當地時間" : "上方查詢時間";
+  const definitions = [["時間來源", sourceLabel], ["計算座標", `${formatCoordinate(result.latitude, "N", "S")}，${formatCoordinate(result.longitude, "E", "W")}`], ["時區", context.timeZone], ["當日適用", formatUtcOffset(context.utcOffsetMinutes)], ["手錶時間", formatDateTimeParts(result.watchDateParts)], ["平太陽時", formatDateTimeParts(result.meanSolarParts)], ["真太陽時", formatDateTimeParts(result.trueSolarParts)], ["經度修正", formatSignedSeconds(result.longitudeCorrectionSeconds)], ["當日均時差", formatSignedSeconds(result.equationOfTimeSeconds)], ["合計修正", formatSignedSeconds(result.totalCorrectionSeconds)]];
   const list = document.createElement("dl");
   for (const [label, value] of definitions) { const term = document.createElement("dt"); const detail = document.createElement("dd"); term.textContent = label; detail.textContent = value; list.append(term, detail); }
   return list;
 }
+
+function handleTrueSolarTimeSourceChange(event) {
+  trueSolarTimeSource = event.target.value;
+  trueSolarTimeCustomDisambiguation = null;
+  clearTrueSolarTimeCustomDisambiguation();
+  clearTrueSolarTimePresentation();
+  elements.trueSolarTimeDeviceFields.hidden = trueSolarTimeSource !== TRUE_SOLAR_TIME_SOURCE.DEVICE;
+  elements.trueSolarTimeCustomFields.hidden = trueSolarTimeSource !== TRUE_SOLAR_TIME_SOURCE.CUSTOM;
+  elements.trueSolarTimeQueryOnlyNote.hidden = trueSolarTimeSource === TRUE_SOLAR_TIME_SOURCE.QUERY;
+  if (trueSolarTimeSource === TRUE_SOLAR_TIME_SOURCE.CUSTOM) initializeTrueSolarTimeCustomInputs();
+  syncTrueSolarTimeClockRefresh();
+  renderActiveTrueSolarTime();
+}
+
+function handleTrueSolarTimeCustomInput() {
+  trueSolarTimeCustomDisambiguation = null;
+  clearTrueSolarTimeCustomDisambiguation();
+  renderTrueSolarTimeForCustomInput();
+}
+
+function handleTrueSolarTimeDisambiguationChange(event) {
+  if (!event.target.checked) return;
+  trueSolarTimeCustomDisambiguation = event.target.value;
+  renderTrueSolarTimeForCustomInput();
+}
+
+function initializeTrueSolarTimeCustomInputs() {
+  if (elements.trueSolarTimeLocalDate.value && elements.trueSolarTimeLocalTime.value && elements.trueSolarTimeTimeZone.value.trim()) return;
+  const now = new Date();
+  const timeZone = getDeviceTimeZone() || "UTC";
+  const zoned = getZonedDateTimeParts(now, timeZone) ?? getZonedDateTimeParts(now, "UTC");
+  if (!zoned) return;
+  elements.trueSolarTimeLocalDate.value ||= formatDateInput(zoned.localParts);
+  elements.trueSolarTimeLocalTime.value ||= formatTimeInput(zoned.localParts);
+  elements.trueSolarTimeTimeZone.value ||= zoned.timeZone;
+}
+
+function configureTrueSolarTimeDisambiguation(candidates, selected = null) {
+  const [earlier, later] = candidates;
+  elements.trueSolarTimeDisambiguationEarlierLabel.textContent = `第一次：${formatUtcOffset(earlier.utcOffsetMinutes)}`;
+  elements.trueSolarTimeDisambiguationLaterLabel.textContent = `第二次：${formatUtcOffset(later.utcOffsetMinutes)}`;
+  elements.trueSolarTimeDisambiguationEarlier.checked = selected === "earlier";
+  elements.trueSolarTimeDisambiguationLater.checked = selected === "later";
+  const selectedCandidate = selected === "earlier" ? earlier : selected === "later" ? later : null;
+  elements.trueSolarTimeDisambiguationSelected.hidden = !selectedCandidate;
+  elements.trueSolarTimeDisambiguationSelected.textContent = selectedCandidate
+    ? `目前選擇：${selected === "earlier" ? "第一次" : "第二次"}（${formatUtcOffset(selectedCandidate.utcOffsetMinutes)}）`
+    : "";
+  elements.trueSolarTimeDisambiguation.hidden = false;
+}
+
+function clearTrueSolarTimeCustomDisambiguation() {
+  elements.trueSolarTimeDisambiguationEarlier.checked = false;
+  elements.trueSolarTimeDisambiguationLater.checked = false;
+  elements.trueSolarTimeDisambiguationSelected.textContent = "";
+  elements.trueSolarTimeDisambiguationSelected.hidden = true;
+  elements.trueSolarTimeDisambiguation.hidden = true;
+  setTrueSolarTimeTimeZoneStatus("", "");
+}
+
+function clearTrueSolarTimePresentation() {
+  trueSolarTimeSolarEventsKey = null;
+  elements.trueSolarTimeResult.replaceChildren();
+  elements.trueSolarTimeResult.hidden = true;
+  elements.trueSolarTimeSolarEvents.hidden = true;
+  elements.trueSolarTimeApplyActions.hidden = true;
+}
+
+function parseTrueSolarTimeCustomLocalParts(dateValue, timeValue) {
+  const dateMatch = typeof dateValue === "string" && dateValue.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  const timeMatch = typeof timeValue === "string" && timeValue.match(/^(\d{2}):(\d{2})(?::(\d{2}))?$/);
+  if (!dateMatch || !timeMatch) return null;
+  const parts = { year: Number(dateMatch[1]), month: Number(dateMatch[2]), day: Number(dateMatch[3]), hour: Number(timeMatch[1]), minute: Number(timeMatch[2]), second: Number(timeMatch[3] ?? 0) };
+  const check = new Date(Date.UTC(parts.year, parts.month - 1, parts.day, parts.hour, parts.minute, parts.second));
+  return check.getUTCFullYear() === parts.year && check.getUTCMonth() === parts.month - 1 && check.getUTCDate() === parts.day && check.getUTCHours() === parts.hour && check.getUTCMinutes() === parts.minute && check.getUTCSeconds() === parts.second ? parts : null;
+}
+
+// This carrier preserves the chosen wall-clock components independently of the browser's own time zone.
+function createUtcCarrierFromLocalParts(parts) {
+  return new Date(Date.UTC(parts.year, parts.month - 1, parts.day, parts.hour, parts.minute, parts.second ?? 0));
+}
+
+function formatDateInput(parts) { return `${String(parts.year).padStart(4, "0")}-${String(parts.month).padStart(2, "0")}-${String(parts.day).padStart(2, "0")}`; }
+function formatTimeInput(parts) { return `${String(parts.hour).padStart(2, "0")}:${String(parts.minute).padStart(2, "0")}:${String(parts.second ?? 0).padStart(2, "0")}`; }
+function setTrueSolarTimeTimeZoneStatus(message, type) { elements.trueSolarTimeTimeZoneStatus.textContent = message; elements.trueSolarTimeTimeZoneStatus.className = `section-message ${type ? `section-message-${type}` : ""}`.trim(); }
 
 function formatDateTimeParts(parts) { return `${parts.year}/${String(parts.month).padStart(2, "0")}/${String(parts.day).padStart(2, "0")} ${String(parts.hour).padStart(2, "0")}:${String(parts.minute).padStart(2, "0")}:${String(parts.second).padStart(2, "0")}`; }
 function formatTimeParts(parts) { return parts ? `${String(parts.hour).padStart(2, "0")}:${String(parts.minute).padStart(2, "0")}` : "--"; }
@@ -1521,7 +1799,7 @@ function getLocalDateParts(date) { return { year: date.getFullYear(), month: dat
 function setTrueSolarTimeStatus(message, type) { elements.trueSolarTimeStatus.textContent = message; elements.trueSolarTimeStatus.className = `section-message ${type ? `section-message-${type}` : ""}`.trim(); }
 function formatDateTimeLocalParts(parts) { return parts && Number.isInteger(parts.year) ? `${String(parts.year).padStart(4, "0")}-${String(parts.month).padStart(2, "0")}-${String(parts.day).padStart(2, "0")}T${String(parts.hour).padStart(2, "0")}:${String(parts.minute).padStart(2, "0")}:${String(parts.second).padStart(2, "0")}` : null; }
 function resolveEffectiveChartDateTimeValue(watchDateTimeValue) { return chartTimeState.mode === CHART_TIME_MODE.TRUE_SOLAR ? formatDateTimeLocalParts(chartTimeState.trueSolarResult?.trueSolarParts) ?? watchDateTimeValue : watchDateTimeValue; }
-function applyTrueSolarTimeToCharts() { const watch = elements.datetime.value; const result = chartTimeState.trueSolarResult; if (!trueSolarTimeLocation || !result || !watch) { setTrueSolarTimeStatus("請先完成真太陽時計算。", "error"); return; } chartTimeState = { mode: CHART_TIME_MODE.TRUE_SOLAR, watchDateTimeValue: watch, effectiveDateTimeValue: formatDateTimeLocalParts(result.trueSolarParts), trueSolarResult: result, location: { ...trueSolarTimeLocation } }; pauseAutoNowMode(); setTrueSolarTimeStatus("已固定此刻的真太陽時排盤；點「現在時間」可重新取得當下時間。", ""); void renderByDateTime(watch); }
+function applyTrueSolarTimeToCharts() { if (trueSolarTimeSource !== TRUE_SOLAR_TIME_SOURCE.QUERY) { setTrueSolarTimeStatus("此時間來源目前僅供真太陽時查詢。", "error"); return; } const watch = elements.datetime.value; const result = chartTimeState.trueSolarResult; if (!trueSolarTimeLocation || !result || !watch) { setTrueSolarTimeStatus("請先完成真太陽時計算。", "error"); return; } chartTimeState = { mode: CHART_TIME_MODE.TRUE_SOLAR, watchDateTimeValue: watch, effectiveDateTimeValue: formatDateTimeLocalParts(result.trueSolarParts), trueSolarResult: result, location: { ...trueSolarTimeLocation } }; pauseAutoNowMode(); setTrueSolarTimeStatus("已固定此刻的真太陽時排盤；點「現在時間」可重新取得當下時間。", ""); void renderByDateTime(watch); }
 function restoreWatchChartTime(message = "", shouldRender = true) { chartTimeState.mode = CHART_TIME_MODE.WATCH; chartTimeState.effectiveDateTimeValue = elements.datetime.value; chartTimeState.location = null; if (message) setMessage(message, ""); if (shouldRender && elements.datetime.value) requestRenderDateTime(elements.datetime.value); else renderChartTimeStatus(); }
 function renderChartTimeStatus() { const isTrue = chartTimeState.mode === CHART_TIME_MODE.TRUE_SOLAR; elements.chartTimeStatusTitle.textContent = isTrue ? "☀ 目前使用真太陽時排盤" : "🕒 目前使用手錶時間排盤"; if (isTrue) { const watchLine = document.createElement("span"); const trueSolarLine = document.createElement("span"); watchLine.className = "chart-time-status-detail-line"; trueSolarLine.className = "chart-time-status-detail-line"; watchLine.textContent = `手錶時間：${formatDateTimeParts(getLocalDateParts(parseDateTimeLocalValue(chartTimeState.watchDateTimeValue)))}`; trueSolarLine.textContent = `真太陽時：${formatDateTimeParts(chartTimeState.trueSolarResult.trueSolarParts)}`; elements.chartTimeStatusDetail.replaceChildren(watchLine, trueSolarLine); } else { elements.chartTimeStatusDetail.textContent = formatDateTimeParts(getLocalDateParts(parseDateTimeLocalValue(elements.datetime.value))); } elements.chartTimeRestore.hidden = !isTrue; }
 

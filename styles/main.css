@@ -52,6 +52,26 @@ h2 {
 
 .true-solar-time-panel { display: grid; gap: 16px; }
 .true-solar-time-watch, .true-solar-time-location, .true-solar-time-result { padding: 12px; border: 1px solid #d8dee6; border-radius: 8px; background: #fbfcfe; }
+.true-solar-time-source, .true-solar-time-device-fields, .true-solar-time-custom-fields { display: grid; gap: 8px; padding: 12px; border: 1px solid #d8dee6; border-radius: 8px; background: #fbfcfe; min-width: 0; }
+.true-solar-time-source { gap: 3px; padding: 6px 8px; }
+.true-solar-time-source .true-solar-time-source-note { margin: 5px 0 0; }
+.true-solar-time-source legend, .true-solar-time-disambiguation legend { font-weight: 800; }
+.true-solar-time-source-option, .true-solar-time-disambiguation-option { display: flex; align-items: center; gap: 6px; width: max-content; max-width: 100%; min-width: 0; margin: 0; cursor: pointer; }
+.true-solar-time-source-option { min-height: auto; padding: 0; line-height: 1.4; }
+.true-solar-time-source-option input[type="radio"], .true-solar-time-disambiguation-option input[type="radio"] { appearance: auto; width: auto; min-width: 0; min-height: 0; flex: 0 0 auto; margin: 0; padding: 0; border: initial; border-radius: initial; }
+.true-solar-time-device-fields p { margin: 0; overflow-wrap: anywhere; }
+.true-solar-time-custom-fields label { display: grid; gap: 4px; color: #52616f; font-size: 13px; font-weight: 700; min-width: 0; }
+.true-solar-time-custom-fields input { min-width: 0; box-sizing: border-box; }
+.true-solar-time-disambiguation { display: grid; gap: 8px; margin: 0; padding: 10px; border: 1px solid #b8c2cc; border-radius: 6px; }
+.true-solar-time-disambiguation[hidden] { display: none !important; }
+.true-solar-time-disambiguation-options { display: grid; gap: 6px; }
+.true-solar-time-disambiguation-option { display: flex; align-items: center; gap: 6px; width: 100%; margin: 0; padding: 0; min-height: auto; line-height: 1.4; }
+.true-solar-time-disambiguation-option input[type="radio"] { width: auto; min-width: 0; min-height: 0; margin: 0; padding: 0; flex: 0 0 auto; }
+.true-solar-time-custom-fields .true-solar-time-disambiguation-option { display: flex; align-items: center; gap: 6px; width: 100%; min-height: auto; margin: 0; padding: 0; line-height: 1.4; }
+.true-solar-time-custom-fields .true-solar-time-disambiguation-option input[type="radio"] { width: auto; min-width: 0; min-height: 0; margin: 0; padding: 0; flex: 0 0 auto; }
+.true-solar-time-disambiguation-selected { margin: 6px 0 0; color: #52616f; font-size: 13px; font-weight: 700; }
+.true-solar-time-disambiguation-selected[hidden] { display: none !important; }
+.true-solar-time-query-only-note { margin: 0; padding: 10px 12px; border: 1px solid #b8c2cc; border-radius: 8px; background: #fff8e1; color: #6b4f00; font-size: 13px; overflow-wrap: anywhere; }
 .true-solar-time-watch p { margin: 6px 0 2px; font-size: 18px; font-weight: 800; }
 .true-solar-time-watch small, .true-solar-time-timezone, .true-solar-time-detail { margin: 6px 0 0; color: #52616f; font-size: 13px; }
 .true-solar-time-actions { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -61,6 +81,8 @@ h2 {
 .true-solar-time-result dd { margin: 0; font-size: 18px; font-weight: 800; }
 .true-solar-time-solar-events { padding: 12px; border: 1px solid #d8dee6; border-radius: 8px; background: #fbfcfe; }
 .true-solar-time-solar-events h3 { margin: 0 0 10px; font-size: 15px; }
+.true-solar-time-solar-events-context { display: grid; gap: 3px; margin: 0 0 10px; color: #52616f; font-size: 13px; min-width: 0; }
+.true-solar-events-location-line, .true-solar-events-time-zone-line { display: block; margin: 0; overflow-wrap: anywhere; }
 .true-solar-time-solar-events-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; text-align: center; }
 .true-solar-time-solar-events-grid span { display: block; color: #52616f; font-size: 13px; font-weight: 700; }.true-solar-time-solar-events-grid strong { font-size: 18px; }
 .chart-time-status { display: grid; gap: 4px; margin: 0 0 16px; padding: 10px 12px; border: 1px solid #d8dee6; border-radius: 8px; background: #fbfcfe; color: #52616f; font-size: 13px; }.chart-time-status strong { color: #1f2933; }.chart-time-restore { justify-self: start; }.true-solar-time-apply-actions { display: flex; }
@@ -2307,6 +2329,9 @@ dd {
   .tab-button:nth-child(1), .tab-button:nth-child(2) { grid-column: span 3; }
   .tab-button:nth-child(3), .tab-button:nth-child(4), .tab-button:nth-child(5) { grid-column: span 2; }
   .true-solar-time-actions { display: grid; grid-template-columns: 1fr; }
+  .true-solar-time-source-option { width: 100%; align-items: center; min-height: auto; line-height: 1.4; }
+  .true-solar-time-disambiguation-option { width: 100%; align-items: center; min-height: auto; padding: 0; line-height: 1.4; }
+  .true-solar-time-custom-fields { grid-template-columns: 1fr; }
 
   .seasonal-day-label-prefix {
     display: inline;
