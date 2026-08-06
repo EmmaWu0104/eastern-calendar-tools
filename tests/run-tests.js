@@ -58,6 +58,12 @@ const {
 } = await import("../src/jinhanYujing.js");
 const { getNaYinByPillar } = await import("../src/nayin.js");
 const {
+  calculateEquationOfTime,
+  calculateTrueSolarTime,
+  convertDmsToDecimal,
+  parseCoordinateInput,
+} = await import("../src/trueSolarTime.js");
+const {
   formatLunarCalendarAccessibleLabel,
   formatLunarCalendarLabel,
   getLunarDateForSolarDate,
@@ -263,6 +269,7 @@ let flyingStarsVerifiedCaseCount = 0;
 let dailyGodsVerifiedCaseCount = 0;
 let dailyInfoVerifiedCaseCount = 0;
 let naYinVerifiedCaseCount = 0;
+let trueSolarTimeVerifiedCaseCount = 0;
 let jianchuVerifiedCaseCount = 0;
 let lunarCalendarVerifiedCaseCount = 0;
 let lunarCalendarUiVerifiedCaseCount = 0;
@@ -663,6 +670,7 @@ runQimenYearSeedRecommendationTests();
 runQimenTimelineFromYearSeedRecommendationTests();
 runQimenResolverTests();
 runDailyInfoTests();
+runTrueSolarTimeTests();
 runSolarTermCalendarTests(solarTerms);
 runQueryPickerTests(solarTerms);
 runFlyingStarRenderFlowTests(solarTerms);
@@ -691,6 +699,7 @@ if (failures.length > 0) {
   console.log(`日干吉神測試通過：${dailyGodsVerifiedCaseCount} cases`);
   console.log(`每日資訊測試通過：${dailyInfoVerifiedCaseCount} cases`);
   console.log(`納音測試通過：${naYinVerifiedCaseCount} cases`);
+  console.log(`真太陽時核心測試通過：${trueSolarTimeVerifiedCaseCount} cases`);
   console.log(`建除十二神測試通過：${jianchuVerifiedCaseCount} cases`);
   console.log(`CWA 農曆資料測試通過：${lunarCalendarVerifiedCaseCount} cases`);
   console.log(`CWA 農曆月曆 UI 測試通過：${lunarCalendarUiVerifiedCaseCount} cases`);
@@ -8662,6 +8671,112 @@ function runQimenResolverTests() {
         actual: actual.hourPillar,
       });
     }
+  }
+}
+
+function runTrueSolarTimeTests() {
+  const assertApproximate = (id, key, expected, actual, tolerance) => {
+    trueSolarTimeVerifiedCaseCount += 1;
+    assertEqual(id, key, true, Number.isFinite(actual) && Math.abs(actual - expected) <= tolerance);
+  };
+  const assertParserRejects = (input) => {
+    trueSolarTimeVerifiedCaseCount += 1;
+    assertEqual("true-solar-time-coordinate-reject", input || "empty", null, parseCoordinateInput(input));
+  };
+
+  const dms = parseCoordinateInput("24°58'37.1\"N 121°32'45.3\"E");
+  assertApproximate("true-solar-time-coordinate-dms", "latitude", 24.9769722222, dms?.latitude, 0.00000001);
+  assertApproximate("true-solar-time-coordinate-dms", "longitude", 121.5459166667, dms?.longitude, 0.00000001);
+  trueSolarTimeVerifiedCaseCount += 1;
+  assertEqual("true-solar-time-coordinate-dms", "sourceFormat", "dms", dms?.sourceFormat);
+
+  const fullWidthDms = parseCoordinateInput("121°32′45.3″E 24°58′37.1″N");
+  assertApproximate("true-solar-time-coordinate-full-width-reversed", "latitude", 24.9769722222, fullWidthDms?.latitude, 0.00000001);
+  assertApproximate("true-solar-time-coordinate-full-width-reversed", "longitude", 121.5459166667, fullWidthDms?.longitude, 0.00000001);
+
+  const decimal = parseCoordinateInput("24.976972, 121.545917");
+  assertApproximate("true-solar-time-coordinate-decimal", "latitude", 24.976972, decimal?.latitude, 0.000000001);
+  assertApproximate("true-solar-time-coordinate-decimal", "longitude", 121.545917, decimal?.longitude, 0.000000001);
+  trueSolarTimeVerifiedCaseCount += 1;
+  assertEqual("true-solar-time-coordinate-decimal", "sourceFormat", "decimal", decimal?.sourceFormat);
+  const directedDecimalReversed = parseCoordinateInput("121.545917 E, 24.976972 N");
+  assertApproximate("true-solar-time-coordinate-decimal-directed-reversed", "latitude", 24.976972, directedDecimalReversed?.latitude, 0.000000001);
+  assertApproximate("true-solar-time-coordinate-decimal-directed-reversed", "longitude", 121.545917, directedDecimalReversed?.longitude, 0.000000001);
+
+  const southWest = parseCoordinateInput("33°51'31\"S, 151°12'51\"W");
+  assertApproximate("true-solar-time-coordinate-south-west", "latitude", -33.8586111111, southWest?.latitude, 0.00000001);
+  assertApproximate("true-solar-time-coordinate-south-west", "longitude", -151.2141666667, southWest?.longitude, 0.00000001);
+  for (const input of ["91, 121", "24, 181", "24°60'0\"N 121°0'0\"E", "24°0'60\"N 121°0'0\"E", "", "任意文字", "24.9"]) {
+    assertParserRejects(input);
+  }
+  trueSolarTimeVerifiedCaseCount += 1;
+  assertEqual("true-solar-time-dms-invalid-direction", "result", null, convertDmsToDecimal(24, 0, 0, "Q"));
+
+  const taiwanNoLongitudeCorrection = calculateTrueSolarTime({
+    date: new Date(2024, 5, 21, 12, 0), latitude: 25, longitude: 120, utcOffsetMinutes: 480,
+  });
+  assertApproximate("true-solar-time-longitude-taiwan-standard", "seconds", 0, taiwanNoLongitudeCorrection.longitudeCorrectionSeconds, 0.000001);
+  const taiwanCorrection = calculateTrueSolarTime({
+    date: new Date(2024, 5, 21, 12, 0), latitude: 25, longitude: 121.5459166667, utcOffsetMinutes: 480,
+  });
+  assertApproximate("true-solar-time-longitude-taiwan", "seconds", 371.02, taiwanCorrection.longitudeCorrectionSeconds, 0.02);
+  const westernCorrection = calculateTrueSolarTime({
+    date: new Date(2024, 5, 21, 12, 0), latitude: 40, longitude: -75, utcOffsetMinutes: -300,
+  });
+  assertApproximate("true-solar-time-longitude-western-standard", "seconds", 0, westernCorrection.longitudeCorrectionSeconds, 0.000001);
+  const quarterHourCorrection = calculateTrueSolarTime({
+    date: new Date(2024, 5, 21, 12, 0), latitude: 28, longitude: 86.25, utcOffsetMinutes: 345,
+  });
+  assertApproximate("true-solar-time-longitude-quarter-hour", "standardMeridian", 86.25, quarterHourCorrection.standardMeridianDegrees, 0.000001);
+  assertApproximate("true-solar-time-longitude-quarter-hour", "seconds", 0, quarterHourCorrection.longitudeCorrectionSeconds, 0.000001);
+
+  // NOAA General Solar Position Calculations worksheet values, transcribed at
+  // 12:00 UTC. A 15-second tolerance accounts for worksheet rounding/version.
+  for (const [date, expectedSeconds] of [
+    [new Date(2024, 0, 1, 12, 0), -199.8],
+    [new Date(2024, 5, 21, 12, 0), -115.5],
+    [new Date(2024, 8, 22, 12, 0), 446.0],
+  ]) {
+    const actual = calculateEquationOfTime({ date, utcOffsetMinutes: 0 });
+    assertApproximate("true-solar-time-equation-of-time-noaa", "referenceSeconds", expectedSeconds, actual, 15);
+    trueSolarTimeVerifiedCaseCount += 1;
+    assertEqual("true-solar-time-equation-of-time-range", "reasonable", true, Number.isFinite(actual) && Math.abs(actual) < 1_200);
+    assertApproximate("true-solar-time-equation-of-time-repeatable", "seconds", actual, calculateEquationOfTime({ date, utcOffsetMinutes: 0 }), 0.000000001);
+  }
+  for (const date of [new Date(2024, 2, 20, 12, 0), new Date(2024, 11, 31, 12, 0), new Date(2024, 1, 29, 12, 0)]) {
+    const actual = calculateEquationOfTime({ date, utcOffsetMinutes: 480 });
+    trueSolarTimeVerifiedCaseCount += 1;
+    assertEqual("true-solar-time-equation-of-time-seasonal", "finite", true, Number.isFinite(actual));
+  }
+
+  const originalWatchDate = new Date(2024, 2, 1, 0, 3, 0);
+  const originalWatchTime = originalWatchDate.getTime();
+  const previousDay = calculateTrueSolarTime({ date: originalWatchDate, latitude: 25, longitude: 0, utcOffsetMinutes: 480 });
+  trueSolarTimeVerifiedCaseCount += 1;
+  assertEqual("true-solar-time-boundary-previous-month", "direction", "previous", previousDay.dateBoundaryDirection);
+  trueSolarTimeVerifiedCaseCount += 1;
+  assertEqual("true-solar-time-boundary-previous-month", "month", 2, previousDay.trueSolarParts.month);
+  trueSolarTimeVerifiedCaseCount += 1;
+  assertEqual("true-solar-time-date-not-mutated", "time", originalWatchTime, originalWatchDate.getTime());
+
+  const nextYear = calculateTrueSolarTime({ date: new Date(2024, 11, 31, 23, 59, 0), latitude: 25, longitude: 180, utcOffsetMinutes: 480 });
+  trueSolarTimeVerifiedCaseCount += 1;
+  assertEqual("true-solar-time-boundary-next-year", "direction", "next", nextYear.dateBoundaryDirection);
+  trueSolarTimeVerifiedCaseCount += 1;
+  assertEqual("true-solar-time-boundary-next-year", "year", 2025, nextYear.trueSolarParts.year);
+  trueSolarTimeVerifiedCaseCount += 1;
+  assertEqual("true-solar-time-utc-carrier", "trueSolarDateUTCYear", 2025, nextYear.trueSolarDate.getUTCFullYear());
+
+  for (const invalidOptions of [
+    { date: new Date("invalid"), latitude: 25, longitude: 120, utcOffsetMinutes: 480 },
+    { date: new Date(2024, 0, 1), latitude: 91, longitude: 120, utcOffsetMinutes: 480 },
+    { date: new Date(2024, 0, 1), latitude: 25, longitude: 181, utcOffsetMinutes: 480 },
+    { date: new Date(2024, 0, 1), latitude: 25, longitude: 120, utcOffsetMinutes: 900 },
+  ]) {
+    let threw = false;
+    try { calculateTrueSolarTime(invalidOptions); } catch { threw = true; }
+    trueSolarTimeVerifiedCaseCount += 1;
+    assertEqual("true-solar-time-invalid-options", "throws", true, threw);
   }
 }
 

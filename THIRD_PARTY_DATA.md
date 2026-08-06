@@ -32,3 +32,12 @@ Official references:
 - CWA rules: https://opendata.cwa.gov.tw/about/rules
 - Dataset record: https://data.gov.tw/dataset/157677
 - Government Data Open License, version 1.0: https://data.gov.tw/license
+
+## True solar time calculation references
+
+`src/trueSolarTime.js` independently implements a general-purpose Equation of Time calculation from NOAA Solar Calculator / Meeus-style solar geometry. It uses no downloaded third-party data, makes no external API calls, and does not infer true solar time from sunrise or sunset.
+
+- NOAA, General Solar Position Calculations: https://gml.noaa.gov/grad/solcalc/solareqns.PDF
+- NOAA Solar Calculation Details: https://gml.noaa.gov/grad/solcalc/
+
+This first core-calculation package is not yet connected to SunCalc, 登貴, existing charting formulas, or any UI.
