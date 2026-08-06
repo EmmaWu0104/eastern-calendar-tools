@@ -59,6 +59,10 @@ h2 {
 .true-solar-time-result dl { display: grid; grid-template-columns: max-content 1fr; gap: 6px 12px; }
 .true-solar-time-result dt { color: #52616f; font-weight: 700; }
 .true-solar-time-result dd { margin: 0; font-size: 18px; font-weight: 800; }
+.true-solar-time-solar-events { padding: 12px; border: 1px solid #d8dee6; border-radius: 8px; background: #fbfcfe; }
+.true-solar-time-solar-events h3 { margin: 0 0 10px; font-size: 15px; }
+.true-solar-time-solar-events-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; text-align: center; }
+.true-solar-time-solar-events-grid span { display: block; color: #52616f; font-size: 13px; font-weight: 700; }.true-solar-time-solar-events-grid strong { font-size: 18px; }
 
 .tab-panel[hidden] {
   display: none;

@@ -1,4 +1,5 @@
 import { EARTHLY_BRANCHES } from "./ganzhi.js";
+import { calculateSolarEvents } from "./solarEvents.js";
 
 export const DEFAULT_GUIDENG_LOCATION = Object.freeze({
   latitude: 25.0330,
@@ -63,7 +64,6 @@ const HOUR_START_BY_BRANCH = Object.freeze({
   亥: 21,
 });
 
-let sunCalcPromise = null;
 
 export function getMonthGeneralBySolarTermName(termName) {
   return MONTH_GENERAL_BY_CURRENT_TERM[termName] ?? null;
@@ -107,10 +107,10 @@ export async function calculateGuiDengForDate({
     return null;
   }
 
-  const SunCalc = await loadSunCalc();
   const nextDate = addDays(targetDate, 1);
-  const todayTimes = SunCalc.getTimes(targetDate, latitude, longitude);
-  const nextDayTimes = SunCalc.getTimes(nextDate, latitude, longitude);
+  const todayTimes = await calculateSolarEvents({ date: targetDate, latitude, longitude, utcOffsetMinutes: 480 });
+  const nextTimes = await calculateSolarEvents({ date: nextDate, latitude, longitude, utcOffsetMinutes: 480 });
+  if (todayTimes.daylightStatus !== "normal" || nextTimes.daylightStatus !== "normal") return null;
 
   return calculateGuiDengWithSunTimes({
     date: targetDate,
@@ -118,7 +118,7 @@ export async function calculateGuiDengForDate({
     monthGeneral,
     sunrise: todayTimes.sunrise,
     sunset: todayTimes.sunset,
-    nextDaySunrise: nextDayTimes.sunrise,
+    nextDaySunrise: nextTimes.sunrise,
     timezone,
   });
 }
@@ -255,20 +255,6 @@ function formatTime(date, timezone) {
   }).format(date);
 }
 
-async function loadSunCalc() {
-  if (!sunCalcPromise) {
-    sunCalcPromise = typeof window === "undefined"
-      ? import("suncalc").then((module) => module.default ?? module)
-      : import("./vendor/suncalc.js").then(() => window.SunCalc);
-  }
-
-  const SunCalc = await sunCalcPromise;
-  if (!SunCalc || typeof SunCalc.getTimes !== "function") {
-    throw new Error("SunCalc 載入失敗，無法計算日出日落");
-  }
-
-  return SunCalc;
-}
 
 function normalizeDate(value) {
   if (value instanceof Date && Number.isFinite(value.getTime())) {

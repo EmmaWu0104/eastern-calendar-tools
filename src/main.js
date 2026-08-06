@@ -38,6 +38,7 @@ import {
 import { getJinhanDunType } from "./jinhanDunType.js";
 import { getNaYinByPillar } from "./nayin.js";
 import { calculateTrueSolarTime, parseCoordinateInput } from "./trueSolarTime.js";
+import { calculateSolarEvents } from "./solarEvents.js";
 import { getQimenPlate } from "./qimenPlateLookup.js";
 import { createQimenOpenCloseViewModel } from "./qimenOpenClose.js";
 import {
@@ -171,6 +172,7 @@ const elements = {
   trueSolarTimeLocationValue: getElement("#true-solar-time-location-value"),
   trueSolarTimeStatus: getElement("#true-solar-time-status"),
   trueSolarTimeResult: getElement("#true-solar-time-result"),
+  trueSolarTimeSolarEvents: getElement("#true-solar-time-solar-events"), trueSolarTimeSolarEventsTitle: getElement("#true-solar-time-solar-events-title"), trueSolarTimeSunrise: getElement("#true-solar-time-sunrise"), trueSolarTimeSolarNoon: getElement("#true-solar-time-solar-noon"), trueSolarTimeSunset: getElement("#true-solar-time-sunset"), trueSolarTimeSolarEventsMessage: getElement("#true-solar-time-solar-events-message"),
   datetime: getElement("#datetime"),
   useNow: getElement("#use-now"),
   calendarPrevious: getElement("#calendar-previous"),
@@ -217,6 +219,7 @@ let qimenManualOverride = {
   ju: null,
 };
 let trueSolarTimeLocation = null;
+let trueSolarTimeSolarEventsKey = null;
 const solarTermDayPanel = createSolarTermDayPanel();
 const pillarExtraPanel = createPillarExtraPanel();
 const qimenElements = createQimenSection();
@@ -1465,9 +1468,24 @@ function renderTrueSolarTimeForWatchDate(dateTimeValue) {
     elements.trueSolarTimeResult.replaceChildren(createTrueSolarTimeResultContent(result));
     elements.trueSolarTimeResult.hidden = false;
     setTrueSolarTimeStatus(result.crossedDateBoundary ? `真太陽時已跨至${result.dateBoundaryDirection === "previous" ? "前一日" : "次一日"}` : "", "");
+    void renderTrueSolarTimeSolarEvents(watchDate);
   } catch {
     setTrueSolarTimeStatus("目前無法計算真太陽時，請確認查詢時間與座標。", "error");
   }
+}
+
+async function renderTrueSolarTimeSolarEvents(watchDate) {
+  const dateParts = getLocalDateParts(watchDate);
+  const key = `${dateParts.year}-${dateParts.month}-${dateParts.day}|${trueSolarTimeLocation.latitude}|${trueSolarTimeLocation.longitude}|${TAIPEI_UTC_OFFSET_MINUTES}`;
+  if (key === trueSolarTimeSolarEventsKey) return;
+  trueSolarTimeSolarEventsKey = key;
+  try {
+    const events = await calculateSolarEvents({ date: watchDate, latitude: trueSolarTimeLocation.latitude, longitude: trueSolarTimeLocation.longitude, utcOffsetMinutes: TAIPEI_UTC_OFFSET_MINUTES });
+    elements.trueSolarTimeSolarEvents.hidden = false;
+    elements.trueSolarTimeSolarEventsTitle.textContent = `${events.dateKey.replaceAll("-", "/")} 太陽事件`;
+    if (events.daylightStatus !== "normal") { elements.trueSolarTimeSolarEventsMessage.textContent = "此日期與地點無法取得完整日出日落資料。"; return; }
+    elements.trueSolarTimeSunrise.textContent = formatTimeParts(events.sunriseParts); elements.trueSolarTimeSolarNoon.textContent = formatTimeParts(events.solarNoonParts); elements.trueSolarTimeSunset.textContent = formatTimeParts(events.sunsetParts); elements.trueSolarTimeSolarEventsMessage.textContent = "";
+  } catch { elements.trueSolarTimeSolarEvents.hidden = false; elements.trueSolarTimeSolarEventsMessage.textContent = "此日期與地點無法取得完整日出日落資料。"; }
 }
 
 function createTrueSolarTimeResultContent(result) {
@@ -1478,6 +1496,7 @@ function createTrueSolarTimeResultContent(result) {
 }
 
 function formatDateTimeParts(parts) { return `${parts.year}/${String(parts.month).padStart(2, "0")}/${String(parts.day).padStart(2, "0")} ${String(parts.hour).padStart(2, "0")}:${String(parts.minute).padStart(2, "0")}:${String(parts.second).padStart(2, "0")}`; }
+function formatTimeParts(parts) { return parts ? `${String(parts.hour).padStart(2, "0")}:${String(parts.minute).padStart(2, "0")}` : "--"; }
 function formatSignedSeconds(seconds) { const rounded = Math.round(seconds); const sign = rounded >= 0 ? "+" : "-"; const absolute = Math.abs(rounded); return `${sign}${Math.floor(absolute / 60)}分${absolute % 60}秒`; }
 function formatCoordinate(value, positive, negative) { return `${Math.abs(value).toFixed(6)}° ${value >= 0 ? positive : negative}`; }
 function getLocalDateParts(date) { return { year: date.getFullYear(), month: date.getMonth() + 1, day: date.getDate(), hour: date.getHours(), minute: date.getMinutes(), second: date.getSeconds() }; }

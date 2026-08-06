@@ -40,4 +40,8 @@ Official references:
 - NOAA, General Solar Position Calculations: https://gml.noaa.gov/grad/solcalc/solareqns.PDF
 - NOAA Solar Calculation Details: https://gml.noaa.gov/grad/solcalc/
 
-This first core-calculation package is not yet connected to SunCalc, 登貴, existing charting formulas, or any UI.
+The Equation of Time core remains separate from SunCalc and charting formulas.
+
+## Shared solar events
+
+`src/solarEvents.js` uses the NOAA/Meeus-style solar geometry used by the true-solar-time core for sunrise, solar noon, and sunset. Sunrise/sunset use NOAA's 90.833° zenith (standard refraction plus solar radius); solar noon is the apparent solar noon. 登貴 and the true-solar-time panel share this helper. UI shows truncated `HH:mm`, while 登貴 keeps the underlying second-level Date values. No external API is called, and selected coordinates are not yet applied to charting or 登貴.

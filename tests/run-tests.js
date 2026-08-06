@@ -57,6 +57,7 @@ const {
   getJinhanYujingDayPan,
 } = await import("../src/jinhanYujing.js");
 const { getNaYinByPillar } = await import("../src/nayin.js");
+const { calculateSolarEvents } = await import("../src/solarEvents.js");
 const {
   calculateEquationOfTime,
   calculateTrueSolarTime,
@@ -273,6 +274,7 @@ let dailyInfoVerifiedCaseCount = 0;
 let naYinVerifiedCaseCount = 0;
 let trueSolarTimeVerifiedCaseCount = 0;
 let trueSolarTimeUiVerifiedCaseCount = 0;
+let solarEventsVerifiedCaseCount = 0;
 let jianchuVerifiedCaseCount = 0;
 let lunarCalendarVerifiedCaseCount = 0;
 let lunarCalendarUiVerifiedCaseCount = 0;
@@ -675,6 +677,7 @@ runQimenResolverTests();
 runDailyInfoTests();
 runTrueSolarTimeTests();
 runTrueSolarTimeUiTests();
+await runSolarEventsTests();
 runSolarTermCalendarTests(solarTerms);
 runQueryPickerTests(solarTerms);
 runFlyingStarRenderFlowTests(solarTerms);
@@ -705,6 +708,7 @@ if (failures.length > 0) {
   console.log(`納音測試通過：${naYinVerifiedCaseCount} cases`);
   console.log(`真太陽時核心測試通過：${trueSolarTimeVerifiedCaseCount} cases`);
   console.log(`真太陽時 UI 測試通過：${trueSolarTimeUiVerifiedCaseCount} cases`);
+  console.log(`太陽事件測試通過：${solarEventsVerifiedCaseCount} cases`);
   console.log(`建除十二神測試通過：${jianchuVerifiedCaseCount} cases`);
   console.log(`CWA 農曆資料測試通過：${lunarCalendarVerifiedCaseCount} cases`);
   console.log(`CWA 農曆月曆 UI 測試通過：${lunarCalendarUiVerifiedCaseCount} cases`);
@@ -8790,7 +8794,10 @@ function runTrueSolarTimeUiTests() {
   assertUi("true-solar-time-ui-tab-order", true, /id="tab-true-solar-time"[\s\S]*?真太陽時[\s\S]*?id="tab-bazi"[\s\S]*?is-active/.test(indexHtmlRaw));
   assertUi("true-solar-time-ui-panel", true, indexHtmlRaw.includes('id="panel-true-solar-time"') && indexHtmlRaw.includes('id="true-solar-time-coordinate"'));
   assertUi("true-solar-time-ui-actions", true, indexHtmlRaw.includes('id="true-solar-time-calculate"') && indexHtmlRaw.includes('id="true-solar-time-geolocate"'));
-  assertUi("true-solar-time-ui-no-future-actions", false, /套用真太陽時至全部排盤|日出|中天|日落/.test(indexHtmlRaw));
+  assertUi("true-solar-time-ui-no-future-actions", false, /套用真太陽時至全部排盤|太陽高度|太陽方位/.test(indexHtmlRaw));
+  assertUi("true-solar-time-ui-solar-events", true, indexHtmlRaw.includes('id="true-solar-time-solar-events"') && /日出[\s\S]*?中天[\s\S]*?日落/.test(indexHtmlRaw));
+  assertUi("true-solar-time-ui-solar-events-helper", true, mainModuleRaw.includes('from "./solarEvents.js"') && mainModuleRaw.includes("calculateSolarEvents"));
+  assertUi("true-solar-time-clock-no-solar-events", false, extractNamedFunctionSource(mainModuleRaw, "refreshTrueSolarTimeClock").includes("calculateSolarEvents"));
   assertUi("true-solar-time-ui-main-import", true, mainModuleRaw.includes('from "./trueSolarTime.js"') && mainModuleRaw.includes("parseCoordinateInput") && mainModuleRaw.includes("calculateTrueSolarTime"));
   assertUi("true-solar-time-ui-geolocation-click-only", true, /trueSolarTimeGeolocate\.addEventListener\("click", requestTrueSolarTimeGeolocation\)[\s\S]*?function requestTrueSolarTimeGeolocation\(\)[\s\S]*?navigator\.geolocation\.getCurrentPosition/.test(mainModuleRaw));
   assertUi("true-solar-time-ui-no-watch-position", false, mainModuleRaw.includes("watchPosition"));
@@ -8802,6 +8809,22 @@ function runTrueSolarTimeUiTests() {
   assertUi("true-solar-time-clock-lightweight", false, extractNamedFunctionSource(mainModuleRaw, "refreshTrueSolarTimeClock").includes("renderByDateTime"));
   assertUi("true-solar-time-clock-auto-now", true, /function refreshTrueSolarTimeClock\(\)[\s\S]*?if \(!isAutoNowMode\)[\s\S]*?new Date\(\)/.test(mainModuleRaw));
   assertUi("true-solar-time-clock-lifecycle", true, /function pauseAutoNowMode\(\)[\s\S]*?stopTrueSolarTimeClockRefresh\(\)/.test(mainModuleRaw) && /pagehide[\s\S]*?stopTrueSolarTimeClockRefresh/.test(mainModuleRaw));
+}
+
+async function runSolarEventsTests() {
+  const date = new Date(2026, 7, 6, 9, 23, 0);
+  const originalTime = date.getTime();
+  const events = await calculateSolarEvents({ date, latitude: 24.976972, longitude: 121.545917, utcOffsetMinutes: 480 });
+  for (const [key, expected] of [["dateKey", "2026-08-06"], ["daylightStatus", "normal"], ["ordered", true], ["inputNotMutated", true]]) {
+    solarEventsVerifiedCaseCount += 1;
+    const actual = key === "ordered" ? events.sunrise < events.solarNoon && events.solarNoon < events.sunset : key === "inputNotMutated" ? date.getTime() === originalTime : events[key];
+    assertEqual("solar-events-taiwan", key, expected, actual);
+  }
+  solarEventsVerifiedCaseCount += 1;
+  assertEqual("solar-events-parts", "date", 6, events.sunriseParts?.day);
+  let threw = false; try { await calculateSolarEvents({ date, latitude: 91, longitude: 121, utcOffsetMinutes: 480 }); } catch { threw = true; }
+  solarEventsVerifiedCaseCount += 1;
+  assertEqual("solar-events-invalid-coordinate", "throws", true, threw);
 }
 
 function runDailyInfoTests() {
