@@ -97,7 +97,13 @@ h2 {
 .true-solar-time-solar-events-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; text-align: center; }
 .true-solar-time-solar-events-grid span { display: block; color: #52616f; font-size: 13px; font-weight: 700; }.true-solar-time-solar-events-grid strong { font-size: 18px; }
 .chart-time-status { display: grid; gap: 4px; margin: 0 0 16px; padding: 10px 12px; border: 1px solid #d8dee6; border-radius: 8px; background: #fbfcfe; color: #52616f; font-size: 13px; }.chart-time-status strong { color: #1f2933; }.chart-time-restore { justify-self: start; }.true-solar-time-apply-actions { display: flex; }
+.true-solar-time-apply-actions[hidden] { display: none !important; }
 .chart-time-status-detail-line { display: block; }
+.chart-time-mode-banner { display: grid; gap: 4px; margin: 0 0 10px; padding: 10px 12px; border: 1px solid #b8c2cc; border-radius: 8px; background: #fbfcfe; color: #52616f; font-size: 13px; }
+.chart-time-mode-banner[data-time-mode="true-solar"] { border-color: #d6b56f; background: #fff8e1; color: #6b4f00; }
+.chart-time-mode-banner strong { color: #1f2933; }
+.chart-time-mode-banner p { margin: 0; }
+.chart-time-mode-banner a { justify-self: start; font-weight: 800; }
 
 .tab-panel[hidden] {
   display: none;

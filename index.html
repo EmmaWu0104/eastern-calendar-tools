@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>曆術排盤工具</title>
+    <title>東方玄學排盤｜手錶時間</title>
     <link rel="icon" href="data:,">
     <link rel="stylesheet" href="./styles/main.css?v=20260806">
   </head>
@@ -48,6 +48,11 @@
         <button id="tab-qimen" class="tab-button" type="button" role="tab" aria-selected="false" aria-controls="panel-qimen">奇門遁甲</button>
       </div>
 
+      <section id="chart-time-mode-banner" class="chart-time-mode-banner" data-time-mode="watch" aria-live="polite">
+        <strong id="chart-time-mode-title">⌚ 手錶時間排盤</strong>
+        <p id="chart-time-mode-description">目前各盤維持既有手錶時間計算。</p>
+        <a id="chart-time-mode-switch-link" href="?timeMode=true-solar">切換至真太陽時排盤</a>
+      </section>
       <section id="chart-time-status" class="chart-time-status" aria-live="polite"><strong id="chart-time-status-title"></strong><span id="chart-time-status-detail"></span><button id="chart-time-restore" type="button" hidden>恢復手錶時間排盤</button></section>
 
       <div id="panel-true-solar-time" class="tab-panel" role="tabpanel" aria-labelledby="tab-true-solar-time" hidden>
@@ -58,7 +63,7 @@
             <label class="true-solar-time-source-option"><input id="true-solar-time-source-query" type="radio" name="true-solar-time-source" value="query" checked><span>上方查詢時間（臺灣 UTC+8）</span></label>
             <label class="true-solar-time-source-option"><input id="true-solar-time-source-device" type="radio" name="true-solar-time-source" value="device"><span>裝置目前時間與時區</span></label>
             <label class="true-solar-time-source-option"><input id="true-solar-time-source-custom" type="radio" name="true-solar-time-source" value="custom"><span>自訂當地日期時間與時區</span></label>
-            <p id="true-solar-time-source-note" class="true-solar-time-detail true-solar-time-source-note">上方查詢時間可套用至全部排盤；其他來源僅供真太陽時查詢。</p>
+            <p id="true-solar-time-source-note" class="true-solar-time-detail true-solar-time-source-note">三種來源皆可用於真太陽時查詢；正式排盤資料流將於後續步驟逐一接入。</p>
           </fieldset>
           <div class="true-solar-time-watch"><strong id="true-solar-time-watch-title">手錶日期時間</strong><p id="true-solar-time-watch-value">--</p><small id="true-solar-time-watch-note">來自上方查詢時間（Asia/Taipei）</small></div>
           <div id="true-solar-time-device-fields" class="true-solar-time-device-fields" hidden>
@@ -107,8 +112,8 @@
             <div class="true-solar-time-solar-events-grid"><div><span>日出</span><strong id="true-solar-time-sunrise">--</strong></div><div><span>中天</span><strong id="true-solar-time-solar-noon">--</strong></div><div><span>日落</span><strong id="true-solar-time-sunset">--</strong></div></div>
             <p id="true-solar-time-solar-events-message" role="status" aria-live="polite"></p>
           </section>
-          <div id="true-solar-time-apply-actions" class="true-solar-time-apply-actions" hidden><button id="true-solar-time-apply" type="button">套用真太陽時至全部排盤</button></div>
-          <p id="true-solar-time-query-only-note" class="true-solar-time-query-only-note" hidden>此時間來源目前僅供真太陽時查詢；下一階段才支援套用至全部排盤。</p>
+          <div id="true-solar-time-apply-actions" class="true-solar-time-apply-actions" hidden><button id="true-solar-time-apply" type="button" hidden>套用真太陽時至全部排盤</button></div>
+          <p id="true-solar-time-query-only-note" class="true-solar-time-query-only-note" hidden>真太陽時排盤模式正在建立中；目前尚未影響下方排盤結果。</p>
         </section>
       </div>
 

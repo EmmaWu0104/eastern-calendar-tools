@@ -61,6 +61,12 @@ const { calculateSolarEvents } = await import("../src/solarEvents.js");
 const { formatUtcOffset, getDeviceTimeZone, getZonedDateTimeParts, resolveLocalDateTimeInTimeZone, validateTimeZone } = await import("../src/timeZone.js");
 const { getCommonTimeZones, getSupportedTimeZones, getTimeZoneSearchEntry, searchTimeZones } = await import("../src/timeZoneCatalog.js");
 const {
+  buildChartDisplayModeUrl,
+  getChartDisplayModeFromLocation,
+  isTrueSolarDisplayMode,
+  normalizeChartDisplayMode,
+} = await import("../src/chartDisplayMode.js");
+const {
   calculateEquationOfTime,
   calculateTrueSolarTime,
   convertDmsToDecimal,
@@ -279,6 +285,7 @@ let trueSolarTimeUiVerifiedCaseCount = 0;
 let solarEventsVerifiedCaseCount = 0;
 let timeZoneVerifiedCaseCount = 0;
 let timeZoneCatalogVerifiedCaseCount = 0;
+let chartDisplayModeVerifiedCaseCount = 0;
 let jianchuVerifiedCaseCount = 0;
 let lunarCalendarVerifiedCaseCount = 0;
 let lunarCalendarUiVerifiedCaseCount = 0;
@@ -681,6 +688,7 @@ runQimenResolverTests();
 runDailyInfoTests();
 runTrueSolarTimeTests();
 runTrueSolarTimeUiTests();
+runChartDisplayModeTests();
 await runSolarEventsTests();
 await runTimeZoneTests();
 runTimeZoneCatalogTests();
@@ -714,6 +722,7 @@ if (failures.length > 0) {
   console.log(`納音測試通過：${naYinVerifiedCaseCount} cases`);
   console.log(`真太陽時核心測試通過：${trueSolarTimeVerifiedCaseCount} cases`);
   console.log(`真太陽時 UI 測試通過：${trueSolarTimeUiVerifiedCaseCount} cases`);
+  console.log(`排盤顯示模式測試通過：${chartDisplayModeVerifiedCaseCount} cases`);
   console.log(`太陽事件測試通過：${solarEventsVerifiedCaseCount} cases`);
   console.log(`時區核心測試通過：${timeZoneVerifiedCaseCount} cases`);
   console.log(`時區搜尋 catalog 測試通過：${timeZoneCatalogVerifiedCaseCount} cases`);
@@ -8869,7 +8878,7 @@ function runTrueSolarTimeUiTests() {
   assertUi("true-solar-time-ui-panel", true, indexHtmlRaw.includes('id="panel-true-solar-time"') && indexHtmlRaw.includes('id="true-solar-time-coordinate"'));
   assertUi("true-solar-time-ui-actions", true, indexHtmlRaw.includes('id="true-solar-time-calculate"') && indexHtmlRaw.includes('id="true-solar-time-geolocate"'));
   assertUi("true-solar-time-ui-no-future-actions", false, /太陽高度|太陽方位|時區選擇/.test(indexHtmlRaw));
-  assertUi("true-solar-time-ui-chart-time-controls", true, indexHtmlRaw.includes('id="true-solar-time-apply"') && indexHtmlRaw.includes('id="chart-time-restore"') && mainModuleRaw.includes("resolveEffectiveChartDateTimeValue"));
+  assertUi("true-solar-time-ui-legacy-controls-retired", true, /id="true-solar-time-apply"[^>]*hidden/.test(indexHtmlRaw) && /id="chart-time-restore"[^>]*hidden/.test(indexHtmlRaw) && mainModuleRaw.includes("applyTrueSolarTimeToCharts") && mainModuleRaw.includes("restoreWatchChartTime"));
   assertUi("true-solar-time-ui-chart-time-status-lines", true, mainModuleRaw.includes('`手錶時間：${formatDateTimeParts') && mainModuleRaw.includes('`真太陽時：${formatDateTimeParts') && !mainModuleRaw.includes("；排盤時間：") && mainModuleRaw.includes('className = "chart-time-status-detail-line"') && mainCssRaw.includes(".chart-time-status-detail-line { display: block; }"));
   assertUi("true-solar-time-ui-solar-events", true, indexHtmlRaw.includes('id="true-solar-time-solar-events"') && /日出[\s\S]*?中天[\s\S]*?日落/.test(indexHtmlRaw));
   assertUi("true-solar-time-ui-solar-events-helper", true, mainModuleRaw.includes('from "./solarEvents.js"') && mainModuleRaw.includes("calculateSolarEvents"));
@@ -8923,7 +8932,7 @@ function runTrueSolarTimeUiTests() {
   assertUi("true-solar-time-solar-events-two-lines", true, mainCssRaw.includes(".true-solar-events-location-line, .true-solar-events-time-zone-line { display: block") && !extractNamedFunctionSource(mainModuleRaw, "renderTrueSolarTimeSolarEvents").includes("｜時區"));
   assertUi("true-solar-time-solar-events-grid-preserved", true, /id="true-solar-time-sunrise"[\s\S]*?id="true-solar-time-solar-noon"[\s\S]*?id="true-solar-time-sunset"/.test(indexHtmlRaw));
   assertUi("true-solar-time-solar-events-mobile-wrap", true, mainCssRaw.includes("overflow-wrap: anywhere"));
-  assertUi("true-solar-time-query-only-note", true, indexHtmlRaw.includes('id="true-solar-time-query-only-note"') && indexHtmlRaw.includes("下一階段才支援套用至全部排盤"));
+  assertUi("true-solar-time-query-only-note", true, indexHtmlRaw.includes('id="true-solar-time-query-only-note"') && indexHtmlRaw.includes("目前尚未影響下方排盤結果"));
   assertUi("true-solar-time-timezone-core-import", true, mainModuleRaw.includes('from "./timeZone.js"') && mainModuleRaw.includes("getDeviceTimeZone") && mainModuleRaw.includes("resolveLocalDateTimeInTimeZone"));
   assertUi("true-solar-time-carrier", true, /function createUtcCarrierFromLocalParts[\s\S]*?Date\.UTC/.test(mainModuleRaw) && mainModuleRaw.includes("useUtcComponents: true"));
   assertUi("true-solar-time-no-custom-date-string-parse", false, mainModuleRaw.includes('new Date("YYYY-MM-DDTHH:mm:ss")'));
@@ -8934,9 +8943,42 @@ function runTrueSolarTimeUiTests() {
   assertUi("true-solar-time-device-timer-only-panel", false, extractNamedFunctionSource(mainModuleRaw, "refreshTrueSolarTimeClock").includes("renderByDateTime"));
   assertUi("true-solar-time-custom-no-timer", true, !extractNamedFunctionSource(mainModuleRaw, "refreshTrueSolarTimeClock").includes("renderTrueSolarTimeForCustomInput"));
   assertUi("true-solar-time-bc-no-chart-state", true, !extractNamedFunctionSource(mainModuleRaw, "renderTrueSolarTimeForDeviceNow").includes("chartTimeState") && !extractNamedFunctionSource(mainModuleRaw, "renderTrueSolarTimeForCustomInput").includes("chartTimeState"));
-  assertUi("true-solar-time-apply-query-only", true, extractNamedFunctionSource(mainModuleRaw, "renderTrueSolarTimeForContext").includes("source === TRUE_SOLAR_TIME_SOURCE.QUERY") && extractNamedFunctionSource(mainModuleRaw, "renderTrueSolarTimeForContext").includes("source !== TRUE_SOLAR_TIME_SOURCE.QUERY"));
+  assertUi("true-solar-time-apply-ui-remains-hidden", true, extractNamedFunctionSource(mainModuleRaw, "renderTrueSolarTimeForContext").includes("trueSolarTimeApplyActions.hidden = true") && mainCssRaw.includes(".true-solar-time-apply-actions[hidden] { display: none !important; }"));
   assertUi("true-solar-time-source-mobile-css", true, /@media \(max-width: 760px\)[\s\S]*?\.true-solar-time-custom-fields[\s\S]*?grid-template-columns:\s*1fr/.test(mainCssRaw));
   assertUi("true-solar-time-no-external-timezone-api", false, /fetch\([^)]*(time.?zone|timezone)|localStorage|Temporal/.test(mainModuleRaw));
+}
+
+function runChartDisplayModeTests() {
+  const check = (id, expected, actual) => {
+    chartDisplayModeVerifiedCaseCount += 1;
+    assertEqual(id, "result", expected, actual);
+  };
+  check("chart-display-mode-normalize-undefined", "watch", normalizeChartDisplayMode(undefined));
+  check("chart-display-mode-normalize-watch", "watch", normalizeChartDisplayMode("watch"));
+  check("chart-display-mode-normalize-true-solar", "true-solar", normalizeChartDisplayMode("true-solar"));
+  check("chart-display-mode-normalize-invalid", "watch", normalizeChartDisplayMode("solar"));
+  check("chart-display-mode-url-default", "watch", getChartDisplayModeFromLocation("https://example.test/chart?foo=1#top"));
+  check("chart-display-mode-url-true-solar", "true-solar", getChartDisplayModeFromLocation("https://example.test/chart?timeMode=true-solar#top"));
+  check("chart-display-mode-build-preserves-query", "/chart?foo=1&timeMode=true-solar#top", buildChartDisplayModeUrl("true-solar", "https://example.test/chart?foo=1#top"));
+  check("chart-display-mode-build-preserves-hash", "/chart?timeMode=watch#top", buildChartDisplayModeUrl("watch", "https://example.test/chart#top"));
+  check("chart-display-mode-build-watch", "/chart?timeMode=watch", buildChartDisplayModeUrl("watch", "https://example.test/chart"));
+  check("chart-display-mode-build-true-solar", "/chart?timeMode=true-solar", buildChartDisplayModeUrl("true-solar", "https://example.test/chart"));
+  check("chart-display-mode-predicate", true, isTrueSolarDisplayMode("true-solar"));
+  check("chart-display-mode-dom-banner", true, ["chart-time-mode-banner", "chart-time-mode-title", "chart-time-mode-description", "chart-time-mode-switch-link"].every((id) => indexHtmlRaw.includes(`id="${id}"`)));
+  check("chart-display-mode-dom-data", true, indexHtmlRaw.includes('data-time-mode="watch"') && mainModuleRaw.includes("document.body.dataset.chartTimeMode = chartDisplayMode"));
+  check("chart-display-mode-dom-copy", true, indexHtmlRaw.includes("⌚ 手錶時間排盤") && mainModuleRaw.includes("真太陽時排盤模式正在建立中；目前尚未影響下方排盤結果。"));
+  check("chart-display-mode-link-accessibility", true, /id="chart-time-mode-switch-link" href="\?timeMode=true-solar"/.test(indexHtmlRaw) && mainModuleRaw.includes("切換至真太陽時排盤") && mainModuleRaw.includes("返回手錶時間排盤"));
+  check("chart-display-mode-single-switch-entry", true, !indexHtmlRaw.includes("true-solar-time-mode-switch-link") && !indexHtmlRaw.includes("true-solar-time-mode-intro") && (mainModuleRaw.match(/chartTimeModeSwitchLink\.addEventListener/g) ?? []).length === 1);
+  check("chart-display-mode-panel-keeps-query-controls", true, ["true-solar-time-source-query", "true-solar-time-coordinate", "true-solar-time-time-zone-search-results", "true-solar-time-disambiguation", "true-solar-time-result", "true-solar-time-solar-events"].every((id) => indexHtmlRaw.includes(`id="${id}"`)));
+  check("chart-display-mode-single-copy-per-mode", true, (mainModuleRaw.match(/切換至真太陽時排盤/g) ?? []).length === 1 && (mainModuleRaw.match(/返回手錶時間排盤/g) ?? []).length === 1);
+  check("chart-display-mode-tab-keeps-tab-contract", true, /id="tab-true-solar-time"[^>]*role="tab"[^>]*aria-controls="panel-true-solar-time"/.test(indexHtmlRaw) && mainModuleRaw.includes('"⌚ 手錶時間"') && mainModuleRaw.includes('"☀ 真太陽時"'));
+  check("chart-display-mode-url-history", true, mainModuleRaw.includes('window.addEventListener("popstate", syncChartDisplayModeFromLocation)') && extractNamedFunctionSource(mainModuleRaw, "handleChartDisplayModeSwitchClick").includes("window.history.pushState"));
+  check("chart-display-mode-watch-reset", true, extractNamedFunctionSource(mainModuleRaw, "resetLegacyChartTimeState").includes("chartTimeState.mode = CHART_TIME_MODE.WATCH") && extractNamedFunctionSource(mainModuleRaw, "initializeChartDisplayMode").includes("resetLegacyChartTimeState"));
+  check("chart-display-mode-detached-from-effective-input", true, !extractNamedFunctionSource(mainModuleRaw, "renderChartDisplayMode").includes("resolveEffectiveChartDateTimeValue") && !extractNamedFunctionSource(mainModuleRaw, "renderChartDisplayMode").includes("renderByDateTime"));
+  check("chart-display-mode-render-inputs-unchanged", true, ["renderResult(result, effectiveDateTimeValue)", "renderFlyingStars(result, effectiveDateTimeValue)", "renderJinhanYujing(result, effectiveDateTimeValue)", "renderQimenSection(effectiveDateTimeValue)"].every((call) => extractNamedFunctionSource(mainModuleRaw, "renderByDateTime").includes(call)));
+  check("chart-display-mode-no-storage-or-fetch", false, /localStorage|sessionStorage|fetch\(/.test(mainModuleRaw));
+  check("chart-display-mode-no-duplicate-page-or-render", true, !indexHtmlRaw.includes("index-true-solar") && (mainModuleRaw.match(/function renderByDateTime\(/g) ?? []).length === 1);
+  check("chart-display-mode-no-qimen-or-formula-edit", true, !mainModuleRaw.includes("createChartTimeContext") && mainModuleRaw.includes('from "./qimenResolver.js"'));
 }
 
 async function runSolarEventsTests() {
