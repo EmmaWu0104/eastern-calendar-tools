@@ -1,5 +1,6 @@
 import {
   findSolarTermContext,
+  findSolarTermContextByTimeMs,
   getMonthBranch,
   loadSolarTerms,
 } from "./solarTerms.js";
@@ -9,9 +10,13 @@ import {
 } from "./dailyInfo.js";
 import {
   getDayPillar,
+  getDayPillarFromLocalParts,
   getHourPillar,
+  getHourPillarFromLocalParts,
   getMonthPillar,
+  getMonthPillarFromInstantMs,
   getYearPillar,
+  getYearPillarFromInstantMs,
 } from "./ganzhi.js";
 import { getJianchuByBranches } from "./jianchu.js";
 import {
@@ -39,6 +44,63 @@ export function calculateBaziFromSolarTerms(dateTimeString, solarTerms) {
   const monthPillar = getMonthPillar(dateTimeString, solarTerms);
   const dayPillar = getDayPillar(dateTimeString);
   const hourPillar = getHourPillar(dateTimeString);
+  return calculateBaziFromResolvedInputs({
+    termContext,
+    monthBranch,
+    yearPillar,
+    monthPillar,
+    dayPillar,
+    hourPillar,
+    solarTerms,
+  });
+}
+
+/**
+ * Pure separated-time core used by the ChartTimeContext adapter.  The term
+ * comparison instant and local clock components intentionally have distinct
+ * inputs: true solar local parts must never be treated as an instant.
+ */
+export function calculateBaziFromSeparatedTimeInputs({
+  termComparisonInstantMs,
+  termLookupYear,
+  clockLocalParts,
+  solarTerms,
+} = {}) {
+  if (!Number.isFinite(termComparisonInstantMs)) {
+    throw new TypeError("termComparisonInstantMs 必須是有限數字");
+  }
+  if (!Number.isInteger(termLookupYear)) {
+    throw new TypeError("termLookupYear 必須是整數");
+  }
+  const termContext = findSolarTermContextByTimeMs(termComparisonInstantMs, solarTerms, {
+    ...clockLocalParts,
+    timeMs: termComparisonInstantMs,
+    input: formatLocalDateTime(clockLocalParts),
+  });
+  const monthBranch = getMonthPillarFromInstantMs(termComparisonInstantMs, termLookupYear, solarTerms);
+  const yearPillar = getYearPillarFromInstantMs(termComparisonInstantMs, termLookupYear, solarTerms);
+  const dayPillar = getDayPillarFromLocalParts(clockLocalParts);
+  const hourPillar = getHourPillarFromLocalParts(clockLocalParts);
+  return calculateBaziFromResolvedInputs({
+    termContext,
+    monthBranch: { branch: monthBranch.branch, term: monthBranch.switchTerm },
+    yearPillar,
+    monthPillar: monthBranch,
+    dayPillar,
+    hourPillar,
+    solarTerms,
+  });
+}
+
+function calculateBaziFromResolvedInputs({
+  termContext,
+  monthBranch,
+  yearPillar,
+  monthPillar,
+  dayPillar,
+  hourPillar,
+  solarTerms,
+}) {
   const currentHou = getCurrentHouFromTermContext(termContext);
   const nextHou = getNextHouFromTermContext(termContext, solarTerms);
   const jianchu = getJianchuFromBranches(monthBranch.branch, dayPillar.pillar);
@@ -70,6 +132,13 @@ export function calculateBaziFromSolarTerms(dateTimeString, solarTerms) {
       monthSwitchTerm: monthBranch.term,
     },
   };
+}
+
+function formatLocalDateTime(parts) {
+  if (!parts || typeof parts !== "object") return "";
+  const date = `${String(parts.year).padStart(4, "0")}-${String(parts.month).padStart(2, "0")}-${String(parts.day).padStart(2, "0")}`;
+  const time = `${String(parts.hour).padStart(2, "0")}:${String(parts.minute).padStart(2, "0")}:${String(parts.second).padStart(2, "0")}`;
+  return parts.millisecond ? `${date}T${time}.${String(parts.millisecond).padStart(3, "0")}` : `${date}T${time}`;
 }
 
 function getJianchuFromBranches(monthBranch, dayPillar) {

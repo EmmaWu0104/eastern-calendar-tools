@@ -1,6 +1,6 @@
 import {
   findTermByNameAndYear,
-  getMonthBranch,
+  getMonthBranchByTimeMs,
   parseLocalDateTime,
 } from "./solarTerms.js";
 
@@ -25,13 +25,27 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 
 export function getYearPillar(dateTimeString, solarTerms) {
   const dateTime = parseLocalDateTime(dateTimeString);
-  const lichun = findTermByNameAndYear(solarTerms, "立春", dateTime.year);
+  return getYearPillarFromInstantMs(dateTime.timeMs, dateTime.year, solarTerms);
+}
+
+/**
+ * Calculates the year pillar using an astronomical instant and an explicit
+ * civil year for the 立春 lookup.  No host-local timezone conversion occurs.
+ */
+export function getYearPillarFromInstantMs(comparisonInstantMs, civilYear, solarTerms) {
+  if (!Number.isFinite(comparisonInstantMs)) {
+    throw new TypeError("年柱比較時間必須是有限 epoch milliseconds");
+  }
+  if (!Number.isInteger(civilYear)) {
+    throw new TypeError("年柱立春索引年必須是整數");
+  }
+  const lichun = findTermByNameAndYear(solarTerms, "立春", civilYear);
 
   if (!lichun) {
-    throw new RangeError(`找不到 ${dateTime.year} 年立春資料，無法判斷年柱`);
+    throw new RangeError(`找不到 ${civilYear} 年立春資料，無法判斷年柱`);
   }
 
-  const ganzhiYear = dateTime.timeMs >= lichun.timeMs ? dateTime.year : dateTime.year - 1;
+  const ganzhiYear = comparisonInstantMs >= lichun.timeMs ? civilYear : civilYear - 1;
   const cycleIndex = positiveMod(ganzhiYear - 1984, 60);
 
   return {
@@ -43,8 +57,13 @@ export function getYearPillar(dateTimeString, solarTerms) {
 }
 
 export function getMonthPillar(dateTimeString, solarTerms) {
-  const yearPillar = getYearPillar(dateTimeString, solarTerms);
-  const monthBranch = getMonthBranch(dateTimeString, solarTerms);
+  const dateTime = parseLocalDateTime(dateTimeString);
+  return getMonthPillarFromInstantMs(dateTime.timeMs, dateTime.year, solarTerms);
+}
+
+export function getMonthPillarFromInstantMs(comparisonInstantMs, civilYear, solarTerms) {
+  const yearPillar = getYearPillarFromInstantMs(comparisonInstantMs, civilYear, solarTerms);
+  const monthBranch = getMonthBranchByTimeMs(comparisonInstantMs, solarTerms);
   const monthIndex = MONTH_BRANCHES.indexOf(monthBranch.branch);
 
   if (monthIndex < 0) {
@@ -65,9 +84,15 @@ export function getMonthPillar(dateTimeString, solarTerms) {
 
 export function getDayPillar(dateTimeString) {
   const dateTime = parseLocalDateTime(dateTimeString);
-  const effectiveCivilDateMs = civilDateToEpochMs(dateTime.year, dateTime.month, dateTime.day);
+  return getDayPillarFromLocalParts(dateTime);
+}
+
+/** Calculates the day pillar from plain wall-clock components. */
+export function getDayPillarFromLocalParts(localParts) {
+  assertLocalParts(localParts);
+  const effectiveCivilDateMs = civilDateToEpochMs(localParts.year, localParts.month, localParts.day);
   const dayStartAdjustedCivilDateMs =
-    dateTime.hour >= 23 ? effectiveCivilDateMs + DAY_MS : effectiveCivilDateMs;
+    localParts.hour >= 23 ? effectiveCivilDateMs + DAY_MS : effectiveCivilDateMs;
   const baseCivilDateMs = civilDateToEpochMs(2000, 1, 1);
   const daysFromBase = Math.round((dayStartAdjustedCivilDateMs - baseCivilDateMs) / DAY_MS);
   const cycleIndex = positiveMod(DAY_PILLAR_BASE.cycleIndex + daysFromBase, 60);
@@ -82,9 +107,15 @@ export function getDayPillar(dateTimeString) {
 
 export function getHourPillar(dateTimeString) {
   const dateTime = parseLocalDateTime(dateTimeString);
-  const dayPillar = getDayPillar(dateTimeString);
+  return getHourPillarFromLocalParts(dateTime);
+}
+
+/** Calculates the hour pillar from the same plain wall-clock components. */
+export function getHourPillarFromLocalParts(localParts) {
+  assertLocalParts(localParts);
+  const dayPillar = getDayPillarFromLocalParts(localParts);
   const dayStemIndex = HEAVENLY_STEMS.indexOf(dayPillar.pillar[0]);
-  const hourBranchIndex = getHourBranchIndex(dateTime.hour);
+  const hourBranchIndex = getHourBranchIndex(localParts.hour);
   const firstHourStemIndex = ((dayStemIndex % 5) * 2) % 10;
   const hourStemIndex = (firstHourStemIndex + hourBranchIndex) % 10;
 
@@ -122,4 +153,14 @@ function formatCivilDate(civilDateMs) {
   const day = String(date.getUTCDate()).padStart(2, "0");
 
   return `${year}-${month}-${day}`;
+}
+
+function assertLocalParts(parts) {
+  if (!parts || typeof parts !== "object" || ["year", "month", "day", "hour", "minute", "second", "millisecond"].some((name) => !Number.isInteger(parts[name]))) {
+    throw new TypeError("日／時柱需要完整有效的 local parts");
+  }
+  const date = new Date(Date.UTC(parts.year, parts.month - 1, parts.day, parts.hour, parts.minute, parts.second, parts.millisecond));
+  if (date.getUTCFullYear() !== parts.year || date.getUTCMonth() !== parts.month - 1 || date.getUTCDate() !== parts.day || date.getUTCHours() !== parts.hour || date.getUTCMinutes() !== parts.minute || date.getUTCSeconds() !== parts.second || date.getUTCMilliseconds() !== parts.millisecond) {
+    throw new RangeError("日／時柱 local parts 無效");
+  }
 }

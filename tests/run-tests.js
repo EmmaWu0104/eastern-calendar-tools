@@ -13,6 +13,14 @@ const {
 const { access, readdir, readFile } = await import("node:fs/promises");
 const { fileURLToPath } = await import("node:url");
 const { calculateBaziFromSolarTerms } = await import("../src/bazi.js");
+const {
+  calculateBaziFromChartTimeContext,
+  createBaziCalculationInputFromChartTimeContext,
+  formatBaziChartTimeDebug,
+  getBaziClockLocalParts,
+  getBaziSolarTermComparisonInstantMs,
+  validateBaziChartTimeContext,
+} = await import("../src/baziChartTimeAdapter.js");
 const { getDailyGodsByStem } = await import("../src/dailyGods.js");
 const {
   getClothingAdviceByDayBranch,
@@ -266,6 +274,7 @@ const [
   indexHtmlRaw,
   cwaLunarValidationRaw,
   chartTimeContextRaw,
+  baziChartTimeAdapterRaw,
 ] = await Promise.all([
   readFile(new URL("../data/solar_terms_1899_2101.json", import.meta.url), "utf8"),
   readFile(new URL("./testcases.json", import.meta.url), "utf8"),
@@ -280,6 +289,7 @@ const [
   readFile(new URL("../index.html", import.meta.url), "utf8"),
   readFile(new URL("../data/cwa_lunar_calendar_validation_2022_2050.json", import.meta.url), "utf8"),
   readFile(new URL("../src/chartTimeContext.js", import.meta.url), "utf8"),
+  readFile(new URL("../src/baziChartTimeAdapter.js", import.meta.url), "utf8"),
 ]);
 
 const solarTerms = normalizeSolarTerms(JSON.parse(termsRaw));
@@ -302,6 +312,7 @@ let timeZoneVerifiedCaseCount = 0;
 let timeZoneCatalogVerifiedCaseCount = 0;
 let chartDisplayModeVerifiedCaseCount = 0;
 let chartTimeContextVerifiedCaseCount = 0;
+let baziChartTimeAdapterVerifiedCaseCount = 0;
 let jianchuVerifiedCaseCount = 0;
 let lunarCalendarVerifiedCaseCount = 0;
 let lunarCalendarUiVerifiedCaseCount = 0;
@@ -706,6 +717,7 @@ runTrueSolarTimeTests();
 runTrueSolarTimeUiTests();
 runChartDisplayModeTests();
 runChartTimeContextTests();
+runBaziChartTimeAdapterTests();
 await runSolarEventsTests();
 await runTimeZoneTests();
 runTimeZoneCatalogTests();
@@ -741,6 +753,7 @@ if (failures.length > 0) {
   console.log(`真太陽時 UI 測試通過：${trueSolarTimeUiVerifiedCaseCount} cases`);
   console.log(`排盤顯示模式測試通過：${chartDisplayModeVerifiedCaseCount} cases`);
   console.log(`ChartTimeContext 核心測試通過：${chartTimeContextVerifiedCaseCount} cases`);
+  console.log(`四柱 ChartTimeContext adapter 測試通過：${baziChartTimeAdapterVerifiedCaseCount} cases`);
   console.log(`太陽事件測試通過：${solarEventsVerifiedCaseCount} cases`);
   console.log(`時區核心測試通過：${timeZoneVerifiedCaseCount} cases`);
   console.log(`時區搜尋 catalog 測試通過：${timeZoneCatalogVerifiedCaseCount} cases`);
@@ -9219,6 +9232,192 @@ function runChartTimeContextTests() {
   check("chart-time-context-static-no-dom", false, /\bdocument\b|\bwindow\b|\bnavigator\b|geolocation|localStorage|fetch\(/.test(chartTimeContextRaw));
   check("chart-time-context-static-no-runtime-coupling", false, /chartTimeState|chartDisplayMode|from\s+["']\.\/(bazi|qimen|solarEvents|trueSolarTime)/.test(chartTimeContextRaw));
   check("chart-time-context-static-no-formula", false, /NOAA|Meeus|calculateEquationOfTime|calculateSolarEvents/.test(chartTimeContextRaw));
+}
+
+function runBaziChartTimeAdapterTests() {
+  const check = (id, expected, actual) => {
+    baziChartTimeAdapterVerifiedCaseCount += 1;
+    assertEqual(id, "result", expected, actual);
+  };
+  const throws = (id, callback, expectedMessagePart = "") => {
+    let message = "";
+    try { callback(); } catch (error) { message = error instanceof Error ? error.message : String(error); }
+    check(id, true, message.includes(expectedMessagePart));
+  };
+  const parts = (year, month, day, hour, minute, second = 0, millisecond = 0) => ({ year, month, day, hour, minute, second, millisecond });
+  const instantFor = (clock, offsetMinutes) => Date.UTC(clock.year, clock.month - 1, clock.day, clock.hour, clock.minute, clock.second, clock.millisecond) - offsetMinutes * 60_000;
+  const contextInput = ({
+    mode = "watch",
+    civilParts = parts(2026, 8, 7, 8, 49),
+    timeZone = "Asia/Taipei",
+    utcOffsetMinutes = 480,
+    instantMs = instantFor(civilParts, utcOffsetMinutes),
+    trueSolarParts = parts(2026, 8, 7, 8, 49, 18),
+    source = "custom",
+    disambiguation = null,
+  } = {}) => ({
+    mode,
+    source,
+    civil: { localParts: civilParts, timeZone, utcOffsetMinutes, abbreviation: "", instantMs, disambiguation },
+    location: mode === "true-solar" ? { latitude: 24.984898, longitude: 121.540626, accuracy: null } : null,
+    trueSolarResult: mode === "true-solar" ? {
+      trueSolarParts,
+      totalCorrectionSeconds: 18,
+      longitudeCorrectionSeconds: 369,
+      equationOfTimeSeconds: -351,
+    } : undefined,
+    createdAtInstantMs: 0,
+  });
+  const watchContext = createChartTimeContext(contextInput());
+  const watchResult = calculateBaziFromChartTimeContext(watchContext, solarTerms);
+  const legacyWatch = calculateBaziFromSolarTerms("2026-08-07T08:49:00", solarTerms);
+  check("bazi-adapter-watch-clock-selection", JSON.stringify(watchContext.civil.localParts), JSON.stringify(getBaziClockLocalParts(watchContext)));
+  check("bazi-adapter-watch-term-instant", watchContext.civil.instantMs, getBaziSolarTermComparisonInstantMs(watchContext));
+  check("bazi-adapter-watch-pillar-compatibility", JSON.stringify([legacyWatch.yearPillar, legacyWatch.monthPillar, legacyWatch.dayPillar, legacyWatch.hourPillar]), JSON.stringify([watchResult.yearPillar, watchResult.monthPillar, watchResult.dayPillar, watchResult.hourPillar]));
+  check("bazi-adapter-watch-term-compatibility", JSON.stringify([legacyWatch.currentTerm.name, legacyWatch.nextTerm.name, legacyWatch.meta]), JSON.stringify([watchResult.currentTerm.name, watchResult.nextTerm.name, watchResult.meta]));
+  check("bazi-adapter-watch-debug-effective-day", "2026-08-07", watchResult.debug.effectiveDayDateKey);
+
+  for (const [id, clock] of [["before", parts(2026, 5, 29, 22, 59, 59)], ["exact", parts(2026, 5, 29, 23, 0, 0)], ["after", parts(2026, 5, 29, 23, 0, 1)], ["midnight", parts(2026, 5, 30, 0, 0, 1)]]) {
+    const context = createChartTimeContext(contextInput({ civilParts: clock }));
+    const adapter = calculateBaziFromChartTimeContext(context, solarTerms);
+    const legacy = calculateBaziFromSolarTerms(`${String(clock.year).padStart(4, "0")}-${String(clock.month).padStart(2, "0")}-${String(clock.day).padStart(2, "0")}T${String(clock.hour).padStart(2, "0")}:${String(clock.minute).padStart(2, "0")}:${String(clock.second).padStart(2, "0")}`, solarTerms);
+    check(`bazi-adapter-2300-${id}`, JSON.stringify([legacy.dayPillar, legacy.hourPillar, legacy.meta.effectiveDayDate]), JSON.stringify([adapter.dayPillar, adapter.hourPillar, adapter.meta.effectiveDayDate]));
+  }
+
+  const sourceAWatchDate = new Date(2026, 7, 7, 8, 49, 0);
+  const sourceATrueCarrier = calculateTrueSolarTime({
+    date: sourceAWatchDate,
+    latitude: 24.984898,
+    longitude: 121.540626,
+    utcOffsetMinutes: 480,
+  });
+  const sourceATrueInput = contextInput({
+    mode: "true-solar",
+    trueSolarParts: sourceATrueCarrier.trueSolarParts,
+  });
+  const sourceATrueContext = createChartTimeContext(sourceATrueInput);
+  const sourceATrueResult = calculateBaziFromChartTimeContext(sourceATrueContext, solarTerms);
+  const sourceALegacyValue = `${String(sourceATrueCarrier.trueSolarParts.year).padStart(4, "0")}-${String(sourceATrueCarrier.trueSolarParts.month).padStart(2, "0")}-${String(sourceATrueCarrier.trueSolarParts.day).padStart(2, "0")}T${String(sourceATrueCarrier.trueSolarParts.hour).padStart(2, "0")}:${String(sourceATrueCarrier.trueSolarParts.minute).padStart(2, "0")}:${String(sourceATrueCarrier.trueSolarParts.second).padStart(2, "0")}`;
+  const sourceALegacyResult = calculateBaziFromSolarTerms(sourceALegacyValue, solarTerms);
+  check("bazi-adapter-source-a-true-solar-clock", sourceALegacyValue.replace("T", " "), sourceATrueResult.debug.clockLocalDateTime);
+  check("bazi-adapter-source-a-true-solar-general-compatibility", JSON.stringify([sourceALegacyResult.yearPillar, sourceALegacyResult.monthPillar, sourceALegacyResult.dayPillar, sourceALegacyResult.hourPillar, sourceALegacyResult.currentTerm.name, sourceALegacyResult.nextTerm.name, { ganzhiYear: sourceALegacyResult.meta.ganzhiYear, effectiveDayDate: sourceALegacyResult.meta.effectiveDayDate, monthSwitchTerm: sourceALegacyResult.meta.monthSwitchTerm }]), JSON.stringify([sourceATrueResult.yearPillar, sourceATrueResult.monthPillar, sourceATrueResult.dayPillar, sourceATrueResult.hourPillar, sourceATrueResult.currentTerm.name, sourceATrueResult.nextTerm.name, { ganzhiYear: sourceATrueResult.meta.ganzhiYear, effectiveDayDate: sourceATrueResult.meta.effectiveDayDate, monthSwitchTerm: sourceATrueResult.meta.monthSwitchTerm }]));
+  check("bazi-adapter-source-a-true-solar-term-uses-civil", sourceATrueContext.civil.instantMs, sourceATrueResult.termContext.comparisonInstantMs);
+
+  const laCivil = parts(2026, 8, 6, 14, 21, 30);
+  const laTrueSolar = parts(2026, 8, 6, 13, 22, 39);
+  const laWatch = createChartTimeContext(contextInput({ civilParts: laCivil, trueSolarParts: laTrueSolar, timeZone: "America/Los_Angeles", utcOffsetMinutes: -420, instantMs: instantFor(laCivil, -420) }));
+  const laSolar = createChartTimeContext(contextInput({ mode: "true-solar", civilParts: laCivil, trueSolarParts: laTrueSolar, timeZone: "America/Los_Angeles", utcOffsetMinutes: -420, instantMs: instantFor(laCivil, -420) }));
+  const laWatchResult = calculateBaziFromChartTimeContext(laWatch, solarTerms);
+  const laSolarResult = calculateBaziFromChartTimeContext(laSolar, solarTerms);
+  check("bazi-adapter-la-summer-instant-shared", laWatchResult.termContext.comparisonInstantMs, laSolarResult.termContext.comparisonInstantMs);
+  check("bazi-adapter-la-summer-clock-separate", "2026-08-06 13:22:39", laSolarResult.debug.clockLocalDateTime);
+  check("bazi-adapter-la-summer-no-taipei-clock", false, laSolarResult.debug.clockLocalDateTime.startsWith("2026-08-07"));
+
+  const lichun = solarTerms.find((term) => term.name === "立春" && term.year_taipei === 2026);
+  const taipeiPartsAt = (timeMs) => {
+    const date = new Date(timeMs);
+    return parts(date.getFullYear(), date.getMonth() + 1, date.getDate(), date.getHours(), date.getMinutes(), date.getSeconds(), date.getMilliseconds());
+  };
+  const formatPartsValue = (clock) => `${String(clock.year).padStart(4, "0")}-${String(clock.month).padStart(2, "0")}-${String(clock.day).padStart(2, "0")}T${String(clock.hour).padStart(2, "0")}:${String(clock.minute).padStart(2, "0")}:${String(clock.second).padStart(2, "0")}.${String(clock.millisecond).padStart(3, "0")}`;
+  for (const term of [lichun, solarTerms.find((entry) => entry.name === "驚蟄" && entry.year_taipei === 2026)]) {
+    for (const [id, delta] of [["before", -1], ["exact", 0], ["after", 1]]) {
+      const instantMs = term.timeMs + delta;
+      const clock = taipeiPartsAt(instantMs);
+      const context = createChartTimeContext(contextInput({ civilParts: clock, instantMs }));
+      const adapter = calculateBaziFromChartTimeContext(context, solarTerms);
+      const legacy = calculateBaziFromSolarTerms(formatPartsValue(clock), solarTerms);
+      check(`bazi-adapter-legacy-${term.name}-${id}`, JSON.stringify([legacy.yearPillar, legacy.monthPillar, legacy.currentTerm.name, legacy.meta]), JSON.stringify([adapter.yearPillar, adapter.monthPillar, adapter.currentTerm.name, adapter.meta]));
+    }
+  }
+  const sourceABoundaryWatchParts = taipeiPartsAt(lichun.timeMs);
+  const sourceABoundarySolar = calculateTrueSolarTime({
+    date: new Date(lichun.timeMs),
+    latitude: 24.984898,
+    longitude: 121.540626,
+    utcOffsetMinutes: 480,
+  });
+  const sourceABoundaryContext = createChartTimeContext(contextInput({
+    mode: "true-solar",
+    civilParts: sourceABoundaryWatchParts,
+    instantMs: lichun.timeMs,
+    trueSolarParts: sourceABoundarySolar.trueSolarParts,
+  }));
+  const sourceABoundaryAdapter = calculateBaziFromChartTimeContext(sourceABoundaryContext, solarTerms);
+  const sourceABoundaryLegacy = calculateBaziFromSolarTerms(formatPartsValue(sourceABoundarySolar.trueSolarParts), solarTerms);
+  check("bazi-adapter-source-a-boundary-diagnostic", false, sourceABoundaryLegacy.yearPillar === sourceABoundaryAdapter.yearPillar);
+  check("bazi-adapter-source-a-boundary-adapter-uses-exact-instant", "丙午", sourceABoundaryAdapter.yearPillar);
+  for (const [id, delta] of [["before", -1], ["exact", 0], ["after", 1]]) {
+    const context = createChartTimeContext(contextInput({ civilParts: parts(2026, 2, 3, 12, 0), timeZone: "America/Los_Angeles", utcOffsetMinutes: -480, instantMs: lichun.timeMs + delta }));
+    const result = calculateBaziFromChartTimeContext(context, solarTerms);
+    check(`bazi-adapter-la-lichun-${id}-instant`, lichun.timeMs + delta, result.termContext.comparisonInstantMs);
+    check(`bazi-adapter-la-lichun-${id}-year`, delta < 0 ? "乙巳" : "丙午", result.yearPillar);
+  }
+  const jingzhe = solarTerms.find((term) => term.name === "驚蟄" && term.year_taipei === 2026);
+  for (const [id, delta] of [["before", -1], ["exact", 0], ["after", 1]]) {
+    const context = createChartTimeContext(contextInput({ civilParts: parts(2026, 3, 4, 12, 0), timeZone: "America/Los_Angeles", utcOffsetMinutes: -480, instantMs: jingzhe.timeMs + delta }));
+    const result = calculateBaziFromChartTimeContext(context, solarTerms);
+    check(`bazi-adapter-la-month-term-${id}`, delta < 0 ? "寅" : "卯", result.monthBranch);
+  }
+
+  const ambiguousParts = parts(2027, 11, 7, 1, 30);
+  const artificialTerms = solarTerms
+    .map((term) => term.name === "立春" && term.year_taipei === 2027 ? { ...term, timeMs: Date.UTC(2027, 10, 7, 9, 0) } : term)
+    .sort((left, right) => left.timeMs - right.timeMs);
+  const earlier = createChartTimeContext(contextInput({ civilParts: ambiguousParts, timeZone: "America/Los_Angeles", utcOffsetMinutes: -420, instantMs: Date.UTC(2027, 10, 7, 8, 30), disambiguation: "earlier" }));
+  const later = createChartTimeContext(contextInput({ civilParts: ambiguousParts, timeZone: "America/Los_Angeles", utcOffsetMinutes: -480, instantMs: Date.UTC(2027, 10, 7, 9, 30), disambiguation: "later" }));
+  const earlierResult = calculateBaziFromChartTimeContext(earlier, artificialTerms);
+  const laterResult = calculateBaziFromChartTimeContext(later, artificialTerms);
+  check("bazi-adapter-la-ambiguous-same-clock", earlierResult.debug.clockLocalDateTime, laterResult.debug.clockLocalDateTime);
+  check("bazi-adapter-la-ambiguous-instant-not-merged", false, earlierResult.termContext.comparisonInstantMs === laterResult.termContext.comparisonInstantMs);
+  check("bazi-adapter-la-ambiguous-term-between-instants", false, earlierResult.yearPillar === laterResult.yearPillar);
+
+  for (const [id, timeZone, offset] of [["tokyo", "Asia/Tokyo", 540], ["kathmandu", "Asia/Kathmandu", 345], ["lord-howe", "Australia/Lord_Howe", 630]]) {
+    const civil = parts(2026, 8, 6, 14, 21, 30);
+    const context = createChartTimeContext(contextInput({ mode: "true-solar", civilParts: civil, trueSolarParts: parts(2026, 8, 6, 13, 55, 1), timeZone, utcOffsetMinutes: offset, instantMs: instantFor(civil, offset) }));
+    const result = calculateBaziFromChartTimeContext(context, solarTerms);
+    check(`bazi-adapter-${id}-instant`, context.civil.instantMs, result.termContext.comparisonInstantMs);
+    check(`bazi-adapter-${id}-clock`, "2026-08-06 13:55:01", result.debug.clockLocalDateTime);
+  }
+
+  for (const [id, trueSolarParts, expectedEffectiveDay] of [["previous-day", parts(2026, 8, 5, 23, 55), "2026-08-06"], ["next-day", parts(2026, 8, 7, 0, 3), "2026-08-07"]]) {
+    const civil = parts(2026, 8, 6, 0, 3);
+    const context = createChartTimeContext(contextInput({ mode: "true-solar", civilParts: civil, trueSolarParts, instantMs: instantFor(civil, 480) }));
+    const result = calculateBaziFromChartTimeContext(context, solarTerms);
+    check(`bazi-adapter-cross-day-${id}-clock`, trueSolarParts.day, Number(result.debug.clockLocalDateTime.slice(8, 10)));
+    check(`bazi-adapter-cross-day-${id}-effective`, expectedEffectiveDay, result.debug.effectiveDayDateKey);
+    check(`bazi-adapter-cross-day-${id}-term-instant`, context.civil.instantMs, result.termContext.comparisonInstantMs);
+  }
+
+  const originalTerms = JSON.stringify(solarTerms);
+  const resultBeforeDebug = JSON.stringify(watchResult);
+  const formattedDebug = formatBaziChartTimeDebug(watchResult);
+  check("bazi-adapter-non-mutation-terms", originalTerms, JSON.stringify(solarTerms));
+  check("bazi-adapter-non-mutation-context", true, Object.isFrozen(watchContext));
+  check("bazi-adapter-result-plain", Object.prototype, Object.getPrototypeOf(watchResult));
+  check("bazi-adapter-debug-no-result-mutation", resultBeforeDebug, JSON.stringify(watchResult));
+  check("bazi-adapter-debug-format", "watch", formattedDebug.mode);
+  check("bazi-adapter-input-contract-frozen", true, Object.isFrozen(createBaziCalculationInputFromChartTimeContext(watchContext)));
+
+  const missingSolar = { ...sourceATrueContext, trueSolar: null };
+  const mismatch = { ...watchContext, astronomy: { ...watchContext.astronomy, comparisonInstantMs: watchContext.civil.instantMs + 1 } };
+  check("bazi-adapter-validation-watch", true, validateBaziChartTimeContext(watchContext).valid);
+  check("bazi-adapter-validation-solar-terms", true, validateBaziChartTimeContext(watchContext, [{ name: "立春" }]).errors.some((error) => error.includes("solar terms invalid")));
+  check("bazi-adapter-validation-true-solar-missing", true, validateBaziChartTimeContext(missingSolar).errors.some((error) => error.includes("true-solar")));
+  check("bazi-adapter-validation-instant-mismatch", true, validateBaziChartTimeContext(mismatch).errors.some((error) => error.includes("instant mismatch")));
+  throws("bazi-adapter-throws-true-solar-missing", () => calculateBaziFromChartTimeContext(missingSolar, solarTerms), "context invalid");
+  throws("bazi-adapter-throws-instant-mismatch", () => calculateBaziFromChartTimeContext(mismatch, solarTerms), "instant mismatch");
+  throws("bazi-adapter-throws-invalid-terms", () => calculateBaziFromChartTimeContext(watchContext, [{ name: "立春" }]), "solar terms invalid");
+
+  const probeFixture = contextInput({ mode: "true-solar", civilParts: laCivil, trueSolarParts: laTrueSolar, timeZone: "America/Los_Angeles", utcOffsetMinutes: -420, instantMs: instantFor(laCivil, -420) });
+  const runProbe = (timeZone) => execFileSync(process.execPath, ["tests/bazi-chart-time-adapter-probe.mjs", JSON.stringify(probeFixture)], { cwd: process.cwd(), env: { ...process.env, TZ: timeZone }, encoding: "utf8" }).trim();
+  const taipeiProbe = runProbe("Asia/Taipei");
+  check("bazi-adapter-process-utc", taipeiProbe, runProbe("UTC"));
+  check("bazi-adapter-process-los-angeles", taipeiProbe, runProbe("America/Los_Angeles"));
+
+  check("bazi-adapter-static-no-dom", false, /\bdocument\b|\bwindow\b|\bnavigator\b|geolocation|localStorage/.test(baziChartTimeAdapterRaw));
+  check("bazi-adapter-static-no-runtime-coupling", false, /chartTimeState|chartDisplayMode|from\s+["']\.\/main\.js/.test(baziChartTimeAdapterRaw));
+  check("bazi-adapter-static-no-other-chart-import", false, /from\s+["']\.\/(flyingStars|jinhan|qimen)/.test(baziChartTimeAdapterRaw));
+  check("bazi-adapter-static-main-not-wired", false, /baziChartTimeAdapter/.test(mainModuleRaw));
 }
 
 function runChartDisplayModeTests() {

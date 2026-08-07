@@ -104,8 +104,21 @@ export function parseLocalDateTime(dateTimeString) {
 
 export function findSolarTermContext(dateTimeString, solarTerms) {
   const dateTime = parseLocalDateTime(dateTimeString);
+  return findSolarTermContextByTimeMs(dateTime.timeMs, solarTerms, dateTime);
+}
+
+/**
+ * Finds the surrounding solar terms for an already-resolved astronomical
+ * instant.  This deliberately accepts epoch milliseconds, rather than a
+ * local datetime string, so callers cannot accidentally turn a clock carrier
+ * (including true solar time) into an instant.
+ */
+export function findSolarTermContextByTimeMs(timeMs, solarTerms, dateTime = { timeMs }) {
+  if (!Number.isFinite(timeMs)) {
+    throw new TypeError("節氣比較時間必須是有限 epoch milliseconds");
+  }
   const terms = normalizeIfNeeded(solarTerms);
-  const currentIndex = findLastTermIndexAtOrBefore(terms, dateTime.timeMs);
+  const currentIndex = findLastTermIndexAtOrBefore(terms, timeMs);
 
   if (currentIndex < 0) {
     throw new RangeError("輸入時間早於節氣資料範圍");
@@ -121,10 +134,18 @@ export function findSolarTermContext(dateTimeString, solarTerms) {
 
 export function getMonthBranch(dateTimeString, solarTerms) {
   const dateTime = parseLocalDateTime(dateTimeString);
+  return getMonthBranchByTimeMs(dateTime.timeMs, solarTerms);
+}
+
+/** Returns the current month branch from a resolved astronomical instant. */
+export function getMonthBranchByTimeMs(timeMs, solarTerms) {
+  if (!Number.isFinite(timeMs)) {
+    throw new TypeError("月令比較時間必須是有限 epoch milliseconds");
+  }
   const switchTerms = normalizeIfNeeded(solarTerms).filter((term) =>
     SWITCH_TERM_NAMES.has(term.name)
   );
-  const currentIndex = findLastTermIndexAtOrBefore(switchTerms, dateTime.timeMs);
+  const currentIndex = findLastTermIndexAtOrBefore(switchTerms, timeMs);
 
   if (currentIndex < 0) {
     throw new RangeError("輸入時間早於可判斷月令的節氣資料範圍");
