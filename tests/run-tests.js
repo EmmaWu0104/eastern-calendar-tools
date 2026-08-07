@@ -67,6 +67,19 @@ const {
   normalizeChartDisplayMode,
 } = await import("../src/chartDisplayMode.js");
 const {
+  CHART_CONTEXT_MODE_TRUE_SOLAR,
+  CHART_CONTEXT_MODE_WATCH,
+  cloneChartTimeContext,
+  createChartTimeContext,
+  createTrueSolarChartTimeContext,
+  createWatchChartTimeContext,
+  formatChartTimeContextDebug,
+  getChartContextCivilInstantMs,
+  getChartContextCivilLocalParts,
+  getChartContextTrueSolarLocalParts,
+  validateChartTimeContext,
+} = await import("../src/chartTimeContext.js");
+const {
   calculateEquationOfTime,
   calculateTrueSolarTime,
   convertDmsToDecimal,
@@ -252,6 +265,7 @@ const [
   mainCssRaw,
   indexHtmlRaw,
   cwaLunarValidationRaw,
+  chartTimeContextRaw,
 ] = await Promise.all([
   readFile(new URL("../data/solar_terms_1899_2101.json", import.meta.url), "utf8"),
   readFile(new URL("./testcases.json", import.meta.url), "utf8"),
@@ -265,6 +279,7 @@ const [
   readFile(new URL("../styles/main.css", import.meta.url), "utf8"),
   readFile(new URL("../index.html", import.meta.url), "utf8"),
   readFile(new URL("../data/cwa_lunar_calendar_validation_2022_2050.json", import.meta.url), "utf8"),
+  readFile(new URL("../src/chartTimeContext.js", import.meta.url), "utf8"),
 ]);
 
 const solarTerms = normalizeSolarTerms(JSON.parse(termsRaw));
@@ -286,6 +301,7 @@ let solarEventsVerifiedCaseCount = 0;
 let timeZoneVerifiedCaseCount = 0;
 let timeZoneCatalogVerifiedCaseCount = 0;
 let chartDisplayModeVerifiedCaseCount = 0;
+let chartTimeContextVerifiedCaseCount = 0;
 let jianchuVerifiedCaseCount = 0;
 let lunarCalendarVerifiedCaseCount = 0;
 let lunarCalendarUiVerifiedCaseCount = 0;
@@ -689,6 +705,7 @@ runDailyInfoTests();
 runTrueSolarTimeTests();
 runTrueSolarTimeUiTests();
 runChartDisplayModeTests();
+runChartTimeContextTests();
 await runSolarEventsTests();
 await runTimeZoneTests();
 runTimeZoneCatalogTests();
@@ -723,6 +740,7 @@ if (failures.length > 0) {
   console.log(`真太陽時核心測試通過：${trueSolarTimeVerifiedCaseCount} cases`);
   console.log(`真太陽時 UI 測試通過：${trueSolarTimeUiVerifiedCaseCount} cases`);
   console.log(`排盤顯示模式測試通過：${chartDisplayModeVerifiedCaseCount} cases`);
+  console.log(`ChartTimeContext 核心測試通過：${chartTimeContextVerifiedCaseCount} cases`);
   console.log(`太陽事件測試通過：${solarEventsVerifiedCaseCount} cases`);
   console.log(`時區核心測試通過：${timeZoneVerifiedCaseCount} cases`);
   console.log(`時區搜尋 catalog 測試通過：${timeZoneCatalogVerifiedCaseCount} cases`);
@@ -8946,6 +8964,261 @@ function runTrueSolarTimeUiTests() {
   assertUi("true-solar-time-apply-ui-remains-hidden", true, extractNamedFunctionSource(mainModuleRaw, "renderTrueSolarTimeForContext").includes("trueSolarTimeApplyActions.hidden = true") && mainCssRaw.includes(".true-solar-time-apply-actions[hidden] { display: none !important; }"));
   assertUi("true-solar-time-source-mobile-css", true, /@media \(max-width: 760px\)[\s\S]*?\.true-solar-time-custom-fields[\s\S]*?grid-template-columns:\s*1fr/.test(mainCssRaw));
   assertUi("true-solar-time-no-external-timezone-api", false, /fetch\([^)]*(time.?zone|timezone)|localStorage|Temporal/.test(mainModuleRaw));
+}
+
+function runChartTimeContextTests() {
+  const check = (id, expected, actual) => {
+    chartTimeContextVerifiedCaseCount += 1;
+    assertEqual(id, "result", expected, actual);
+  };
+  const throws = (id, callback) => {
+    let didThrow = false;
+    try { callback(); } catch { didThrow = true; }
+    check(id, true, didThrow);
+  };
+  const parts = (year, month, day, hour, minute, second = 0, millisecond = 0) => ({
+    year, month, day, hour, minute, second, millisecond,
+  });
+  const trueSolarResult = (
+    trueSolarParts,
+    correctionSeconds = -3_530.7870810189847,
+    longitudeCorrectionSeconds = -3_178.488000000001,
+    equationOfTimeSeconds = -352.2990810189834
+  ) => ({
+    trueSolarParts,
+    totalCorrectionSeconds: correctionSeconds,
+    longitudeCorrectionSeconds,
+    equationOfTimeSeconds,
+  });
+  const baseInput = ({
+    source = "custom",
+    localParts = parts(2026, 8, 6, 14, 21, 30),
+    timeZone = "America/Los_Angeles",
+    utcOffsetMinutes = -420,
+    instantMs = Date.UTC(2026, 7, 6, 21, 21, 30),
+    disambiguation = null,
+    location = { latitude: 34.0522, longitude: -118.2437, accuracy: 12 },
+    trueSolarParts = parts(2026, 8, 6, 13, 22, 39, 212),
+    correctionSeconds,
+    longitudeCorrectionSeconds,
+    equationOfTimeSeconds,
+    compatibility = {},
+  } = {}) => ({
+    source,
+    civil: {
+      localParts,
+      timeZone,
+      utcOffsetMinutes,
+      abbreviation: "",
+      instantMs,
+      disambiguation,
+    },
+    location,
+    trueSolarResult: trueSolarResult(trueSolarParts, correctionSeconds, longitudeCorrectionSeconds, equationOfTimeSeconds),
+    compatibility,
+    createdAtInstantMs: Date.UTC(2026, 0, 1),
+  });
+
+  const taipeiInput = baseInput({
+    source: "query",
+    localParts: parts(2026, 8, 7, 8, 49),
+    timeZone: "Asia/Taipei",
+    utcOffsetMinutes: 480,
+    instantMs: Date.UTC(2026, 7, 7, 0, 49),
+    location: { latitude: 24.984898, longitude: 121.540626, accuracy: 8 },
+    trueSolarParts: parts(2026, 8, 7, 8, 49, 18, 476),
+    correctionSeconds: 18.47684399663075,
+    longitudeCorrectionSeconds: 369.75024000000076,
+    equationOfTimeSeconds: -351.27339600337,
+    compatibility: { taipeiLegacyDateTimeValue: "2026-08-07T08:49:00" },
+  });
+  const taipeiWatch = createWatchChartTimeContext(taipeiInput);
+  const taipeiTrueSolar = createTrueSolarChartTimeContext(taipeiInput);
+  check("chart-time-context-taipei-watch-mode", CHART_CONTEXT_MODE_WATCH, taipeiWatch.mode);
+  check("chart-time-context-taipei-watch-no-solar", null, taipeiWatch.trueSolar);
+  check("chart-time-context-taipei-watch-carrier", "2026-08-07T08:49:00", taipeiWatch.compatibility.watchLocalDateTimeValue);
+  check("chart-time-context-taipei-true-mode", CHART_CONTEXT_MODE_TRUE_SOLAR, taipeiTrueSolar.mode);
+  check("chart-time-context-taipei-true-carrier", "2026-08-07T08:49:18", taipeiTrueSolar.compatibility.trueSolarLocalDateTimeValue);
+  check("chart-time-context-taipei-legacy-carrier", "2026-08-07T08:49:00", taipeiTrueSolar.compatibility.taipeiLegacyDateTimeValue);
+  check("chart-time-context-taipei-legacy-valid", true, validateChartTimeContext(taipeiTrueSolar).valid);
+  check("chart-time-context-taipei-comparison-instant", taipeiTrueSolar.civil.instantMs, taipeiTrueSolar.astronomy.comparisonInstantMs);
+  check("chart-time-context-taipei-event-date", "2026-08-07", taipeiTrueSolar.astronomy.solarEventCivilDateKey);
+  check("chart-time-context-taipei-iso", "2026-08-07T00:49:00.000Z", taipeiTrueSolar.civil.instantIso);
+  check("chart-time-context-taipei-valid", true, validateChartTimeContext(taipeiTrueSolar).valid);
+  const instantDateInput = baseInput();
+  delete instantDateInput.civil.instantMs;
+  instantDateInput.civil.instant = new Date(Date.UTC(2026, 7, 6, 21, 21, 30));
+  const instantDateContext = createTrueSolarChartTimeContext(instantDateInput);
+  check("chart-time-context-instant-date", "2026-08-06T21:21:30.000Z", instantDateContext.civil.instantIso);
+  check("chart-time-context-does-not-store-date", false, instantDateContext.civil.instant instanceof Date);
+
+  const inputMutation = baseInput();
+  const immutable = createTrueSolarChartTimeContext(inputMutation);
+  inputMutation.civil.localParts.hour = 7;
+  inputMutation.location.latitude = 0;
+  inputMutation.trueSolarResult.trueSolarParts.hour = 7;
+  check("chart-time-context-input-cloned-civil", 14, immutable.civil.localParts.hour);
+  check("chart-time-context-input-cloned-location", 34.0522, immutable.location.latitude);
+  check("chart-time-context-input-cloned-solar", 13, immutable.trueSolar.localParts.hour);
+  check("chart-time-context-legacy-null", null, immutable.compatibility.taipeiLegacyDateTimeValue);
+  check("chart-time-context-root-frozen", true, Object.isFrozen(immutable));
+  check("chart-time-context-nested-frozen", true, Object.isFrozen(immutable.civil) && Object.isFrozen(immutable.civil.localParts) && Object.isFrozen(immutable.location) && Object.isFrozen(immutable.trueSolar) && Object.isFrozen(immutable.trueSolar.localParts) && Object.isFrozen(immutable.astronomy) && Object.isFrozen(immutable.compatibility) && Object.isFrozen(immutable.metadata));
+  check("chart-time-context-mutation-blocked", false, Reflect.set(immutable.civil.localParts, "hour", 1));
+  const cloned = cloneChartTimeContext(immutable);
+  check("chart-time-context-clone-independent", true, cloned !== immutable && cloned.civil !== immutable.civil && cloned.civil.localParts !== immutable.civil.localParts);
+  check("chart-time-context-clone-frozen", true, Object.isFrozen(cloned) && Object.isFrozen(cloned.civil.localParts));
+  check("chart-time-context-get-instant", immutable.civil.instantMs, getChartContextCivilInstantMs(immutable));
+  check("chart-time-context-get-civil-parts", "2026-08-06 14:21:30", `${getChartContextCivilLocalParts(immutable).year}-${String(getChartContextCivilLocalParts(immutable).month).padStart(2, "0")}-${String(getChartContextCivilLocalParts(immutable).day).padStart(2, "0")} ${String(getChartContextCivilLocalParts(immutable).hour).padStart(2, "0")}:${String(getChartContextCivilLocalParts(immutable).minute).padStart(2, "0")}:${String(getChartContextCivilLocalParts(immutable).second).padStart(2, "0")}`);
+  check("chart-time-context-get-solar-parts", 13, getChartContextTrueSolarLocalParts(immutable).hour);
+  check("chart-time-context-debug-pure", "UTC-07:00", formatChartTimeContextDebug(immutable).utcOffset);
+  check("chart-time-context-debug-distinct-clock", "2026-08-06 13:22:39", formatChartTimeContextDebug(immutable).trueSolarLocal);
+  check("chart-time-context-true-solar-not-instant", false, Object.hasOwn(immutable.trueSolar, "instantMs") || Object.hasOwn(immutable.trueSolar, "utcOffsetMinutes"));
+
+  const tokyo = createTrueSolarChartTimeContext(baseInput({
+    localParts: parts(2026, 8, 6, 14, 21, 30),
+    timeZone: "Asia/Tokyo",
+    utcOffsetMinutes: 540,
+    instantMs: Date.UTC(2026, 7, 6, 5, 21, 30),
+    location: { latitude: 35.68, longitude: 139.65, accuracy: null },
+    trueSolarParts: parts(2026, 8, 6, 14, 34, 9, 115),
+    correctionSeconds: 759.1158974771541,
+    longitudeCorrectionSeconds: 1116.0000000000014,
+    equationOfTimeSeconds: -356.88410252284723,
+  }));
+  check("chart-time-context-tokyo-offset", 540, tokyo.civil.utcOffsetMinutes);
+  check("chart-time-context-tokyo-local-unchanged", "Asia/Tokyo", tokyo.civil.timeZone);
+  check("chart-time-context-tokyo-comparison", tokyo.civil.instantMs, tokyo.astronomy.comparisonInstantMs);
+
+  const laSummer = createTrueSolarChartTimeContext(baseInput());
+  check("chart-time-context-la-summer-instant", "2026-08-06T21:21:30.000Z", laSummer.civil.instantIso);
+  check("chart-time-context-la-summer-local", 13, laSummer.trueSolar.localParts.hour);
+  check("chart-time-context-la-summer-no-carrier-instant", laSummer.civil.instantMs, laSummer.astronomy.comparisonInstantMs);
+
+  const ambiguousLocalParts = parts(2027, 11, 7, 1, 30);
+  const laEarlier = createTrueSolarChartTimeContext(baseInput({
+    localParts: ambiguousLocalParts,
+    timeZone: "America/Los_Angeles",
+    utcOffsetMinutes: -420,
+    instantMs: Date.UTC(2027, 10, 7, 8, 30),
+    disambiguation: "earlier",
+    trueSolarParts: parts(2027, 11, 7, 0, 24, 10),
+  }));
+  const laLater = createTrueSolarChartTimeContext(baseInput({
+    localParts: ambiguousLocalParts,
+    timeZone: "America/Los_Angeles",
+    utcOffsetMinutes: -480,
+    instantMs: Date.UTC(2027, 10, 7, 9, 30),
+    disambiguation: "later",
+    trueSolarParts: parts(2027, 11, 7, 0, 24, 10),
+  }));
+  check("chart-time-context-la-ambiguous-same-local", JSON.stringify(laEarlier.civil.localParts), JSON.stringify(laLater.civil.localParts));
+  check("chart-time-context-la-ambiguous-instant-difference", 3_600_000, laLater.civil.instantMs - laEarlier.civil.instantMs);
+  check("chart-time-context-la-ambiguous-earlier", "earlier", laEarlier.civil.disambiguation);
+  check("chart-time-context-la-ambiguous-later", "later", laLater.civil.disambiguation);
+  check("chart-time-context-la-ambiguous-not-collapsed", false, laEarlier.civil.instantMs === laLater.civil.instantMs);
+
+  const kathmandu = createTrueSolarChartTimeContext(baseInput({
+    localParts: parts(2026, 8, 6, 14, 21, 30),
+    timeZone: "Asia/Kathmandu",
+    utcOffsetMinutes: 345,
+    instantMs: Date.UTC(2026, 7, 6, 8, 36, 30),
+    location: { latitude: 27.7172, longitude: 85.324, accuracy: 30 },
+    trueSolarParts: parts(2026, 8, 6, 14, 15, 54),
+  }));
+  check("chart-time-context-kathmandu-quarter-hour", 345, kathmandu.civil.utcOffsetMinutes);
+  check("chart-time-context-kathmandu-debug-offset", "UTC+05:45", formatChartTimeContextDebug(kathmandu).utcOffset);
+
+  const lordHoweEarlier = createTrueSolarChartTimeContext(baseInput({
+    localParts: parts(2027, 4, 4, 1, 45),
+    timeZone: "Australia/Lord_Howe",
+    utcOffsetMinutes: 660,
+    instantMs: Date.UTC(2027, 3, 3, 14, 45),
+    disambiguation: "earlier",
+    location: { latitude: -31.55, longitude: 159.08, accuracy: 20 },
+    trueSolarParts: parts(2027, 4, 4, 1, 31, 1),
+  }));
+  const lordHoweLater = createTrueSolarChartTimeContext(baseInput({
+    localParts: parts(2027, 4, 4, 1, 45),
+    timeZone: "Australia/Lord_Howe",
+    utcOffsetMinutes: 630,
+    instantMs: Date.UTC(2027, 3, 3, 15, 15),
+    disambiguation: "later",
+    location: { latitude: -31.55, longitude: 159.08, accuracy: 20 },
+    trueSolarParts: parts(2027, 4, 4, 1, 31, 1),
+  }));
+  check("chart-time-context-lord-howe-half-hour-dst", 1_800_000, lordHoweLater.civil.instantMs - lordHoweEarlier.civil.instantMs);
+  check("chart-time-context-lord-howe-offset-difference", 30, lordHoweEarlier.civil.utcOffsetMinutes - lordHoweLater.civil.utcOffsetMinutes);
+
+  const previousDay = createTrueSolarChartTimeContext(baseInput({
+    localParts: parts(2026, 8, 6, 0, 3),
+    timeZone: "Asia/Taipei",
+    utcOffsetMinutes: 480,
+    instantMs: Date.UTC(2026, 7, 5, 16, 3),
+    location: { latitude: 25, longitude: 0, accuracy: null },
+    trueSolarParts: parts(2026, 8, 5, 23, 55),
+  }));
+  const nextDay = createTrueSolarChartTimeContext(baseInput({
+    localParts: parts(2026, 8, 6, 23, 59),
+    timeZone: "Asia/Taipei",
+    utcOffsetMinutes: 480,
+    instantMs: Date.UTC(2026, 7, 6, 15, 59),
+    location: { latitude: 25, longitude: 180, accuracy: null },
+    trueSolarParts: parts(2026, 8, 7, 0, 3),
+  }));
+  check("chart-time-context-previous-day-offset", -1, previousDay.trueSolar.dayOffset);
+  check("chart-time-context-previous-day-event-key", "2026-08-06", previousDay.astronomy.solarEventCivilDateKey);
+  check("chart-time-context-next-day-offset", 1, nextDay.trueSolar.dayOffset);
+  check("chart-time-context-next-day-event-key", "2026-08-06", nextDay.astronomy.solarEventCivilDateKey);
+
+  throws("chart-time-context-invalid-mode", () => createChartTimeContext({ ...baseInput(), mode: "invalid" }));
+  throws("chart-time-context-invalid-source", () => createChartTimeContext({ ...baseInput(), mode: "true-solar", source: "unknown" }));
+  throws("chart-time-context-missing-time-zone", () => createTrueSolarChartTimeContext(baseInput({ timeZone: "" })));
+  throws("chart-time-context-watch-carrier-mismatch", () => createTrueSolarChartTimeContext(baseInput({ compatibility: { watchLocalDateTimeValue: "2026-08-06T14:22:30" } })));
+  throws("chart-time-context-true-solar-carrier-mismatch", () => createTrueSolarChartTimeContext(baseInput({ compatibility: { trueSolarLocalDateTimeValue: "2026-08-06T13:23:39" } })));
+  throws("chart-time-context-watch-true-solar-carrier-not-null", () => createWatchChartTimeContext({ ...baseInput(), compatibility: { trueSolarLocalDateTimeValue: "2026-08-06T13:22:39" } }));
+  throws("chart-time-context-taipei-legacy-invalid", () => createTrueSolarChartTimeContext(baseInput({ compatibility: { taipeiLegacyDateTimeValue: "2026-08-06 14:21" } })));
+  for (const offset of [480, 345, 630, -420]) {
+    check("chart-time-context-valid-offset", offset, createTrueSolarChartTimeContext(baseInput({ utcOffsetMinutes: offset })).civil.utcOffsetMinutes);
+  }
+  for (const offset of [345.5, Infinity, 841, -841]) {
+    throws("chart-time-context-invalid-offset", () => createTrueSolarChartTimeContext(baseInput({ utcOffsetMinutes: offset })));
+  }
+  throws("chart-time-context-invalid-latitude", () => createTrueSolarChartTimeContext(baseInput({ location: { latitude: 91, longitude: 0 } })));
+  throws("chart-time-context-invalid-longitude", () => createTrueSolarChartTimeContext(baseInput({ location: { latitude: 0, longitude: 181 } })));
+  throws("chart-time-context-missing-true-solar", () => createTrueSolarChartTimeContext({ ...baseInput(), trueSolarResult: null }));
+  throws("chart-time-context-invalid-disambiguation", () => createTrueSolarChartTimeContext(baseInput({ disambiguation: "first" })));
+  throws("chart-time-context-invalid-instant-type", () => createTrueSolarChartTimeContext({ ...baseInput(), civil: { ...baseInput().civil, instant: "2026-08-06T21:21:30.000Z" } }));
+  throws("chart-time-context-instant-iso-mismatch", () => createTrueSolarChartTimeContext({ ...baseInput(), civil: { ...baseInput().civil, instantIso: "2020-01-01T00:00:00.000Z" } }));
+  throws("chart-time-context-instant-mismatch", () => createTrueSolarChartTimeContext({ ...baseInput(), civil: { ...baseInput().civil, instant: new Date(0) } }));
+  throws("chart-time-context-invalid-local-parts", () => createTrueSolarChartTimeContext(baseInput({ localParts: parts(2026, 2, 30, 14, 21) })));
+  const invalidIso = cloneChartTimeContext(immutable);
+  const mutableInvalidIso = { ...invalidIso, civil: { ...invalidIso.civil, instantIso: "2020-01-01T00:00:00.000Z" } };
+  check("chart-time-context-validation-iso", false, validateChartTimeContext(mutableInvalidIso).valid);
+  const mutableInvalidComparison = { ...invalidIso, astronomy: { ...invalidIso.astronomy, comparisonInstantMs: 0 } };
+  check("chart-time-context-validation-comparison", false, validateChartTimeContext(mutableInvalidComparison).valid);
+  check("chart-time-context-validation-errors", true, validateChartTimeContext(mutableInvalidComparison).errors.length > 0);
+  const mutableInvalidWatchCarrier = { ...invalidIso, compatibility: { ...invalidIso.compatibility, watchLocalDateTimeValue: "2026-08-06T14:22:30" } };
+  check("chart-time-context-validation-watch-carrier", false, validateChartTimeContext(mutableInvalidWatchCarrier).valid);
+  const mutableInvalidTrueSolarCarrier = { ...invalidIso, compatibility: { ...invalidIso.compatibility, trueSolarLocalDateTimeValue: "2026-08-06T13:23:39" } };
+  check("chart-time-context-validation-true-solar-carrier", false, validateChartTimeContext(mutableInvalidTrueSolarCarrier).valid);
+  const mutableInvalidLegacyCarrier = { ...invalidIso, compatibility: { ...invalidIso.compatibility, taipeiLegacyDateTimeValue: "not-a-local-datetime" } };
+  check("chart-time-context-validation-legacy-carrier", false, validateChartTimeContext(mutableInvalidLegacyCarrier).valid);
+  const mutableInvalidOffset = { ...invalidIso, civil: { ...invalidIso.civil, utcOffsetMinutes: 345.5 } };
+  check("chart-time-context-validation-offset", false, validateChartTimeContext(mutableInvalidOffset).valid);
+
+  const probeInput = baseInput({ createdAtInstantMs: Date.UTC(2026, 0, 1) });
+  const runProbe = (timeZone) => execFileSync(
+    process.execPath,
+    ["tests/chart-time-context-probe.mjs", JSON.stringify(probeInput)],
+    { cwd: process.cwd(), env: { ...process.env, TZ: timeZone }, encoding: "utf8" }
+  ).trim();
+  const probeTaipei = runProbe("Asia/Taipei");
+  check("chart-time-context-process-utc", probeTaipei, runProbe("UTC"));
+  check("chart-time-context-process-los-angeles", probeTaipei, runProbe("America/Los_Angeles"));
+
+  check("chart-time-context-static-no-dom", false, /\bdocument\b|\bwindow\b|\bnavigator\b|geolocation|localStorage|fetch\(/.test(chartTimeContextRaw));
+  check("chart-time-context-static-no-runtime-coupling", false, /chartTimeState|chartDisplayMode|from\s+["']\.\/(bazi|qimen|solarEvents|trueSolarTime)/.test(chartTimeContextRaw));
+  check("chart-time-context-static-no-formula", false, /NOAA|Meeus|calculateEquationOfTime|calculateSolarEvents/.test(chartTimeContextRaw));
 }
 
 function runChartDisplayModeTests() {
