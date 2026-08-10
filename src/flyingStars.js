@@ -131,6 +131,21 @@ export function flyStars(centerStar, direction) {
 
 export function calculatePeriodFlyingStarChart(date) {
   const year = getLocalYear(date);
+  return calculatePeriodFlyingStarChartFromYear(year);
+}
+
+/**
+ * Calculates the 20-year period from an already-resolved solar year.
+ *
+ * The legacy public API still accepts a Date/string and derives its year from
+ * the host-local compatibility path.  ChartTimeContext adapters must call
+ * this helper with the year already selected by the Bazi solar-term result so
+ * that 立春, rather than 1 January, owns the period boundary.
+ */
+export function calculatePeriodFlyingStarChartFromYear(year) {
+  if (!Number.isInteger(year)) {
+    throw new TypeError("運盤需要有效的節氣年");
+  }
   const period = normalizeStarNumber(Math.floor((year - 1864) / 20) + 1);
 
   return {
@@ -238,8 +253,52 @@ export function calculateAllFlyingStarCharts(calendarResult, inputDateTime) {
     throw new Error("五盤整合需要有效的 inputDateTime");
   }
 
+  return calculateAllFlyingStarChartsFromInputs({
+    periodYear: getLocalYear(inputDateTime),
+    solarYear: calendarResult?.meta?.ganzhiYear,
+    yearPillar: calendarResult?.yearPillar,
+    monthPillar: calendarResult?.monthPillar,
+    monthBranch: calendarResult?.monthBranch,
+    dayPillar: calendarResult?.dayPillar,
+    hourPillar: calendarResult?.hourPillar,
+    currentSolarTerm: calendarResult?.currentTerm,
+  });
+}
+
+/**
+ * Shared pure five-layer calculation for legacy and ChartTimeContext paths.
+ * All date semantics are resolved by the caller; this helper only reuses the
+ * existing layer formulas and never parses a clock or searches solar terms.
+ */
+export function calculateAllFlyingStarChartsFromInputs({
+  periodYear,
+  solarYear = periodYear,
+  yearPillar,
+  monthPillar,
+  monthBranch,
+  dayPillar,
+  hourPillar,
+  currentSolarTerm,
+} = {}) {
+  if (!Number.isInteger(periodYear)) {
+    throw new TypeError("五盤整合需要有效的 periodYear");
+  }
+  if (!Number.isInteger(solarYear)) {
+    throw new TypeError("五盤整合需要有效的 solarYear");
+  }
+
+  const calendarResult = {
+    yearPillar,
+    monthPillar,
+    monthBranch,
+    dayPillar,
+    hourPillar,
+    currentTerm: currentSolarTerm,
+    meta: { ganzhiYear: solarYear },
+  };
+
   return {
-    period: calculatePeriodFlyingStarChart(inputDateTime),
+    period: calculatePeriodFlyingStarChartFromYear(periodYear),
     annual: calculateAnnualFlyingStarChart(calendarResult),
     monthly: calculateMonthlyFlyingStarChart(calendarResult),
     daily: calculateDailyFlyingStarChart(calendarResult),

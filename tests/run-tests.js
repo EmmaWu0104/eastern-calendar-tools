@@ -25,6 +25,13 @@ const {
   getBaziSolarTermComparisonInstantMs,
   validateBaziChartTimeContext,
 } = await import("../src/baziChartTimeAdapter.js");
+const {
+  calculateFlyingStarsFromBaziResult,
+  calculateFlyingStarsFromChartTimeContext,
+  createFlyingStarsCalculationInput,
+  formatFlyingStarsChartTimeDebug,
+  validateFlyingStarsChartTimeInput,
+} = await import("../src/flyingStarsChartTimeAdapter.js");
 const { getDailyGodsByStem } = await import("../src/dailyGods.js");
 const {
   getClothingAdviceByDayBranch,
@@ -238,6 +245,7 @@ const {
 } = await import("../src/solarTerms.js");
 const {
   calculateAllFlyingStarCharts,
+  calculateAllFlyingStarChartsFromInputs,
   calculateAnnualFlyingStarChart,
   calculateDailyFlyingStarChart,
   calculateHourlyFlyingStarChart,
@@ -280,6 +288,7 @@ const [
   cwaLunarValidationRaw,
   chartTimeContextRaw,
   baziChartTimeAdapterRaw,
+  flyingStarsChartTimeAdapterRaw,
 ] = await Promise.all([
   readFile(new URL("../data/solar_terms_1899_2101.json", import.meta.url), "utf8"),
   readFile(new URL("./testcases.json", import.meta.url), "utf8"),
@@ -295,6 +304,7 @@ const [
   readFile(new URL("../data/cwa_lunar_calendar_validation_2022_2050.json", import.meta.url), "utf8"),
   readFile(new URL("../src/chartTimeContext.js", import.meta.url), "utf8"),
   readFile(new URL("../src/baziChartTimeAdapter.js", import.meta.url), "utf8"),
+  readFile(new URL("../src/flyingStarsChartTimeAdapter.js", import.meta.url), "utf8"),
 ]);
 
 const solarTerms = normalizeSolarTerms(JSON.parse(termsRaw));
@@ -318,6 +328,7 @@ let timeZoneCatalogVerifiedCaseCount = 0;
 let chartDisplayModeVerifiedCaseCount = 0;
 let chartTimeContextVerifiedCaseCount = 0;
 let baziChartTimeAdapterVerifiedCaseCount = 0;
+let flyingStarsChartTimeAdapterVerifiedCaseCount = 0;
 let trueSolarBaziRuntimeVerifiedCaseCount = 0;
 let trueSolarBaziRuntimeBugFixVerifiedCaseCount = 0;
 let trueSolarSharedQueryRuntimeVerifiedCaseCount = 0;
@@ -326,6 +337,7 @@ let trueSolarFormalTimeSyncBugFixVerifiedCaseCount = 0;
 let trueSolarQuerySourceIsolationBugFixVerifiedCaseCount = 0;
 let trueSolarDailyInfoVerifiedCaseCount = 0;
 let trueSolarBaziPriorityBugFixVerifiedCaseCount = 0;
+let calendarBrowseAutoNowBugFixVerifiedCaseCount = 0;
 let jianchuVerifiedCaseCount = 0;
 let lunarCalendarVerifiedCaseCount = 0;
 let lunarCalendarUiVerifiedCaseCount = 0;
@@ -739,11 +751,13 @@ runChartDisplayModeTests();
   runTrueSolarQuerySourceIsolationBugFixTests();
   runTrueSolarBaziPriorityBugFixTests(solarTerms);
   runTrueSolarDailyInfoTests(solarTerms);
+  runCalendarBrowseAutoNowBugFixTests();
 await runSolarEventsTests();
 await runTimeZoneTests();
 runTimeZoneCatalogTests();
 runSolarTermCalendarTests(solarTerms);
 runQueryPickerTests(solarTerms);
+runFlyingStarsChartTimeAdapterTests(solarTerms);
 runFlyingStarRenderFlowTests(solarTerms);
 runBaziCurrentHouTests(solarTerms);
 runBaziJianchuTests(solarTerms);
@@ -775,6 +789,7 @@ if (failures.length > 0) {
   console.log(`排盤顯示模式測試通過：${chartDisplayModeVerifiedCaseCount} cases`);
   console.log(`ChartTimeContext 核心測試通過：${chartTimeContextVerifiedCaseCount} cases`);
   console.log(`四柱 ChartTimeContext adapter 測試通過：${baziChartTimeAdapterVerifiedCaseCount} cases`);
+  console.log(`九宮飛星 ChartTimeContext adapter 測試通過：${flyingStarsChartTimeAdapterVerifiedCaseCount} cases`);
   console.log(`真太陽時四柱 runtime 測試通過：${trueSolarBaziRuntimeVerifiedCaseCount} cases`);
   console.log(`真太陽時四柱 runtime blocking bug 修復測試通過：${trueSolarBaziRuntimeBugFixVerifiedCaseCount} cases`);
   console.log(`真太陽時四柱共用查詢時間 R2 測試通過：${trueSolarSharedQueryRuntimeVerifiedCaseCount} cases`);
@@ -782,6 +797,7 @@ if (failures.length > 0) {
   console.log(`正式真太陽四柱時間同步 blocking bug 修復測試通過：${trueSolarFormalTimeSyncBugFixVerifiedCaseCount} cases`);
   console.log(`正式排盤／B-C 查詢來源隔離 blocking bug 修復測試通過：${trueSolarQuerySourceIsolationBugFixVerifiedCaseCount} cases`);
   console.log(`auto-now 四柱優先更新 blocking bug 修復測試通過：${trueSolarBaziPriorityBugFixVerifiedCaseCount} cases`);
+  console.log(`月曆瀏覽 auto-now blocking bug 修復測試通過：${calendarBrowseAutoNowBugFixVerifiedCaseCount} cases`);
   console.log(`真太陽四柱每日附屬資訊 8B-2C 測試通過：${trueSolarDailyInfoVerifiedCaseCount} cases`);
   console.log(`太陽事件測試通過：${solarEventsVerifiedCaseCount} cases`);
   console.log(`時區核心測試通過：${timeZoneVerifiedCaseCount} cases`);
@@ -9744,6 +9760,123 @@ function runChartQueryTimeUxTests() {
   check("chart-query-time-ux-manual-value-kept", "2026/08/07 17:00:05", autoFixture.chartQueryTimeValue.textContent);
 }
 
+function runCalendarBrowseAutoNowBugFixTests() {
+  const check = (id, expected, actual) => {
+    calendarBrowseAutoNowBugFixVerifiedCaseCount += 1;
+    assertEqual(id, "result", expected, actual);
+  };
+
+  const yearSource = extractNamedFunctionSource(mainModuleRaw, "handleCalendarYearChange");
+  const monthShiftSource = extractNamedFunctionSource(mainModuleRaw, "shiftVisibleCalendarMonth");
+  const previousListenerSource = mainModuleRaw.match(/elements\.calendarPrevious\.addEventListener\("click", \(\) => \{[\s\S]*?\}\);/)?.[0] ?? "";
+  const nextListenerSource = mainModuleRaw.match(/elements\.calendarNext\.addEventListener\("click", \(\) => \{[\s\S]*?\}\);/)?.[0] ?? "";
+  const refreshSource = extractNamedFunctionSource(mainModuleRaw, "refreshFromCurrentTime");
+  const autoClockSource = extractNamedFunctionSource(mainModuleRaw, "refreshQueryTimeFromAutoNowClock");
+  const clockSource = extractNamedFunctionSource(mainModuleRaw, "refreshTrueSolarTimeClock");
+  const pauseSource = extractNamedFunctionSource(mainModuleRaw, "pauseAutoNowMode");
+  const startSource = extractNamedFunctionSource(mainModuleRaw, "startAutoNowMode");
+  const dateSource = extractNamedFunctionSource(mainModuleRaw, "selectQueryCalendarDate");
+  const hourSource = extractNamedFunctionSource(mainModuleRaw, "selectChineseHour");
+  const switchSource = extractNamedFunctionSource(mainModuleRaw, "handleChartDisplayModeSwitchClick");
+  const modeStatus = loadChartQueryTimeModeStatusForTest(mainModuleRaw);
+
+  check("calendar-browse-initial-year-from-clock", true, /let visibleCalendarYear = new Date\(\)\.getFullYear\(\)/.test(mainModuleRaw));
+  check("calendar-browse-year-pauses-before-write", true, yearSource.indexOf("pauseAutoNowMode()") >= 0 && yearSource.indexOf("pauseAutoNowMode()") < yearSource.indexOf("visibleCalendarYear ="));
+  check("calendar-browse-year-renders-picker", true, yearSource.includes("renderQueryPicker()"));
+  check("calendar-browse-year-does-not-write-datetime", false, /elements\.datetime\.value|requestRenderDateTime|syncQueryPickerFromDateTime/.test(yearSource));
+  check("calendar-browse-month-helper-does-not-pause", false, monthShiftSource.includes("pauseAutoNowMode()"));
+  check("calendar-browse-previous-pauses", true, previousListenerSource.includes("pauseAutoNowMode()") && previousListenerSource.indexOf("pauseAutoNowMode()") < previousListenerSource.indexOf("shiftVisibleCalendarMonth(-1)"));
+  check("calendar-browse-next-pauses", true, nextListenerSource.includes("pauseAutoNowMode()") && nextListenerSource.indexOf("pauseAutoNowMode()") < nextListenerSource.indexOf("shiftVisibleCalendarMonth(1)"));
+  check("calendar-browse-previous-no-datetime", false, /elements\.datetime\.value|requestRenderDateTime/.test(previousListenerSource));
+  check("calendar-browse-next-no-datetime", false, /elements\.datetime\.value|requestRenderDateTime/.test(nextListenerSource));
+  check("calendar-browse-auto-state-pauses", true, pauseSource.includes("isAutoNowMode = false") && pauseSource.includes("stopAutoNowRefresh()"));
+  check("calendar-browse-pause-stops-true-solar-clock", true, pauseSource.includes("syncTrueSolarTimeClockRefresh()"));
+  check("calendar-browse-auto-tick-guard", true, refreshSource.includes("if (!isAutoNowMode)") && refreshSource.includes("return"));
+  check("calendar-browse-true-solar-clock-guard", true, autoClockSource.includes("if (!isAutoNowMode)") && autoClockSource.includes("return"));
+  check("calendar-browse-clock-only-runs-auto", true, clockSource.includes("trueSolarTimeSource === TRUE_SOLAR_TIME_SOURCE.QUERY && isAutoNowMode") && clockSource.includes("if (isAutoNowMode)"));
+  check("calendar-browse-year-no-new-timer", 2, (mainModuleRaw.match(/setInterval\(/g) ?? []).length);
+  check("calendar-browse-date-is-formal-change", true, dateSource.includes("elements.datetime.value = dateTimeValue") && dateSource.includes("requestRenderDateTime(dateTimeValue)"));
+  check("calendar-browse-date-pauses", true, dateSource.includes("pauseAutoNowMode()"));
+  check("calendar-browse-hour-is-formal-change", true, hourSource.includes("elements.datetime.value = dateTimeValue") && hourSource.includes("requestRenderDateTime(dateTimeValue)"));
+  check("calendar-browse-hour-pauses", true, hourSource.includes("pauseAutoNowMode()"));
+  check("calendar-browse-now-restarts-auto", true, mainModuleRaw.includes('elements.useNow.addEventListener("click", () => {') && mainModuleRaw.includes("startAutoNowMode();"));
+  check("calendar-browse-now-resyncs-visible-month", true, startSource.includes("refreshFromCurrentTime()") && refreshSource.includes("syncQueryPickerFromDateTime(elements.datetime.value, { syncVisibleMonth: true })"));
+  check("calendar-browse-mode-switch-keeps-auto-state", false, switchSource.includes("startAutoNowMode()") || switchSource.includes("pauseAutoNowMode()"));
+
+  const runYearHandler = Function(
+    "elements",
+    "pauseAutoNowMode",
+    "clampQueryYear",
+    "renderQueryPicker",
+    `let visibleCalendarYear = 2026;\n${yearSource}\nhandleCalendarYearChange();\nreturn { visibleCalendarYear };`
+  );
+  const yearState = { auto: true, pauseCount: 0, renderCount: 0 };
+  const yearElements = {
+    calendarYear: { value: "2024" },
+    datetime: { value: "2026-08-10T09:00:00" },
+  };
+  const yearResult = runYearHandler(
+    yearElements,
+    () => {
+      yearState.auto = false;
+      yearState.pauseCount += 1;
+    },
+    (year) => Math.min(2100, Math.max(1900, Math.trunc(year))),
+    () => { yearState.renderCount += 1; }
+  );
+  check("calendar-browse-year-runtime-pauses", 1, yearState.pauseCount);
+  check("calendar-browse-year-runtime-manual", false, yearState.auto);
+  check("calendar-browse-year-runtime-keeps-2024", 2024, yearResult.visibleCalendarYear);
+  check("calendar-browse-year-runtime-keeps-datetime", "2026-08-10T09:00:00", yearElements.datetime.value);
+  check("calendar-browse-year-runtime-renders", 1, yearState.renderCount);
+
+  const runNavigation = (listenerSource, elementName, expectedDelta) => {
+    const state = { auto: true, pauseCount: 0, delta: null };
+    const button = {
+      callback: null,
+      addEventListener(type, callback) {
+        this.type = type;
+        this.callback = callback;
+      },
+    };
+    const elements = { [elementName]: button };
+    const install = Function(
+      "elements",
+      "pauseAutoNowMode",
+      "shiftVisibleCalendarMonth",
+      `${listenerSource}\nreturn elements.${elementName};`
+    );
+    const installed = install(
+      elements,
+      () => {
+        state.auto = false;
+        state.pauseCount += 1;
+      },
+      (delta) => { state.delta = delta; }
+    );
+    installed.callback();
+    return state;
+  };
+  const previousState = runNavigation(previousListenerSource, "calendarPrevious", -1);
+  const nextState = runNavigation(nextListenerSource, "calendarNext", 1);
+  check("calendar-browse-previous-runtime-pauses", 1, previousState.pauseCount);
+  check("calendar-browse-previous-runtime-manual", false, previousState.auto);
+  check("calendar-browse-previous-runtime-shifts", -1, previousState.delta);
+  check("calendar-browse-next-runtime-pauses", 1, nextState.pauseCount);
+  check("calendar-browse-next-runtime-manual", false, nextState.auto);
+  check("calendar-browse-next-runtime-shifts", 1, nextState.delta);
+
+  const statusFixture = {
+    datetime: { value: "2026-08-10T09:00:00" },
+    chartQueryTimeValue: { textContent: "" },
+    chartQueryTimeModeStatus: { textContent: "", dataset: {} },
+  };
+  modeStatus(statusFixture, false);
+  check("calendar-browse-year-manual-status", "○ 手動查詢時間", statusFixture.chartQueryTimeModeStatus.textContent);
+  modeStatus(statusFixture, true);
+  check("calendar-browse-now-auto-status", "● 跟隨現在時間", statusFixture.chartQueryTimeModeStatus.textContent);
+}
+
 function runTrueSolarFormalTimeSyncBugFixTests() {
   const check = (id, expected, actual) => {
     trueSolarFormalTimeSyncBugFixVerifiedCaseCount += 1;
@@ -10756,6 +10889,315 @@ function runQueryPickerTests(solarTerms) {
     assertEqual(testCase.id, "dayPillar", testCase.expected.dayPillar, result.dayPillar);
     assertEqual(testCase.id, "hourPillar", testCase.expected.hourPillar, result.hourPillar);
   }
+}
+
+function runFlyingStarsChartTimeAdapterTests(solarTerms) {
+  const check = (id, expected, actual) => {
+    flyingStarsChartTimeAdapterVerifiedCaseCount += 1;
+    assertEqual(id, "result", expected, actual);
+  };
+  const throws = (id, callback, expectedMessagePart = "") => {
+    let message = "";
+    try {
+      callback();
+    } catch (error) {
+      message = error instanceof Error ? error.message : String(error);
+    }
+    check(id, true, message.includes(expectedMessagePart));
+  };
+  const parts = (year, month, day, hour, minute, second = 0, millisecond = 0) => ({
+    year,
+    month,
+    day,
+    hour,
+    minute,
+    second,
+    millisecond,
+  });
+  const instantFor = (clock, offsetMinutes) => Date.UTC(
+    clock.year,
+    clock.month - 1,
+    clock.day,
+    clock.hour,
+    clock.minute,
+    clock.second,
+    clock.millisecond
+  ) - offsetMinutes * 60_000;
+  const contextInput = ({
+    mode = "watch",
+    source = "query",
+    civilParts = parts(2026, 5, 29, 9, 30),
+    timeZone = "Asia/Taipei",
+    utcOffsetMinutes = 480,
+    instantMs = instantFor(civilParts, utcOffsetMinutes),
+    trueSolarParts = parts(2026, 5, 29, 9, 30),
+    disambiguation = null,
+  } = {}) => ({
+    mode,
+    source,
+    civil: {
+      localParts: civilParts,
+      timeZone,
+      utcOffsetMinutes,
+      abbreviation: "",
+      instantMs,
+      disambiguation,
+    },
+    location: mode === "true-solar"
+      ? { latitude: 25.033964, longitude: 121.564468, accuracy: null }
+      : null,
+    trueSolarResult: mode === "true-solar"
+      ? {
+        trueSolarParts,
+        totalCorrectionSeconds: 0,
+        longitudeCorrectionSeconds: 0,
+        equationOfTimeSeconds: 0,
+      }
+      : undefined,
+    createdAtInstantMs: 0,
+  });
+  const formatInput = (clock) => `${String(clock.year).padStart(4, "0")}-${String(clock.month).padStart(2, "0")}-${String(clock.day).padStart(2, "0")}T${String(clock.hour).padStart(2, "0")}:${String(clock.minute).padStart(2, "0")}:${String(clock.second).padStart(2, "0")}.${String(clock.millisecond).padStart(3, "0")}`;
+  const taipeiPartsAt = (timeMs) => {
+    const date = new Date(timeMs);
+    return parts(
+      date.getFullYear(),
+      date.getMonth() + 1,
+      date.getDate(),
+      date.getHours(),
+      date.getMinutes(),
+      date.getSeconds(),
+      date.getMilliseconds()
+    );
+  };
+  const chartLayers = (result) => Object.fromEntries(
+    ["period", "annual", "monthly", "daily", "hourly"].map((key) => [key, result[key]])
+  );
+
+  const watchInput = "2026-05-29T09:30:00";
+  const watchCivil = parts(2026, 5, 29, 9, 30);
+  const watchContext = createChartTimeContext(contextInput({ civilParts: watchCivil }));
+  const watchBazi = calculateBaziFromChartTimeContext(watchContext, solarTerms);
+  const legacyBazi = calculateBaziFromSolarTerms(watchInput, solarTerms);
+  const watchCharts = calculateFlyingStarsFromChartTimeContext(watchContext, solarTerms);
+  const legacyCharts = calculateAllFlyingStarCharts(legacyBazi, watchInput);
+
+  check(
+    "flying-stars-adapter-watch-legacy-five-layer",
+    JSON.stringify(chartLayers(legacyCharts)),
+    JSON.stringify(chartLayers(watchCharts))
+  );
+  check("flying-stars-adapter-watch-mode", "watch", watchCharts.debug.mode);
+  check("flying-stars-adapter-watch-clock", "2026-05-29 09:30:00", watchCharts.debug.clockLocal);
+  check("flying-stars-adapter-watch-solar-year", watchBazi.meta.ganzhiYear, watchCharts.debug.effectiveSolarYear);
+  check("flying-stars-adapter-watch-term", watchBazi.currentTerm.name, watchCharts.debug.currentSolarTerm);
+  check("flying-stars-adapter-period-basis", watchBazi.meta.ganzhiYear, watchCharts.period.basis.year === watchBazi.meta.ganzhiYear ? watchCharts.period.basis.year : null);
+  check("flying-stars-adapter-annual-year", watchBazi.meta.ganzhiYear, watchCharts.annual.basis.year);
+  check("flying-stars-adapter-annual-pillar", watchBazi.yearPillar, watchCharts.annual.basis.yearPillar);
+  check("flying-stars-adapter-month-pillar", watchBazi.monthPillar, watchCharts.monthly.basis.monthPillar);
+  check("flying-stars-adapter-month-branch", watchBazi.monthBranch, watchCharts.monthly.basis.monthBranch);
+  check("flying-stars-adapter-day-pillar", watchBazi.dayPillar, watchCharts.daily.basis.dayPillar);
+  check("flying-stars-adapter-day-term", watchBazi.currentTerm.name, watchCharts.daily.basis.termName);
+  check("flying-stars-adapter-hour-pillar", watchBazi.hourPillar, watchCharts.hourly.basis.hourPillar);
+  check("flying-stars-adapter-hour-term", watchBazi.currentTerm.name, watchCharts.hourly.basis.termName);
+
+  const inputFromObject = createFlyingStarsCalculationInput({ context: watchContext, baziResult: watchBazi });
+  const objectApiCharts = calculateFlyingStarsFromBaziResult({ context: watchContext, baziResult: watchBazi });
+  check("flying-stars-adapter-object-api", JSON.stringify(chartLayers(watchCharts)), JSON.stringify(chartLayers(objectApiCharts)));
+  check("flying-stars-adapter-input-frozen", true, Object.isFrozen(inputFromObject));
+  check("flying-stars-adapter-input-clock-frozen", true, Object.isFrozen(inputFromObject.clockLocalParts));
+  check("flying-stars-adapter-input-term-frozen", true, Object.isFrozen(inputFromObject.currentSolarTerm));
+  check("flying-stars-adapter-input-period-year", watchBazi.meta.ganzhiYear, inputFromObject.periodYear);
+  check("flying-stars-adapter-shared-helper", JSON.stringify(chartLayers(legacyCharts)), JSON.stringify(chartLayers(calculateAllFlyingStarChartsFromInputs(inputFromObject))));
+  check("flying-stars-adapter-view-model-layout", 9, createCombinedFlyingStarViewModel(watchCharts).layout.flat().length);
+  check("flying-stars-adapter-debug-formatter", JSON.stringify(watchCharts.debug), JSON.stringify(formatFlyingStarsChartTimeDebug(watchCharts)));
+
+  const contextSnapshot = JSON.stringify(watchContext);
+  const baziSnapshot = JSON.stringify(watchBazi);
+  calculateFlyingStarsFromBaziResult(watchContext, watchBazi);
+  check("flying-stars-adapter-context-nonmutation", contextSnapshot, JSON.stringify(watchContext));
+  check("flying-stars-adapter-bazi-nonmutation", baziSnapshot, JSON.stringify(watchBazi));
+
+  const invalidContext = {
+    ...watchContext,
+    astronomy: {
+      ...watchContext.astronomy,
+      comparisonInstantMs: watchContext.civil.instantMs + 1,
+    },
+  };
+  const invalidContextValidation = validateFlyingStarsChartTimeInput(invalidContext, watchBazi);
+  check("flying-stars-adapter-invalid-context", false, invalidContextValidation.valid);
+  check("flying-stars-adapter-invalid-context-message", true, invalidContextValidation.errors.some((error) => error.includes("context invalid")));
+  const missingResultValidation = validateFlyingStarsChartTimeInput(watchContext, null);
+  check("flying-stars-adapter-missing-bazi", false, missingResultValidation.valid);
+  check("flying-stars-adapter-missing-bazi-message", true, missingResultValidation.errors.some((error) => error.includes("baziResult invalid")));
+  const missingCriticalField = { ...watchBazi, hourPillar: undefined };
+  const missingFieldValidation = validateFlyingStarsChartTimeInput(watchContext, missingCriticalField);
+  check("flying-stars-adapter-missing-hour", false, missingFieldValidation.valid);
+  check("flying-stars-adapter-missing-hour-message", true, missingFieldValidation.errors.some((error) => error.includes("hourPillar")));
+  throws("flying-stars-adapter-throws-missing-bazi", () => calculateFlyingStarsFromBaziResult(watchContext, null), "baziResult invalid");
+
+  const lichun2024 = solarTerms.find((term) => term.name === "立春" && term.year_taipei === 2024);
+  const periodBoundaryResults = {};
+  for (const [id, delta, expectedSolarYear, expectedPeriod, expectedTerm] of [
+    ["before", -1, 2023, 8, "大寒"],
+    ["exact", 0, 2024, 9, "立春"],
+    ["after", 1, 2024, 9, "立春"],
+  ]) {
+    const instantMs = lichun2024.timeMs + delta;
+    const clock = taipeiPartsAt(instantMs);
+    const context = createChartTimeContext(contextInput({ civilParts: clock, instantMs }));
+    const bazi = calculateBaziFromChartTimeContext(context, solarTerms);
+    const charts = calculateFlyingStarsFromBaziResult(context, bazi);
+    periodBoundaryResults[id] = { bazi, charts, clock };
+    check(`flying-stars-adapter-lichun-${id}-solar-year`, expectedSolarYear, bazi.meta.ganzhiYear);
+    check(`flying-stars-adapter-lichun-${id}-period`, expectedPeriod, charts.period.period);
+    check(`flying-stars-adapter-lichun-${id}-term`, expectedTerm, bazi.currentTerm.name);
+  }
+  check("flying-stars-adapter-lichun-before-period-center", 8, periodBoundaryResults.before.charts.period.centerStar);
+  check("flying-stars-adapter-lichun-exact-period-center", 9, periodBoundaryResults.exact.charts.period.centerStar);
+  check("flying-stars-adapter-lichun-after-period-center", 9, periodBoundaryResults.after.charts.period.centerStar);
+  const legacyBoundaryPeriod = calculatePeriodFlyingStarChart(formatInput(periodBoundaryResults.before.clock));
+  check("flying-stars-adapter-lichun-legacy-jan1-difference", 9, legacyBoundaryPeriod.period);
+  check("flying-stars-adapter-lichun-difference-is-expected", false, legacyBoundaryPeriod.period === periodBoundaryResults.before.charts.period.period);
+  check("flying-stars-adapter-2024-nine-yun-exact", "下元九運", formatPeriodCycle(periodBoundaryResults.exact.charts.period.period));
+
+  const sameTrueSolarContext = createChartTimeContext(contextInput({
+    mode: "true-solar",
+    civilParts: watchCivil,
+    trueSolarParts: watchCivil,
+  }));
+  const sameTrueSolarBazi = calculateBaziFromChartTimeContext(sameTrueSolarContext, solarTerms);
+  const sameTrueSolarCharts = calculateFlyingStarsFromChartTimeContext(sameTrueSolarContext, solarTerms);
+  check("flying-stars-adapter-true-solar-mode", "true-solar", sameTrueSolarCharts.debug.mode);
+  check("flying-stars-adapter-true-solar-same-clock", JSON.stringify(chartLayers(watchCharts)), JSON.stringify(chartLayers(sameTrueSolarCharts)));
+  check("flying-stars-adapter-true-solar-term-instant", sameTrueSolarContext.civil.instantMs, sameTrueSolarBazi.termContext.comparisonInstantMs);
+
+  const boundaryCivil = parts(2026, 8, 10, 8, 59, 59);
+  const boundaryWatchContext = createChartTimeContext(contextInput({ civilParts: boundaryCivil }));
+  const boundaryTrueContext = createChartTimeContext(contextInput({
+    mode: "true-solar",
+    civilParts: boundaryCivil,
+    trueSolarParts: parts(2026, 8, 10, 9, 0, 0),
+  }));
+  const boundaryWatchBazi = calculateBaziFromChartTimeContext(boundaryWatchContext, solarTerms);
+  const boundaryTrueBazi = calculateBaziFromChartTimeContext(boundaryTrueContext, solarTerms);
+  const boundaryWatchCharts = calculateFlyingStarsFromBaziResult(boundaryWatchContext, boundaryWatchBazi);
+  const boundaryTrueCharts = calculateFlyingStarsFromBaziResult(boundaryTrueContext, boundaryTrueBazi);
+  check("flying-stars-adapter-cross-hour-watch", "辰", boundaryWatchBazi.hourPillar[1]);
+  check("flying-stars-adapter-cross-hour-true-solar", "巳", boundaryTrueBazi.hourPillar[1]);
+  check("flying-stars-adapter-cross-hour-year-same", JSON.stringify(boundaryWatchCharts.annual), JSON.stringify(boundaryTrueCharts.annual));
+  check("flying-stars-adapter-cross-hour-month-same", JSON.stringify(boundaryWatchCharts.monthly), JSON.stringify(boundaryTrueCharts.monthly));
+  check("flying-stars-adapter-cross-hour-day-same", JSON.stringify(boundaryWatchCharts.daily), JSON.stringify(boundaryTrueCharts.daily));
+  check("flying-stars-adapter-cross-hour-hour-changes", false, JSON.stringify(boundaryWatchCharts.hourly) === JSON.stringify(boundaryTrueCharts.hourly));
+  check("flying-stars-adapter-cross-hour-local-debug", "2026-08-10 09:00:00", boundaryTrueCharts.debug.clockLocal);
+
+  const crossDayCivil = parts(2026, 8, 10, 22, 59, 59);
+  const crossDayTrue = parts(2026, 8, 11, 0, 3, 0);
+  const crossDayWatchContext = createChartTimeContext(contextInput({ civilParts: crossDayCivil }));
+  const crossDayTrueContext = createChartTimeContext(contextInput({ mode: "true-solar", civilParts: crossDayCivil, trueSolarParts: crossDayTrue }));
+  const crossDayWatchBazi = calculateBaziFromChartTimeContext(crossDayWatchContext, solarTerms);
+  const crossDayTrueBazi = calculateBaziFromChartTimeContext(crossDayTrueContext, solarTerms);
+  const crossDayWatchCharts = calculateFlyingStarsFromBaziResult(crossDayWatchContext, crossDayWatchBazi);
+  const crossDayTrueCharts = calculateFlyingStarsFromBaziResult(crossDayTrueContext, crossDayTrueBazi);
+  check("flying-stars-adapter-cross-day-year-same", JSON.stringify(crossDayWatchCharts.annual), JSON.stringify(crossDayTrueCharts.annual));
+  check("flying-stars-adapter-cross-day-month-same", JSON.stringify(crossDayWatchCharts.monthly), JSON.stringify(crossDayTrueCharts.monthly));
+  check("flying-stars-adapter-cross-day-daily-changes", false, JSON.stringify(crossDayWatchCharts.daily) === JSON.stringify(crossDayTrueCharts.daily));
+  check("flying-stars-adapter-cross-day-hourly-changes", false, JSON.stringify(crossDayWatchCharts.hourly) === JSON.stringify(crossDayTrueCharts.hourly));
+  check("flying-stars-adapter-cross-day-hour-day-source", crossDayTrueBazi.dayPillar, crossDayTrueCharts.hourly.basis.dayPillar);
+
+  const lichun2026 = solarTerms.find((term) => term.name === "立春" && term.year_taipei === 2026);
+  const termBoundaryContext = createChartTimeContext(contextInput({
+    mode: "true-solar",
+    civilParts: taipeiPartsAt(lichun2026.timeMs),
+    instantMs: lichun2026.timeMs,
+    trueSolarParts: parts(2026, 2, 3, 23, 59, 59),
+  }));
+  const termBoundaryBazi = calculateBaziFromChartTimeContext(termBoundaryContext, solarTerms);
+  const termBoundaryCharts = calculateFlyingStarsFromChartTimeContext(termBoundaryContext, solarTerms);
+  check("flying-stars-adapter-term-boundary-current-term", "立春", termBoundaryCharts.debug.currentSolarTerm);
+  check("flying-stars-adapter-term-boundary-year", 2026, termBoundaryCharts.debug.effectiveSolarYear);
+  check("flying-stars-adapter-term-boundary-instant", termBoundaryContext.civil.instantMs, termBoundaryBazi.termContext.comparisonInstantMs);
+  check("flying-stars-adapter-term-boundary-uses-instant", "丙午", termBoundaryBazi.yearPillar);
+
+  const overseasCases = [
+    ["tokyo", "Asia/Tokyo", 540, parts(2026, 8, 6, 14, 21, 30), parts(2026, 8, 6, 13, 55, 1)],
+    ["la-summer", "America/Los_Angeles", -420, parts(2026, 8, 6, 14, 21, 30), parts(2026, 8, 6, 13, 22, 39)],
+    ["la-winter", "America/Los_Angeles", -480, parts(2026, 12, 6, 14, 21, 30), parts(2026, 12, 6, 13, 22, 39)],
+    ["kathmandu", "Asia/Kathmandu", 345, parts(2026, 8, 6, 14, 21, 30), parts(2026, 8, 6, 13, 55, 1)],
+    ["lord-howe", "Australia/Lord_Howe", 630, parts(2026, 8, 6, 14, 21, 30), parts(2026, 8, 6, 13, 55, 1)],
+  ];
+  for (const [id, timeZone, offset, civil, trueSolar] of overseasCases) {
+    const context = createChartTimeContext(contextInput({
+      mode: "true-solar",
+      civilParts: civil,
+      trueSolarParts: trueSolar,
+      timeZone,
+      utcOffsetMinutes: offset,
+      instantMs: instantFor(civil, offset),
+    }));
+    const result = calculateFlyingStarsFromChartTimeContext(context, solarTerms);
+    check(`flying-stars-adapter-${id}-mode`, "true-solar", result.debug.mode);
+    check(`flying-stars-adapter-${id}-clock`, `${String(trueSolar.year).padStart(4, "0")}-${String(trueSolar.month).padStart(2, "0")}-${String(trueSolar.day).padStart(2, "0")} ${String(trueSolar.hour).padStart(2, "0")}:${String(trueSolar.minute).padStart(2, "0")}:${String(trueSolar.second).padStart(2, "0")}`, result.debug.clockLocal);
+    check(`flying-stars-adapter-${id}-finite-period`, true, Number.isInteger(result.period.period));
+  }
+
+  const ambiguousParts = parts(2027, 11, 7, 1, 30);
+  const earlierContext = createChartTimeContext(contextInput({
+    civilParts: ambiguousParts,
+    timeZone: "America/Los_Angeles",
+    utcOffsetMinutes: -420,
+    instantMs: Date.UTC(2027, 10, 7, 8, 30),
+    disambiguation: "earlier",
+  }));
+  const laterContext = createChartTimeContext(contextInput({
+    civilParts: ambiguousParts,
+    timeZone: "America/Los_Angeles",
+    utcOffsetMinutes: -480,
+    instantMs: Date.UTC(2027, 10, 7, 9, 30),
+    disambiguation: "later",
+  }));
+  const earlierCharts = calculateFlyingStarsFromChartTimeContext(earlierContext, solarTerms);
+  const laterCharts = calculateFlyingStarsFromChartTimeContext(laterContext, solarTerms);
+  check("flying-stars-adapter-dst-same-clock", earlierCharts.debug.clockLocal, laterCharts.debug.clockLocal);
+  check("flying-stars-adapter-dst-same-bazi-stars", JSON.stringify(chartLayers(earlierCharts)), JSON.stringify(chartLayers(laterCharts)));
+  const artificialTerms = solarTerms
+    .map((term) => term.name === "立春" && term.year_taipei === 2027
+      ? { ...term, timeMs: Date.UTC(2027, 10, 7, 9, 0) }
+      : term)
+    .sort((left, right) => left.timeMs - right.timeMs);
+  const earlierArtificial = calculateFlyingStarsFromChartTimeContext(earlierContext, artificialTerms);
+  const laterArtificial = calculateFlyingStarsFromChartTimeContext(laterContext, artificialTerms);
+  check("flying-stars-adapter-dst-artificial-year-change", false, earlierArtificial.annual.basis.year === laterArtificial.annual.basis.year);
+  check("flying-stars-adapter-dst-artificial-period-change", false, JSON.stringify(earlierArtificial.period) === JSON.stringify(laterArtificial.period));
+  check("flying-stars-adapter-dst-artificial-month-change", false, JSON.stringify(earlierArtificial.monthly) === JSON.stringify(laterArtificial.monthly));
+
+  const probeFixture = {
+    contextInput: contextInput({
+      mode: "true-solar",
+      civilParts: parts(2026, 8, 6, 14, 21, 30),
+      timeZone: "America/Los_Angeles",
+      utcOffsetMinutes: -420,
+      instantMs: instantFor(parts(2026, 8, 6, 14, 21, 30), -420),
+      trueSolarParts: parts(2026, 8, 6, 13, 22, 39),
+    }),
+  };
+  const runProbe = (timeZone) => execFileSync(
+    process.execPath,
+    ["tests/flying-stars-chart-time-adapter-probe.mjs", JSON.stringify(probeFixture)],
+    { cwd: process.cwd(), env: { ...process.env, TZ: timeZone }, encoding: "utf8" }
+  ).trim();
+  const probeTaipei = runProbe("Asia/Taipei");
+  check("flying-stars-adapter-process-utc", probeTaipei, runProbe("UTC"));
+  check("flying-stars-adapter-process-los-angeles", probeTaipei, runProbe("America/Los_Angeles"));
+
+  check("flying-stars-adapter-static-no-dom", false, /\bdocument\b|\bwindow\b|\bnavigator\b|geolocation|localStorage/.test(flyingStarsChartTimeAdapterRaw));
+  check("flying-stars-adapter-static-no-main", false, /from\s+["']\.\/main\.js/.test(flyingStarsChartTimeAdapterRaw));
+  check("flying-stars-adapter-static-no-runtime-state", false, /chartTimeState|chartDisplayMode/.test(flyingStarsChartTimeAdapterRaw));
+  check("flying-stars-adapter-static-no-timezone-resolution", false, /resolveLocalDateTimeInTimeZone|parseLocalDateTime|new Date\(/.test(flyingStarsChartTimeAdapterRaw));
+  check("flying-stars-adapter-static-no-true-solar-formula", false, /calculateTrueSolarTime|calculateEquationOfTime|calculateSolarEvents/.test(flyingStarsChartTimeAdapterRaw));
+  check("flying-stars-adapter-static-no-formula-copy", false, /MONTH_CENTER_TABLE|DAY_CENTER_SYSTEMS|HOURLY_STAR_TABLES|function flyStars/.test(flyingStarsChartTimeAdapterRaw));
+  check("flying-stars-adapter-static-no-main-runtime-wiring", false, /flyingStarsChartTimeAdapter\.js/.test(mainModuleRaw));
+  check("flying-stars-adapter-static-no-storage", false, /localStorage|sessionStorage/.test(flyingStarsChartTimeAdapterRaw));
 }
 
 function runFlyingStarRenderFlowTests(solarTerms) {

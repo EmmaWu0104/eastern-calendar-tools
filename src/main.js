@@ -301,8 +301,14 @@ elements.tabButtons.forEach((button) => {
 elements.useNow.addEventListener("click", () => {
   startAutoNowMode();
 });
-elements.calendarPrevious.addEventListener("click", () => shiftVisibleCalendarMonth(-1));
-elements.calendarNext.addEventListener("click", () => shiftVisibleCalendarMonth(1));
+elements.calendarPrevious.addEventListener("click", () => {
+  pauseAutoNowMode();
+  shiftVisibleCalendarMonth(-1);
+});
+elements.calendarNext.addEventListener("click", () => {
+  pauseAutoNowMode();
+  shiftVisibleCalendarMonth(1);
+});
 elements.calendarYear.addEventListener("change", handleCalendarYearChange);
 elements.datetime.addEventListener("input", handleManualDateTimeInput);
 elements.datetime.addEventListener("change", handleManualDateTimeChange);
@@ -499,6 +505,10 @@ function refreshTrueSolarTimeClock() {
 }
 
 function refreshQueryTimeFromAutoNowClock() {
+  if (!isAutoNowMode) {
+    return;
+  }
+
   const dateTimeValue = toLocalDatetimeValue(new Date());
   if (dateTimeValue === elements.datetime.value) {
     return;
@@ -728,6 +738,7 @@ function shiftVisibleCalendarMonth(delta) {
 }
 
 function handleCalendarYearChange() {
+  pauseAutoNowMode();
   visibleCalendarYear = clampQueryYear(Number(elements.calendarYear.value));
   renderQueryPicker();
 }
