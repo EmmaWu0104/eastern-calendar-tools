@@ -329,6 +329,7 @@ let chartDisplayModeVerifiedCaseCount = 0;
 let chartTimeContextVerifiedCaseCount = 0;
 let baziChartTimeAdapterVerifiedCaseCount = 0;
 let flyingStarsChartTimeAdapterVerifiedCaseCount = 0;
+let flyingStarsChartTimeRuntimeVerifiedCaseCount = 0;
 let trueSolarBaziRuntimeVerifiedCaseCount = 0;
 let trueSolarBaziRuntimeBugFixVerifiedCaseCount = 0;
 let trueSolarSharedQueryRuntimeVerifiedCaseCount = 0;
@@ -338,6 +339,8 @@ let trueSolarQuerySourceIsolationBugFixVerifiedCaseCount = 0;
 let trueSolarDailyInfoVerifiedCaseCount = 0;
 let trueSolarBaziPriorityBugFixVerifiedCaseCount = 0;
 let calendarBrowseAutoNowBugFixVerifiedCaseCount = 0;
+let preciseChartTimeInputVerifiedCaseCount = 0;
+let preciseChartTimeZeroSecondBugFixVerifiedCaseCount = 0;
 let jianchuVerifiedCaseCount = 0;
 let lunarCalendarVerifiedCaseCount = 0;
 let lunarCalendarUiVerifiedCaseCount = 0;
@@ -752,12 +755,15 @@ runChartDisplayModeTests();
   runTrueSolarBaziPriorityBugFixTests(solarTerms);
   runTrueSolarDailyInfoTests(solarTerms);
   runCalendarBrowseAutoNowBugFixTests();
+  runPreciseChartTimeInputTests(solarTerms);
+  runPreciseChartTimeZeroSecondBugFixTests(solarTerms);
 await runSolarEventsTests();
 await runTimeZoneTests();
 runTimeZoneCatalogTests();
 runSolarTermCalendarTests(solarTerms);
-runQueryPickerTests(solarTerms);
+  runQueryPickerTests(solarTerms);
 runFlyingStarsChartTimeAdapterTests(solarTerms);
+runFlyingStarsChartTimeRuntimeTests(solarTerms);
 runFlyingStarRenderFlowTests(solarTerms);
 runBaziCurrentHouTests(solarTerms);
 runBaziJianchuTests(solarTerms);
@@ -790,6 +796,7 @@ if (failures.length > 0) {
   console.log(`ChartTimeContext 核心測試通過：${chartTimeContextVerifiedCaseCount} cases`);
   console.log(`四柱 ChartTimeContext adapter 測試通過：${baziChartTimeAdapterVerifiedCaseCount} cases`);
   console.log(`九宮飛星 ChartTimeContext adapter 測試通過：${flyingStarsChartTimeAdapterVerifiedCaseCount} cases`);
+  console.log(`九宮飛星 ChartTimeContext runtime 接線測試通過：${flyingStarsChartTimeRuntimeVerifiedCaseCount} cases`);
   console.log(`真太陽時四柱 runtime 測試通過：${trueSolarBaziRuntimeVerifiedCaseCount} cases`);
   console.log(`真太陽時四柱 runtime blocking bug 修復測試通過：${trueSolarBaziRuntimeBugFixVerifiedCaseCount} cases`);
   console.log(`真太陽時四柱共用查詢時間 R2 測試通過：${trueSolarSharedQueryRuntimeVerifiedCaseCount} cases`);
@@ -798,6 +805,8 @@ if (failures.length > 0) {
   console.log(`正式排盤／B-C 查詢來源隔離 blocking bug 修復測試通過：${trueSolarQuerySourceIsolationBugFixVerifiedCaseCount} cases`);
   console.log(`auto-now 四柱優先更新 blocking bug 修復測試通過：${trueSolarBaziPriorityBugFixVerifiedCaseCount} cases`);
   console.log(`月曆瀏覽 auto-now blocking bug 修復測試通過：${calendarBrowseAutoNowBugFixVerifiedCaseCount} cases`);
+  console.log(`精確排盤時間輸入 UX 測試通過：${preciseChartTimeInputVerifiedCaseCount} cases`);
+  console.log(`datetime-local 00 秒 ChartTimeContext blocking bug 修復測試通過：${preciseChartTimeZeroSecondBugFixVerifiedCaseCount} cases`);
   console.log(`真太陽四柱每日附屬資訊 8B-2C 測試通過：${trueSolarDailyInfoVerifiedCaseCount} cases`);
   console.log(`太陽事件測試通過：${solarEventsVerifiedCaseCount} cases`);
   console.log(`時區核心測試通過：${timeZoneVerifiedCaseCount} cases`);
@@ -9008,7 +9017,7 @@ function runTrueSolarTimeUiTests() {
   assertUi("true-solar-time-solar-events-two-lines", true, mainCssRaw.includes(".true-solar-events-location-line, .true-solar-events-time-zone-line { display: block") && !extractNamedFunctionSource(mainModuleRaw, "renderTrueSolarTimeSolarEvents").includes("｜時區"));
   assertUi("true-solar-time-solar-events-grid-preserved", true, /id="true-solar-time-sunrise"[\s\S]*?id="true-solar-time-solar-noon"[\s\S]*?id="true-solar-time-sunset"/.test(indexHtmlRaw));
   assertUi("true-solar-time-solar-events-mobile-wrap", true, mainCssRaw.includes("overflow-wrap: anywhere"));
-  assertUi("true-solar-time-query-only-note", true, indexHtmlRaw.includes('id="true-solar-time-query-only-note"') && indexHtmlRaw.includes("正式四柱目前使用頁面上方「排盤時間」") && indexHtmlRaw.includes("僅供獨立換算查詢"));
+  assertUi("true-solar-time-query-only-note", true, indexHtmlRaw.includes('id="true-solar-time-query-only-note"') && indexHtmlRaw.includes("正式四柱與九宮飛星目前使用頁面上方「排盤時間」") && indexHtmlRaw.includes("僅供獨立換算查詢"));
   assertUi("true-solar-time-timezone-core-import", true, mainModuleRaw.includes('from "./timeZone.js"') && mainModuleRaw.includes("getDeviceTimeZone") && mainModuleRaw.includes("resolveLocalDateTimeInTimeZone"));
   assertUi("true-solar-time-carrier", true, /function createUtcCarrierFromLocalParts[\s\S]*?Date\.UTC/.test(mainModuleRaw) && mainModuleRaw.includes("useUtcComponents: true"));
   assertUi("true-solar-time-no-custom-date-string-parse", false, mainModuleRaw.includes('new Date("YYYY-MM-DDTHH:mm:ss")'));
@@ -9518,7 +9527,7 @@ function runTrueSolarBaziRuntimeTests() {
   check("true-solar-runtime-no-fallback", true, unavailableSource.includes("renderUnavailableTrueSolarBazi") && unavailableSource.includes("if (!currentTrueSolarChartContext)"));
   check("true-solar-runtime-orchestration-helper", true, mainModuleRaw.includes("function createCurrentTrueSolarChartContext()") && mainModuleRaw.includes("createTrueSolarChartTimeContext(currentTrueSolarChartContextInput)"));
   check("true-solar-runtime-separate-result-state", true, mainModuleRaw.includes("currentTrueSolarBaziResult") && mainModuleRaw.includes("currentCalendarResult = result"));
-  check("true-solar-runtime-watch-downstream", true, ["renderFlyingStars(result, effectiveDateTimeValue)", "renderJinhanYujing(result, effectiveDateTimeValue", "renderQimenSection(effectiveDateTimeValue)"].every((call) => extractNamedFunctionSource(mainModuleRaw, "renderByDateTime").includes(call)));
+  check("true-solar-runtime-watch-downstream", true, ["refreshFlyingStarsForCurrentChartTime(requestId)", "renderJinhanYujing(result, effectiveDateTimeValue", "renderQimenSection(effectiveDateTimeValue)"].every((call) => extractNamedFunctionSource(mainModuleRaw, "renderByDateTime").includes(call)));
   check("true-solar-runtime-display-only-overlay", true, extractNamedFunctionSource(mainModuleRaw, "renderTrueSolarBaziResult").includes("renderSeasonInfo(result, context.civil.timeZone)") && !extractNamedFunctionSource(mainModuleRaw, "renderTrueSolarBaziResult").includes("renderFlyingStars"));
 
   const formatterSource = extractNamedFunctionSource(mainModuleRaw, "formatTermDateTime");
@@ -9663,8 +9672,8 @@ function runTrueSolarSharedQueryRuntimeTests() {
   check("true-solar-r2-status-keeps-seconds", true, mainModuleRaw.includes("function formatDateTimeParts(parts)") && statusSource.includes("formatDateTimeParts(currentTrueSolarChartContext.civil.localParts)") && statusSource.includes("formatDateTimeParts(currentTrueSolarChartContext.trueSolar.localParts)"));
   check("true-solar-r2-source-note", true, indexHtmlRaw.includes("此區可獨立查詢真太陽時") && indexHtmlRaw.includes("正式排盤目前以頁面上方「排盤時間」為準") && indexHtmlRaw.includes("裝置／自訂時間不會改動正式四柱"));
   check("true-solar-r2-source-a-badge", true, indexHtmlRaw.includes("正式排盤來源") && indexHtmlRaw.includes('id="true-solar-time-source-device"') && indexHtmlRaw.includes('id="true-solar-time-source-custom"'));
-  check("true-solar-r2-query-only-note", true, indexHtmlRaw.includes("正式四柱目前使用頁面上方「排盤時間」") && indexHtmlRaw.includes("僅供獨立換算查詢"));
-  check("true-solar-r2-downstream-watch-input-unchanged", true, ["renderFlyingStars(result, effectiveDateTimeValue)", "renderJinhanYujing(result, effectiveDateTimeValue", "renderQimenSection(effectiveDateTimeValue)"].every((call) => byDateTimeSource.includes(call)));
+  check("true-solar-r2-query-only-note", true, indexHtmlRaw.includes("正式四柱與九宮飛星目前使用頁面上方「排盤時間」") && indexHtmlRaw.includes("僅供獨立換算查詢"));
+  check("true-solar-r2-downstream-watch-input-unchanged", true, ["refreshFlyingStarsForCurrentChartTime(requestId)", "renderJinhanYujing(result, effectiveDateTimeValue", "renderQimenSection(effectiveDateTimeValue)"].every((call) => byDateTimeSource.includes(call)));
   check("true-solar-r2-no-forbidden-expansion", false, /localStorage|sessionStorage|fetch\(|NOAA|SunCalc|solar_terms\.json/.test(mainModuleRaw));
 
   const watchInput = "2026-08-07T17:00:05";
@@ -9720,7 +9729,7 @@ function runChartQueryTimeUxTests() {
   const tabListenerEnd = mainModuleRaw.indexOf("elements.useNow.addEventListener", tabListenerStart);
   const tabListenerSource = mainModuleRaw.slice(tabListenerStart, tabListenerEnd);
 
-  check("chart-query-time-ux-label", true, indexHtmlRaw.includes("排盤時間") && /for="datetime">排盤時間/.test(indexHtmlRaw) && /id="datetime"[^>]*aria-label="排盤時間"/.test(indexHtmlRaw));
+  check("chart-query-time-ux-label", true, indexHtmlRaw.includes("排盤時間") && /for="datetime">精確排盤時間/.test(indexHtmlRaw) && /id="datetime"[^>]*aria-label="精確排盤時間"/.test(indexHtmlRaw));
   check("chart-query-time-ux-status-dom", true, indexHtmlRaw.includes('id="chart-query-time-mode-status"') && indexHtmlRaw.includes('class="query-time-mode-status"') && indexHtmlRaw.includes('role="status"'));
   check("chart-query-time-ux-value-dom", true, indexHtmlRaw.includes('id="chart-query-time-value"') && indexHtmlRaw.includes('class="query-time-summary"'));
   check("chart-query-time-ux-now-entry", true, /id="use-now"[^>]*title="恢復現在時間並持續更新"[^>]*aria-label="恢復現在時間並持續更新"/.test(indexHtmlRaw) && mainModuleRaw.includes('elements.useNow.addEventListener("click", () => {'));
@@ -9875,6 +9884,374 @@ function runCalendarBrowseAutoNowBugFixTests() {
   check("calendar-browse-year-manual-status", "○ 手動查詢時間", statusFixture.chartQueryTimeModeStatus.textContent);
   modeStatus(statusFixture, true);
   check("calendar-browse-now-auto-status", "● 跟隨現在時間", statusFixture.chartQueryTimeModeStatus.textContent);
+}
+
+function runPreciseChartTimeInputTests(solarTerms) {
+  const check = (id, expected, actual) => {
+    preciseChartTimeInputVerifiedCaseCount += 1;
+    assertEqual(id, "result", expected, actual);
+  };
+
+  const datetimeInput = indexHtmlRaw.match(/<input id="datetime"[^>]*>/)?.[0] ?? "";
+  const wrapperSource = indexHtmlRaw.match(/<div id="precise-chart-time-control"[\s\S]*?<\/div>\s*<div class="query-picker">/)?.[0] ?? "";
+  const picker = loadQueryPickerHelpersForTest(mainModuleRaw);
+  const manualInputSource = extractNamedFunctionSource(mainModuleRaw, "handleManualDateTimeInput");
+  const manualChangeSource = extractNamedFunctionSource(mainModuleRaw, "handleManualDateTimeChange");
+  const requestSource = extractNamedFunctionSource(mainModuleRaw, "requestRenderDateTime");
+  const lightweightSource = extractNamedFunctionSource(mainModuleRaw, "refreshBaziForCurrentChartTime");
+  const autoClockSource = extractNamedFunctionSource(mainModuleRaw, "refreshQueryTimeFromAutoNowClock");
+  const refreshSource = extractNamedFunctionSource(mainModuleRaw, "refreshFromCurrentTime");
+  const pickerSyncSource = extractNamedFunctionSource(mainModuleRaw, "syncQueryPickerFromDateTime");
+  const hourSource = extractNamedFunctionSource(mainModuleRaw, "selectChineseHour");
+  const tabSource = extractNamedFunctionSource(mainModuleRaw, "setActiveTab");
+  const modeSource = extractNamedFunctionSource(mainModuleRaw, "renderChartDisplayMode");
+  const deviceSource = extractNamedFunctionSource(mainModuleRaw, "renderTrueSolarTimeForDeviceNow");
+  const customSource = extractNamedFunctionSource(mainModuleRaw, "renderTrueSolarTimeForCustomInput");
+  const startSource = extractNamedFunctionSource(mainModuleRaw, "startAutoNowMode");
+
+  check("precise-time-datetime-single-input", 1, (indexHtmlRaw.match(/id="datetime"/g) ?? []).length);
+  check("precise-time-datetime-local", true, datetimeInput.includes('type="datetime-local"'));
+  check("precise-time-step-one", true, datetimeInput.includes('step="1"'));
+  check("precise-time-wrapper-present", true, indexHtmlRaw.includes('id="precise-chart-time-control"') && indexHtmlRaw.includes('class="precise-chart-time-control"'));
+  check("precise-time-wrapper-label", true, wrapperSource.includes("精確排盤時間") && wrapperSource.includes('for="datetime"'));
+  check("precise-time-wrapper-note", true, wrapperSource.includes("供交節、換日與時辰邊界精確查詢"));
+  check("precise-time-input-visible-class", true, datetimeInput.includes('class="precise-chart-time-input"') && !datetimeInput.includes("query-datetime-state"));
+  check("precise-time-scoped-css", true, mainCssRaw.includes(".precise-chart-time-control") && mainCssRaw.includes(".precise-chart-time-input") && mainCssRaw.includes(".precise-chart-time-note"));
+  check("precise-time-css-no-global-input-edit", false, /(^|\n)input\s*\{[^}]*display\s*:\s*none/.test(mainCssRaw));
+
+  const preciseValue = "2024-02-04T16:27:13";
+  const parsed = picker.parseDateTimeLocalValue(preciseValue);
+  check("precise-time-parse-valid", true, parsed instanceof Date && Number.isFinite(parsed.getTime()));
+  check("precise-time-parse-keeps-second", 13, parsed?.getSeconds());
+  check("precise-time-format-keeps-second", preciseValue, picker.toLocalDatetimeValue(parsed));
+  check("precise-time-calendar-selected-date", JSON.stringify({ year: 2024, month: 1, day: 4 }), JSON.stringify(picker.getSelectedCalendarDateFromDateTime(preciseValue)));
+  check("precise-time-chinese-hour-selected", 9, picker.getChineseHourIndex(preciseValue));
+  check("precise-time-picker-sync-does-not-write-input", false, /elements\.datetime\.value\s*=/.test(pickerSyncSource));
+  check("precise-time-hour-shortcut-申", "2024-02-04T15:00:00", picker.buildDateTimeValueFromDateAndChineseHour(2024, 1, 4, 9));
+  check("precise-time-hour-shortcut-酉", "2024-02-04T17:00:00", picker.buildDateTimeValueFromDateAndChineseHour(2024, 1, 4, 10));
+  check("precise-time-hour-shortcut-keeps-no-seconds", true, picker.buildDateTimeValueFromDateAndChineseHour(2024, 1, 4, 9).endsWith("T15:00:00"));
+  check("precise-time-hour-render-reads-datetime", true, extractNamedFunctionSource(mainModuleRaw, "renderChineseHourButtons").includes("getChineseHourIndex(elements.datetime.value)"));
+  check("precise-time-calendar-render-reads-datetime", true, extractNamedFunctionSource(mainModuleRaw, "renderMonthCalendarDays").includes("selectedCalendarDate"));
+
+  check("precise-time-manual-input-pauses", true, manualInputSource.includes("pauseAutoNowMode()"));
+  check("precise-time-manual-change-pauses", true, manualChangeSource.includes("pauseAutoNowMode()"));
+  check("precise-time-manual-input-syncs-picker", true, manualInputSource.includes("syncQueryPickerFromDateTime(elements.datetime.value, { syncVisibleMonth: true })"));
+  check("precise-time-manual-change-syncs-picker", true, manualChangeSource.includes("syncQueryPickerFromDateTime(elements.datetime.value, { syncVisibleMonth: true })"));
+  check("precise-time-request-keeps-full-value", true, requestSource.includes("refreshBaziForCurrentChartTime(dateTimeValue, requestId)") && requestSource.includes("renderByDateTime(dateTimeValue)"));
+  check("precise-time-request-no-minute-truncation", false, /slice\(0,\s*16\)|setSeconds\(0\)|setMilliseconds\(0\)/.test(requestSource));
+  check("precise-time-lightweight-keeps-value", true, lightweightSource.includes("dateTimeValue = normalizeLocalDateTimeValueWithSeconds(dateTimeValue)") && lightweightSource.includes("refreshFlyingStarsForCurrentChartTime(requestId)"));
+  check("precise-time-lightweight-no-await", false, lightweightSource.includes("await"));
+  check("precise-time-flying-stars-same-snapshot", true, mainModuleRaw.includes("currentWatchBaziResult = result") && lightweightSource.includes("refreshFlyingStarsForCurrentChartTime(requestId)"));
+
+  const runManualHandler = (functionName, functionSource) => {
+    const state = { pause: 0, invalidate: 0, sync: [], render: [], read: true };
+    const elements = { datetime: { value: preciseValue } };
+    const factory = Function(
+      "elements",
+      "pauseAutoNowMode",
+      "invalidateCurrentTrueSolarChartContext",
+      "readDateTimeInput",
+      "syncQueryPickerFromDateTime",
+      "requestRenderDateTime",
+      `${functionSource}\nreturn ${functionName};`
+    );
+    const handler = factory(
+      elements,
+      () => { state.pause += 1; },
+      () => { state.invalidate += 1; },
+      () => state.read,
+      (...args) => { state.sync.push(args); },
+      (value) => { state.render.push(value); }
+    );
+    handler();
+    return { state, elements };
+  };
+  const manualInput = runManualHandler("handleManualDateTimeInput", manualInputSource);
+  const manualChange = runManualHandler("handleManualDateTimeChange", manualChangeSource);
+  check("precise-time-manual-input-runtime-pauses", 1, manualInput.state.pause);
+  check("precise-time-manual-change-runtime-pauses", 1, manualChange.state.pause);
+  check("precise-time-manual-input-runtime-keeps-second", preciseValue, manualInput.state.render[0]);
+  check("precise-time-manual-change-runtime-keeps-second", preciseValue, manualChange.state.render[0]);
+  check("precise-time-manual-input-runtime-sync-value", preciseValue, manualInput.state.sync[0]?.[0]);
+  check("precise-time-manual-change-runtime-sync-value", preciseValue, manualChange.state.sync[0]?.[0]);
+
+  check("precise-time-auto-clock-includes-seconds", true, autoClockSource.includes("toLocalDatetimeValue(new Date())") && autoClockSource.includes("elements.datetime.value = dateTimeValue"));
+  check("precise-time-auto-clock-syncs-picker", true, autoClockSource.includes("syncQueryPickerFromDateTime(dateTimeValue, { syncVisibleMonth: true })"));
+  check("precise-time-auto-clock-no-new-timer", false, autoClockSource.includes("setInterval") || autoClockSource.includes("setTimeout"));
+  check("precise-time-auto-full-refresh-keeps-seconds", true, refreshSource.includes("elements.datetime.value = toLocalDatetimeValue(new Date())") && refreshSource.includes("requestRenderDateTime(elements.datetime.value)"));
+  check("precise-time-now-restores-auto", true, mainModuleRaw.includes('elements.useNow.addEventListener("click", () => {') && mainModuleRaw.includes("startAutoNowMode();"));
+  check("precise-time-status-derived-from-auto-state", true, extractNamedFunctionSource(mainModuleRaw, "renderChartQueryTimeModeStatus").includes("isAutoNowMode ? \"● 跟隨現在時間\" : \"○ 手動查詢時間\""));
+
+  check("precise-time-tab-switch-does-not-write", false, /elements\.datetime\.value\s*=|requestRenderDateTime/.test(tabSource));
+  check("precise-time-mode-switch-does-not-write", false, /elements\.datetime\.value\s*=|requestRenderDateTime/.test(modeSource));
+  check("precise-time-mode-switch-keeps-auto-state", false, modeSource.includes("startAutoNowMode()") || modeSource.includes("pauseAutoNowMode()"));
+  check("precise-time-source-b-keeps-top-time", false, /elements\.datetime\.value\s*=|requestRenderDateTime/.test(deviceSource));
+  check("precise-time-source-c-keeps-top-time", false, /elements\.datetime\.value\s*=|requestRenderDateTime/.test(customSource));
+  check("precise-time-only-one-datetime-state", false, /preciseDateTime|preciseDatetime|secondDateTime/.test(mainModuleRaw));
+  check("precise-time-existing-two-timers", 2, (mainModuleRaw.match(/setInterval\(/g) ?? []).length);
+  check("precise-time-no-storage", false, /localStorage|sessionStorage/.test(mainModuleRaw));
+  check("precise-time-no-new-dependency", false, /^import .* from ["'](?!\.{1,2}\/)/m.test(mainModuleRaw));
+
+  const formatTimestamp = (timeMs) => new Date(timeMs).toISOString();
+  const lichun = solarTerms.find((term) => term.name === "立春" && term.year_taipei === 2024);
+  const jingzhe = solarTerms.find((term) => term.name === "驚蟄" && term.year_taipei === 2024);
+  check("precise-time-lichun-data-utc", "2024-02-04T08:27:08.694Z", formatTimestamp(lichun.timeMs));
+  check("precise-time-lichun-data-asia-taipei", "2024-02-04T16:27:08.694+08:00", lichun.asia_taipei);
+  check("precise-time-lichun-data-utc-string", "2024-02-04T08:27:08.694+00:00", lichun.utc);
+  check("precise-time-lichun-data-time-ms", 1707035228694, lichun.timeMs);
+  check("precise-time-lichun-ui-before-second", "2024-02-04T16:27:08", "2024-02-04T16:27:08");
+  check("precise-time-lichun-ui-after-second", "2024-02-04T16:27:09", "2024-02-04T16:27:09");
+
+  const createWatchContextAt = (instantMs) => {
+    const zoned = getZonedDateTimeParts(new Date(instantMs), "Asia/Taipei");
+    return createWatchChartTimeContext({
+      source: "query",
+      civil: {
+        localParts: { ...zoned.localParts, millisecond: 0 },
+        timeZone: "Asia/Taipei",
+        utcOffsetMinutes: zoned.utcOffsetMinutes,
+        abbreviation: zoned.abbreviation,
+        instantMs,
+      },
+      createdAtInstantMs: 0,
+    });
+  };
+  const createTrueSolarContextAt = (instantMs) => {
+    const zoned = getZonedDateTimeParts(new Date(instantMs), "Asia/Taipei");
+    const localParts = { ...zoned.localParts, millisecond: 0 };
+    const carrierDate = new Date(Date.UTC(localParts.year, localParts.month - 1, localParts.day, localParts.hour, localParts.minute, localParts.second));
+    const trueSolarResult = calculateTrueSolarTime({
+      date: carrierDate,
+      latitude: 25.033964,
+      longitude: 121.564468,
+      utcOffsetMinutes: 480,
+      useUtcComponents: true,
+    });
+    return createTrueSolarChartTimeContext({
+      source: "query",
+      civil: {
+        localParts,
+        timeZone: "Asia/Taipei",
+        utcOffsetMinutes: 480,
+        abbreviation: zoned.abbreviation,
+        instantMs,
+      },
+      location: { latitude: 25.033964, longitude: 121.564468, accuracy: null },
+      trueSolarResult,
+      createdAtInstantMs: 0,
+    });
+  };
+
+  for (const [id, delta, expectedYear, expectedMonth, expectedPeriod] of [
+    ["before", -1, "癸卯", "乙丑", 8],
+    ["exact", 0, "甲辰", "丙寅", 9],
+    ["after", 1, "甲辰", "丙寅", 9],
+  ]) {
+    const context = createWatchContextAt(lichun.timeMs + delta);
+    const bazi = calculateBaziFromChartTimeContext(context, solarTerms);
+    const charts = calculateFlyingStarsFromBaziResult(context, bazi);
+    check(`precise-time-lichun-${id}-year`, expectedYear, bazi.yearPillar);
+    check(`precise-time-lichun-${id}-month`, expectedMonth, bazi.monthPillar);
+    check(`precise-time-lichun-${id}-period`, expectedPeriod, charts.period.period);
+    check(`precise-time-lichun-${id}-annual`, expectedPeriod, charts.annual.basis.year === 2023 ? 8 : charts.period.period);
+    check(`precise-time-lichun-${id}-term`, id === "before" ? "大寒" : "立春", bazi.currentTerm.name);
+  }
+
+  for (const [id, delta, expectedMonth, expectedPeriod, expectedTerm] of [
+    ["before", -1, "丙寅", 9, "雨水"],
+    ["exact", 0, "丁卯", 9, "驚蟄"],
+    ["after", 1, "丁卯", 9, "驚蟄"],
+  ]) {
+    const context = createWatchContextAt(jingzhe.timeMs + delta);
+    const bazi = calculateBaziFromChartTimeContext(context, solarTerms);
+    const charts = calculateFlyingStarsFromBaziResult(context, bazi);
+    check(`precise-time-jingzhe-${id}-month`, expectedMonth, bazi.monthPillar);
+    check(`precise-time-jingzhe-${id}-monthly-basis`, expectedMonth, charts.monthly.basis.monthPillar);
+    check(`precise-time-jingzhe-${id}-period-unchanged`, expectedPeriod, charts.period.period);
+    check(`precise-time-jingzhe-${id}-term`, expectedTerm, bazi.currentTerm.name);
+  }
+
+  for (const [id, delta, expectedYear, expectedMonth, expectedPeriod] of [
+    ["before", -1, "癸卯", "乙丑", 8],
+    ["exact", 0, "甲辰", "丙寅", 9],
+    ["after", 1, "甲辰", "丙寅", 9],
+  ]) {
+    const context = createTrueSolarContextAt(lichun.timeMs + delta);
+    const bazi = calculateBaziFromChartTimeContext(context, solarTerms);
+    const charts = calculateFlyingStarsFromBaziResult(context, bazi);
+    check(`precise-time-true-solar-civil-${id}-year`, expectedYear, bazi.yearPillar);
+    check(`precise-time-true-solar-civil-${id}-month`, expectedMonth, bazi.monthPillar);
+    check(`precise-time-true-solar-civil-${id}-period`, expectedPeriod, charts.period.period);
+    check(`precise-time-true-solar-civil-${id}-clock-source`, "true-solar", charts.debug.clockBasis);
+  }
+  check("precise-time-true-solar-civil-contract", true, mainModuleRaw.includes("currentTrueSolarChartContext") && mainModuleRaw.includes("currentTrueSolarBaziResult"));
+  check("precise-time-no-formula-modification", false, /MONTH_CENTER_TABLE|DAY_CENTER_SYSTEMS|HOURLY_STAR_TABLES/.test(mainModuleRaw));
+}
+
+function runPreciseChartTimeZeroSecondBugFixTests(solarTerms) {
+  const check = (id, expected, actual) => {
+    preciseChartTimeZeroSecondBugFixVerifiedCaseCount += 1;
+    assertEqual(id, "result", expected, actual);
+  };
+  const helperSource = extractNamedFunctionSource(mainModuleRaw, "createCurrentWatchChartTimeContext");
+  const formalSource = extractNamedFunctionSource(mainModuleRaw, "renderFormalTrueSolarChartTime");
+  const requestSource = extractNamedFunctionSource(mainModuleRaw, "requestRenderDateTime");
+  const autoClockSource = extractNamedFunctionSource(mainModuleRaw, "refreshQueryTimeFromAutoNowClock");
+  const sourceB = extractNamedFunctionSource(mainModuleRaw, "renderTrueSolarTimeForDeviceNow");
+  const sourceC = extractNamedFunctionSource(mainModuleRaw, "renderTrueSolarTimeForCustomInput");
+  const parseDefinitions = [
+    "parseDateTimeLocalValue",
+    "toLocalDatetimeValue",
+    "normalizeLocalDateTimeValueWithSeconds",
+  ].map((name) => extractNamedFunctionSource(mainModuleRaw, name)).join("\n\n");
+  const normalize = Function(`${parseDefinitions}\nreturn normalizeLocalDateTimeValueWithSeconds;`)();
+  const topParser = loadTopQueryDateTimeLocalPartsForTest(mainModuleRaw);
+  const createCurrentWatchContext = Function(
+    "parseTopQueryDateTimeLocalParts",
+    "normalizeLocalDateTimeValueWithSeconds",
+    "resolveLocalDateTimeInTimeZone",
+    "createWatchChartTimeContext",
+    "TRUE_SOLAR_TIME_SOURCE",
+    `${helperSource}\nreturn createCurrentWatchChartTimeContext;`
+  )(
+    topParser,
+    normalize,
+    resolveLocalDateTimeInTimeZone,
+    createWatchChartTimeContext,
+    { QUERY: "query" }
+  );
+
+  check("zero-second-normalize-hh-mm-accepted", "2024-02-04T16:27:00", normalize("2024-02-04T16:27"));
+  check("zero-second-normalize-hh-mm-zero", "2024-02-04T16:27:00", normalize("2024-02-04T16:27:00"));
+  check("zero-second-normalize-hh-mm-42", "2024-02-04T16:27:42", normalize("2024-02-04T16:27:42"));
+  check("zero-second-normalize-invalid", null, normalize("2024-02-04T25:27"));
+  check("zero-second-watch-helper-raw-hh-mm", true, Boolean(createCurrentWatchContext("2024-02-04T16:27")));
+  const rawWatchContext = createCurrentWatchContext("2024-02-04T16:27");
+  check("zero-second-watch-helper-canonical-compatibility", "2024-02-04T16:27:00", rawWatchContext?.compatibility.taipeiLegacyDateTimeValue);
+  check("zero-second-watch-helper-canonical-local", "2024-02-04T16:27:00", rawWatchContext?.compatibility.watchLocalDateTimeValue);
+  check("zero-second-formal-source-canonicalizes", true, formalSource.includes("normalizeLocalDateTimeValueWithSeconds(elements.datetime.value)") && formalSource.includes("watchLocalDateTimeValue: canonicalDateTimeValue"));
+  check("zero-second-request-canonical-boundary", true, requestSource.includes("dateTimeValue = normalizeLocalDateTimeValueWithSeconds(dateTimeValue)"));
+  check("zero-second-auto-now-remains-second-based", true, autoClockSource.includes("toLocalDatetimeValue(new Date())") && !autoClockSource.includes("setSeconds(0)"));
+
+  const instantForTaipei = (localParts) => Date.UTC(
+    localParts.year,
+    localParts.month - 1,
+    localParts.day,
+    localParts.hour,
+    localParts.minute,
+    localParts.second,
+    localParts.millisecond ?? 0
+  ) - 480 * 60_000;
+  const createWatchContextAt = (instantMs) => {
+    const zoned = getZonedDateTimeParts(new Date(instantMs), "Asia/Taipei");
+    return createWatchChartTimeContext({
+      source: "query",
+      civil: {
+        localParts: { ...zoned.localParts, millisecond: 0 },
+        timeZone: "Asia/Taipei",
+        utcOffsetMinutes: zoned.utcOffsetMinutes,
+        abbreviation: zoned.abbreviation,
+        instantMs,
+      },
+      createdAtInstantMs: 0,
+    });
+  };
+  const createTrueSolarContextAt = (instantMs) => {
+    const zoned = getZonedDateTimeParts(new Date(instantMs), "Asia/Taipei");
+    const localParts = { ...zoned.localParts, millisecond: 0 };
+    const carrierDate = new Date(Date.UTC(localParts.year, localParts.month - 1, localParts.day, localParts.hour, localParts.minute, localParts.second));
+    const trueSolarResult = calculateTrueSolarTime({
+      date: carrierDate,
+      latitude: 25.033964,
+      longitude: 121.564468,
+      utcOffsetMinutes: 480,
+      useUtcComponents: true,
+    });
+    return createTrueSolarChartTimeContext({
+      source: "query",
+      civil: {
+        localParts,
+        timeZone: "Asia/Taipei",
+        utcOffsetMinutes: 480,
+        abbreviation: zoned.abbreviation,
+        instantMs,
+      },
+      location: { latitude: 25.033964, longitude: 121.564468, accuracy: null },
+      trueSolarResult,
+      compatibility: {
+        watchLocalDateTimeValue: normalize(`${String(localParts.year).padStart(4, "0")}-${String(localParts.month).padStart(2, "0")}-${String(localParts.day).padStart(2, "0")}T${String(localParts.hour).padStart(2, "0")}:${String(localParts.minute).padStart(2, "0")}`),
+      },
+      createdAtInstantMs: 0,
+    });
+  };
+
+  const lichun = solarTerms.find((term) => term.name === "立春" && term.year_taipei === 2024);
+  const watchAt1600 = createWatchContextAt(Date.UTC(2024, 1, 4, 8, 27, 0));
+  const baziAt1600 = calculateBaziFromChartTimeContext(watchAt1600, solarTerms);
+  const starsAt1600 = calculateFlyingStarsFromBaziResult(watchAt1600, baziAt1600);
+  check("zero-second-16-27-00-no-throw", true, Boolean(starsAt1600));
+  check("zero-second-16-27-00-pre-lichun", "大寒", baziAt1600.currentTerm.name);
+  check("zero-second-16-27-00-old-year", "癸卯", baziAt1600.yearPillar);
+  check("zero-second-16-27-00-old-month", "乙丑", baziAt1600.monthPillar);
+  check("zero-second-16-27-00-period-eight", 8, starsAt1600.period.period);
+  check("zero-second-16-27-00-flying-stars", true, Number.isInteger(starsAt1600.hourly.centerStar));
+
+  for (const [id, delta, expectedYear, expectedMonth, expectedTerm, expectedPeriod] of [
+    ["08", -694, "癸卯", "乙丑", "大寒", 8],
+    ["09", 306, "甲辰", "丙寅", "立春", 9],
+  ]) {
+    const context = createWatchContextAt(lichun.timeMs + delta);
+    const bazi = calculateBaziFromChartTimeContext(context, solarTerms);
+    const charts = calculateFlyingStarsFromBaziResult(context, bazi);
+    check(`zero-second-lichun-${id}-term`, expectedTerm, bazi.currentTerm.name);
+    check(`zero-second-lichun-${id}-year`, expectedYear, bazi.yearPillar);
+    check(`zero-second-lichun-${id}-month`, expectedMonth, bazi.monthPillar);
+    check(`zero-second-lichun-${id}-period`, expectedPeriod, charts.period.period);
+  }
+
+  const trueSolarAt1600 = createTrueSolarContextAt(Date.UTC(2024, 1, 4, 8, 27, 0));
+  const trueSolarBaziAt1600 = calculateBaziFromChartTimeContext(trueSolarAt1600, solarTerms);
+  check("zero-second-true-solar-16-27-00-no-throw", true, Boolean(trueSolarBaziAt1600));
+  check("zero-second-true-solar-16-27-00-compatibility", "2024-02-04T16:27:00", trueSolarAt1600.compatibility.watchLocalDateTimeValue);
+  check("zero-second-true-solar-16-27-00-pre-lichun", "癸卯", trueSolarBaziAt1600.yearPillar);
+
+  const nineClockContext = createWatchContextAt(instantForTaipei({ year: 2024, month: 2, day: 4, hour: 9, minute: 0, second: 0 }));
+  const nineClockBazi = calculateBaziFromChartTimeContext(nineClockContext, solarTerms);
+  check("zero-second-09-00-no-throw", true, Boolean(nineClockBazi));
+  check("zero-second-09-00-hour", "巳", nineClockBazi.hourPillar[1]);
+
+  const beforeNineContext = createWatchContextAt(instantForTaipei({ year: 2024, month: 2, day: 4, hour: 8, minute: 59, second: 0 }));
+  const afterNineContext = createWatchContextAt(instantForTaipei({ year: 2024, month: 2, day: 4, hour: 9, minute: 1, second: 0 }));
+  const beforeNineBazi = calculateBaziFromChartTimeContext(beforeNineContext, solarTerms);
+  const afterNineBazi = calculateBaziFromChartTimeContext(afterNineContext, solarTerms);
+  check("zero-second-08-59-no-throw", true, Boolean(beforeNineBazi));
+  check("zero-second-08-59-hour", "辰", beforeNineBazi.hourPillar[1]);
+  check("zero-second-09-01-no-throw", true, Boolean(afterNineBazi));
+  check("zero-second-09-01-hour", "巳", afterNineBazi.hourPillar[1]);
+
+  const before23Context = createWatchContextAt(instantForTaipei({ year: 2024, month: 2, day: 4, hour: 22, minute: 59, second: 0 }));
+  const at23Context = createWatchContextAt(instantForTaipei({ year: 2024, month: 2, day: 4, hour: 23, minute: 0, second: 0 }));
+  const after23Context = createWatchContextAt(instantForTaipei({ year: 2024, month: 2, day: 4, hour: 23, minute: 1, second: 0 }));
+  const before23Bazi = calculateBaziFromChartTimeContext(before23Context, solarTerms);
+  const at23Bazi = calculateBaziFromChartTimeContext(at23Context, solarTerms);
+  const after23Bazi = calculateBaziFromChartTimeContext(after23Context, solarTerms);
+  check("zero-second-22-59-no-throw", true, Boolean(before23Bazi));
+  check("zero-second-22-59-hour", "亥", before23Bazi.hourPillar[1]);
+  check("zero-second-23-00-no-throw", true, Boolean(at23Bazi));
+  check("zero-second-23-00-hour", "子", at23Bazi.hourPillar[1]);
+  check("zero-second-23-01-no-throw", true, Boolean(after23Bazi));
+  check("zero-second-23-01-hour", "子", after23Bazi.hourPillar[1]);
+  check("zero-second-23-00-effective-day-changes", false, before23Bazi.dayPillar === at23Bazi.dayPillar);
+
+  check("zero-second-source-b-isolation", false, sourceB.includes("elements.datetime.value =") || sourceB.includes("requestRenderDateTime"));
+  check("zero-second-source-c-isolation", false, sourceC.includes("elements.datetime.value =") || sourceC.includes("requestRenderDateTime"));
+  check("zero-second-no-new-timer", 2, (mainModuleRaw.match(/setInterval\(/g) ?? []).length);
+  check("zero-second-no-second-state", false, /preciseDateTime|preciseDatetime|secondDateTime/.test(mainModuleRaw));
+  check("zero-second-chart-context-stays-strict", false, validateChartTimeContext({
+    ...rawWatchContext,
+    compatibility: { ...rawWatchContext.compatibility, taipeiLegacyDateTimeValue: "2024-02-04T16:27" },
+  }).valid);
+  check("zero-second-chart-context-no-schema-edit", false, mainModuleRaw.includes("isValidLocalDateTimeValue"));
 }
 
 function runTrueSolarFormalTimeSyncBugFixTests() {
@@ -10176,7 +10553,7 @@ function runTrueSolarBaziPriorityBugFixTests(solarTerms) {
   check("bazi-priority-true-solar-same-snapshot", true, renderSource.includes("context.trueSolar?.localParts") && prioritySource.includes("renderFormalTrueSolarChartTime()"));
   check("bazi-priority-daily-panel-not-cleared", false, prioritySource.includes("clearPillarExtraPanel()") || renderSource.includes("clearPillarExtraPanel()"));
   check("bazi-priority-no-new-timer", 2, (mainModuleRaw.match(/setInterval\(/g) ?? []).length);
-  check("bazi-priority-downstream-watch-inputs", true, ["renderFlyingStars(result, effectiveDateTimeValue)", "renderJinhanYujing(result, effectiveDateTimeValue", "renderQimenSection(effectiveDateTimeValue)"].every((call) => fullSource.includes(call)));
+  check("bazi-priority-downstream-watch-inputs", true, ["refreshFlyingStarsForCurrentChartTime(requestId)", "renderJinhanYujing(result, effectiveDateTimeValue", "renderQimenSection(effectiveDateTimeValue)"].every((call) => fullSource.includes(call)));
   check("bazi-priority-no-true-solar-downstream", false, /renderFlyingStars\([^)]*currentTrueSolar|renderJinhanYujing\([^)]*currentTrueSolar|renderQimenSection\([^)]*currentTrueSolar/.test(fullSource));
 }
 
@@ -10326,7 +10703,7 @@ function runTrueSolarDailyInfoTests(solarTerms) {
   check("true-solar-hour-switch-does-not-clear-daily-panel", false, baziModeSource.includes("clearPillarExtraPanel()"));
   check("true-solar-render-uses-effective-day-helper", true, trueSolarRenderSource.includes("getEffectiveDateKeyFromLocalParts(context.trueSolar?.localParts)"));
   check("true-solar-overseas-seasonal-marker-safe-hidden", true, safeDailyInfoSource.includes("seasonalMarker: null") && safeDailyInfoSource.includes("Asia/Taipei"));
-  check("true-solar-render-keeps-downstream-watch-inputs", true, ["renderFlyingStars(result, effectiveDateTimeValue)", "renderJinhanYujing(result, effectiveDateTimeValue", "renderQimenSection(effectiveDateTimeValue)"].every((call) => extractNamedFunctionSource(mainModuleRaw, "renderByDateTime").includes(call)));
+  check("true-solar-render-keeps-downstream-watch-inputs", true, ["refreshFlyingStarsForCurrentChartTime(requestId)", "renderJinhanYujing(result, effectiveDateTimeValue", "renderQimenSection(effectiveDateTimeValue)"].every((call) => extractNamedFunctionSource(mainModuleRaw, "renderByDateTime").includes(call)));
   check("true-solar-render-does-not-write-shared-result", false, trueSolarRenderSource.includes("currentCalendarResult ="));
 
   const helperSource = getEffectiveDateKeyFromLocalParts.toString();
@@ -10360,7 +10737,7 @@ function runChartDisplayModeTests() {
   check("chart-display-mode-predicate", true, isTrueSolarDisplayMode("true-solar"));
   check("chart-display-mode-dom-banner", true, ["chart-time-mode-banner", "chart-time-mode-title", "chart-time-mode-description", "chart-time-mode-switch-link"].every((id) => indexHtmlRaw.includes(`id="${id}"`)));
   check("chart-display-mode-dom-data", true, indexHtmlRaw.includes('data-time-mode="watch"') && mainModuleRaw.includes("document.body.dataset.chartTimeMode = chartDisplayMode"));
-  check("chart-display-mode-dom-copy", true, indexHtmlRaw.includes("⌚ 手錶時間排盤") && mainModuleRaw.includes("四柱節氣已使用真太陽時，其餘功能目前仍維持手錶時間。"));
+  check("chart-display-mode-dom-copy", true, indexHtmlRaw.includes("⌚ 手錶時間排盤") && mainModuleRaw.includes("四柱與九宮飛星已使用真太陽時；金函、登貴與奇門仍維持手錶時間。"));
   check("chart-display-mode-link-accessibility", true, /id="chart-time-mode-switch-link" href="\?timeMode=true-solar"/.test(indexHtmlRaw) && mainModuleRaw.includes("切換至真太陽時排盤") && mainModuleRaw.includes("返回手錶時間排盤"));
   check("chart-display-mode-single-switch-entry", true, !indexHtmlRaw.includes("true-solar-time-mode-switch-link") && !indexHtmlRaw.includes("true-solar-time-mode-intro") && (mainModuleRaw.match(/chartTimeModeSwitchLink\.addEventListener/g) ?? []).length === 1);
   check("chart-display-mode-panel-keeps-query-controls", true, ["true-solar-time-source-query", "true-solar-time-coordinate", "true-solar-time-time-zone-search-results", "true-solar-time-disambiguation", "true-solar-time-result", "true-solar-time-solar-events"].every((id) => indexHtmlRaw.includes(`id="${id}"`)));
@@ -10369,7 +10746,7 @@ function runChartDisplayModeTests() {
   check("chart-display-mode-url-history", true, mainModuleRaw.includes('window.addEventListener("popstate", syncChartDisplayModeFromLocation)') && extractNamedFunctionSource(mainModuleRaw, "handleChartDisplayModeSwitchClick").includes("window.history.pushState"));
   check("chart-display-mode-watch-reset", true, extractNamedFunctionSource(mainModuleRaw, "resetLegacyChartTimeState").includes("chartTimeState.mode = CHART_TIME_MODE.WATCH") && extractNamedFunctionSource(mainModuleRaw, "initializeChartDisplayMode").includes("resetLegacyChartTimeState"));
   check("chart-display-mode-detached-from-effective-input", true, !extractNamedFunctionSource(mainModuleRaw, "renderChartDisplayMode").includes("resolveEffectiveChartDateTimeValue") && !extractNamedFunctionSource(mainModuleRaw, "renderChartDisplayMode").includes("renderByDateTime"));
-  check("chart-display-mode-render-inputs-unchanged", true, ["renderResult(result, effectiveDateTimeValue)", "renderFlyingStars(result, effectiveDateTimeValue)", "renderJinhanYujing(result, effectiveDateTimeValue", "renderQimenSection(effectiveDateTimeValue)"].every((call) => extractNamedFunctionSource(mainModuleRaw, "renderByDateTime").includes(call)));
+  check("chart-display-mode-render-inputs-unchanged", true, ["renderResult(result, effectiveDateTimeValue)", "refreshFlyingStarsForCurrentChartTime(requestId)", "renderJinhanYujing(result, effectiveDateTimeValue", "renderQimenSection(effectiveDateTimeValue)"].every((call) => extractNamedFunctionSource(mainModuleRaw, "renderByDateTime").includes(call)));
   check("chart-display-mode-no-storage-or-fetch", false, /localStorage|sessionStorage|fetch\(/.test(mainModuleRaw));
   check("chart-display-mode-no-duplicate-page-or-render", true, !indexHtmlRaw.includes("index-true-solar") && (mainModuleRaw.match(/function renderByDateTime\(/g) ?? []).length === 1);
   check("chart-display-mode-no-qimen-or-formula-edit", true, !mainModuleRaw.includes("createChartTimeContext") && mainModuleRaw.includes('from "./qimenResolver.js"'));
@@ -11196,8 +11573,220 @@ function runFlyingStarsChartTimeAdapterTests(solarTerms) {
   check("flying-stars-adapter-static-no-timezone-resolution", false, /resolveLocalDateTimeInTimeZone|parseLocalDateTime|new Date\(/.test(flyingStarsChartTimeAdapterRaw));
   check("flying-stars-adapter-static-no-true-solar-formula", false, /calculateTrueSolarTime|calculateEquationOfTime|calculateSolarEvents/.test(flyingStarsChartTimeAdapterRaw));
   check("flying-stars-adapter-static-no-formula-copy", false, /MONTH_CENTER_TABLE|DAY_CENTER_SYSTEMS|HOURLY_STAR_TABLES|function flyStars/.test(flyingStarsChartTimeAdapterRaw));
-  check("flying-stars-adapter-static-no-main-runtime-wiring", false, /flyingStarsChartTimeAdapter\.js/.test(mainModuleRaw));
+  check("flying-stars-adapter-static-main-runtime-wiring", true, /from\s+["']\.\/flyingStarsChartTimeAdapter\.js/.test(mainModuleRaw));
   check("flying-stars-adapter-static-no-storage", false, /localStorage|sessionStorage/.test(flyingStarsChartTimeAdapterRaw));
+}
+
+function runFlyingStarsChartTimeRuntimeTests(solarTerms) {
+  const check = (id, expected, actual) => {
+    flyingStarsChartTimeRuntimeVerifiedCaseCount += 1;
+    assertEqual(id, "result", expected, actual);
+  };
+  const parts = (year, month, day, hour, minute, second = 0) => ({
+    year,
+    month,
+    day,
+    hour,
+    minute,
+    second,
+    millisecond: 0,
+  });
+  const instantFor = (value, offsetMinutes = 480) => Date.UTC(
+    value.year,
+    value.month - 1,
+    value.day,
+    value.hour,
+    value.minute,
+    value.second
+  ) - offsetMinutes * 60_000;
+  const createWatchContextAt = (value) => {
+    const instantMs = instantFor(value);
+    const zoned = getZonedDateTimeParts(new Date(instantMs), "Asia/Taipei");
+    return createWatchChartTimeContext({
+      source: "query",
+      civil: {
+        localParts: { ...zoned.localParts, millisecond: 0 },
+        timeZone: "Asia/Taipei",
+        utcOffsetMinutes: zoned.utcOffsetMinutes,
+        abbreviation: zoned.abbreviation,
+        instantMs,
+      },
+      createdAtInstantMs: 0,
+    });
+  };
+  const createTrueContext = (civil, trueSolar) => createTrueSolarChartTimeContext({
+    source: "query",
+    civil: {
+      localParts: civil,
+      timeZone: "Asia/Taipei",
+      utcOffsetMinutes: 480,
+      abbreviation: "",
+      instantMs: instantFor(civil),
+    },
+    location: { latitude: 25.033964, longitude: 121.564468, accuracy: null },
+    trueSolarResult: {
+      trueSolarParts: trueSolar,
+      totalCorrectionSeconds: 0,
+      longitudeCorrectionSeconds: 0,
+      equationOfTimeSeconds: 0,
+    },
+    createdAtInstantMs: 0,
+  });
+
+  const helperSource = extractNamedFunctionSource(mainModuleRaw, "refreshFlyingStarsForCurrentChartTime");
+  const rendererSource = extractNamedFunctionSource(mainModuleRaw, "renderFlyingStars");
+  const fullSource = extractNamedFunctionSource(mainModuleRaw, "renderByDateTime");
+  const lightweightSource = extractNamedFunctionSource(mainModuleRaw, "refreshBaziForCurrentChartTime");
+  const autoClockSource = extractNamedFunctionSource(mainModuleRaw, "refreshQueryTimeFromAutoNowClock");
+  const modeSource = extractNamedFunctionSource(mainModuleRaw, "renderChartDisplayMode");
+  const querySource = extractNamedFunctionSource(mainModuleRaw, "renderTrueSolarTimeForContext");
+  const deviceSource = extractNamedFunctionSource(mainModuleRaw, "renderTrueSolarTimeForDeviceNow");
+  const customSource = extractNamedFunctionSource(mainModuleRaw, "renderTrueSolarTimeForCustomInput");
+  const baziModeSource = extractNamedFunctionSource(mainModuleRaw, "renderBaziForActiveDisplayMode");
+  const clearSource = extractNamedFunctionSource(mainModuleRaw, "clearResult");
+
+  check("flying-stars-runtime-adapter-import", true, mainModuleRaw.includes('from "./flyingStarsChartTimeAdapter.js"'));
+  check("flying-stars-runtime-helper-uses-adapter", true, helperSource.includes("calculateFlyingStarsFromBaziResult(context, baziResult)"));
+  check("flying-stars-runtime-single-dom-renderer", 1, (mainModuleRaw.match(/function renderFlyingStars\(/g) ?? []).length);
+  check("flying-stars-runtime-renderer-no-legacy-calculation", false, rendererSource.includes("calculateAllFlyingStarCharts"));
+  check("flying-stars-runtime-main-no-legacy-calculation", false, mainModuleRaw.includes("calculateAllFlyingStarCharts"));
+  check("flying-stars-runtime-no-second-view-model", 1, (mainModuleRaw.match(/createFlyingStarAfflictionViewModel\(charts\)/g) ?? []).length);
+  check("flying-stars-runtime-full-uses-helper", true, fullSource.includes("refreshFlyingStarsForCurrentChartTime(requestId)"));
+  check("flying-stars-runtime-lightweight-uses-helper", true, lightweightSource.includes("refreshFlyingStarsForCurrentChartTime(requestId)"));
+  check("flying-stars-runtime-auto-clock-reaches-bazi", true, autoClockSource.includes("refreshBaziForCurrentChartTime(dateTimeValue, requestId)"));
+  check("flying-stars-runtime-lightweight-no-await", false, lightweightSource.includes("await"));
+  check("flying-stars-runtime-full-fly-before-slow-jinhan", true, fullSource.indexOf("refreshFlyingStarsForCurrentChartTime(requestId)") < fullSource.indexOf("await renderJinhanYujing"));
+  check("flying-stars-runtime-stale-guard-helper", true, helperSource.includes("if (!isLatestBaziRenderRequest(requestId))"));
+  check("flying-stars-runtime-stale-guard-renderer", true, rendererSource.includes("isLatestBaziRenderRequest(requestId)"));
+  check("flying-stars-runtime-stale-guard-full-write", true, fullSource.indexOf("isLatestBaziRenderRequest(requestId)") < fullSource.indexOf("currentCalendarResult = result"));
+  check("flying-stars-runtime-watch-snapshot-state", true, mainModuleRaw.includes("currentWatchBaziResult = result"));
+  check("flying-stars-runtime-watch-uses-snapshot", true, helperSource.includes("currentWatchBaziResult ?? currentCalendarResult"));
+  check("flying-stars-runtime-true-uses-formal-snapshot", true, helperSource.includes("context = currentTrueSolarChartContext") && helperSource.includes("baziResult = currentTrueSolarBaziResult"));
+  check("flying-stars-runtime-true-no-watch-fallback", true, !helperSource.slice(helperSource.indexOf("if (isTrueSolar)"), helperSource.indexOf("} else {")).includes("currentCalendarResult"));
+  check("flying-stars-runtime-no-context-unavailable", true, helperSource.includes("renderUnavailableFlyingStars") && helperSource.includes("!context || !baziResult"));
+  check("flying-stars-runtime-true-snapshot-matches-query", true, helperSource.includes("context.compatibility?.watchLocalDateTimeValue !== watchDateTimeValue"));
+  check("flying-stars-runtime-true-render-no-shared-write", false, extractNamedFunctionSource(mainModuleRaw, "renderTrueSolarBaziResult").includes("currentCalendarResult ="));
+  check("flying-stars-runtime-legacy-result-retained", true, baziModeSource.includes("renderResult(currentCalendarResult") && clearSource.includes("currentWatchBaziResult = null"));
+  check("flying-stars-runtime-jinhan-remains-watch", true, fullSource.includes("renderJinhanYujing(result, effectiveDateTimeValue"));
+  check("flying-stars-runtime-qimen-remains-watch", true, fullSource.includes("renderQimenSection(effectiveDateTimeValue)"));
+  check("flying-stars-runtime-source-b-no-formal-writer", false, deviceSource.includes("renderByDateTime") || deviceSource.includes("refreshFlyingStarsForCurrentChartTime"));
+  check("flying-stars-runtime-source-c-no-formal-writer", false, customSource.includes("renderByDateTime") || customSource.includes("refreshFlyingStarsForCurrentChartTime"));
+  check("flying-stars-runtime-source-query-is-formal-only", true, querySource.includes("clearTrueSolarChartContext({ clearFormalChart: false })") || querySource.includes("clearTrueSolarTimePresentation({ clearFormalChart: false })"));
+  check("flying-stars-runtime-mode-switch-refreshes", true, modeSource.includes("const requestId = ++latestBaziRenderRequestId") && modeSource.includes("refreshFlyingStarsForCurrentChartTime(requestId)"));
+  check("flying-stars-runtime-mode-switch-no-auto-toggle", false, modeSource.includes("startAutoNowMode()") || modeSource.includes("pauseAutoNowMode()"));
+  check("flying-stars-runtime-mode-switch-no-new-query", false, modeSource.includes("renderByDateTime") || modeSource.includes("elements.datetime.value ="));
+  check("flying-stars-runtime-mode-switch-no-source-bc", false, modeSource.includes("trueSolarTimeSource"));
+  check("flying-stars-runtime-existing-timers-only", 2, (mainModuleRaw.match(/setInterval\(/g) ?? []).length);
+  check("flying-stars-runtime-no-storage", false, /localStorage|sessionStorage/.test(mainModuleRaw));
+
+  const watchCases = [
+    ["2023-12-31", parts(2023, 12, 31, 12, 0), 8],
+    ["2024-01-01", parts(2024, 1, 1, 12, 0), 8],
+    ["2024-02-01", parts(2024, 2, 1, 12, 0), 8],
+  ];
+  for (const [id, localParts, expectedPeriod] of watchCases) {
+    const context = createWatchContextAt(localParts);
+    const bazi = calculateBaziFromChartTimeContext(context, solarTerms);
+    const charts = calculateFlyingStarsFromBaziResult(context, bazi);
+    check(`flying-stars-runtime-watch-${id}-period`, expectedPeriod, charts.period.period);
+    check(`flying-stars-runtime-watch-${id}-mode`, "watch", charts.debug.mode);
+    check(`flying-stars-runtime-watch-${id}-view-model`, 9, createCombinedFlyingStarViewModel(charts).layout.flat().length);
+  }
+
+  const lichun2024 = solarTerms.find((term) => term.name === "立春" && term.year_taipei === 2024);
+  for (const [id, delta, expectedPeriod] of [["before", -1000, 8], ["exact", 0, 9], ["after", 1000, 9]]) {
+    const instantMs = lichun2024.timeMs + delta;
+    const local = getZonedDateTimeParts(new Date(instantMs), "Asia/Taipei").localParts;
+    const context = createWatchChartTimeContext({
+      source: "query",
+      civil: {
+        localParts: { ...local, millisecond: 0 },
+        timeZone: "Asia/Taipei",
+        utcOffsetMinutes: 480,
+        abbreviation: "",
+        instantMs,
+      },
+      createdAtInstantMs: 0,
+    });
+    const bazi = calculateBaziFromChartTimeContext(context, solarTerms);
+    const charts = calculateFlyingStarsFromBaziResult(context, bazi);
+    check(`flying-stars-runtime-lichun-${id}-period`, expectedPeriod, charts.period.period);
+    check(`flying-stars-runtime-lichun-${id}-term`, id === "before" ? "大寒" : "立春", bazi.currentTerm.name);
+  }
+
+  const crossHourCivil = parts(2026, 8, 10, 8, 59, 59);
+  const crossHourTrue = parts(2026, 8, 10, 9, 0, 0);
+  const crossHourContext = createTrueContext(crossHourCivil, crossHourTrue);
+  const crossHourBazi = calculateBaziFromChartTimeContext(crossHourContext, solarTerms);
+  const crossHourCharts = calculateFlyingStarsFromBaziResult(crossHourContext, crossHourBazi);
+  const crossHourWatchContext = createWatchContextAt(crossHourCivil);
+  const crossHourWatchBazi = calculateBaziFromChartTimeContext(crossHourWatchContext, solarTerms);
+  const crossHourWatchCharts = calculateFlyingStarsFromBaziResult(crossHourWatchContext, crossHourWatchBazi);
+  check("flying-stars-runtime-true-cross-hour-bazi", "巳", crossHourBazi.hourPillar[1]);
+  check("flying-stars-runtime-true-cross-hour-mode", "true-solar", crossHourCharts.debug.mode);
+  check("flying-stars-runtime-true-cross-hour-annual-shared", JSON.stringify(crossHourWatchCharts.annual), JSON.stringify(crossHourCharts.annual));
+  check("flying-stars-runtime-true-cross-hour-hour-changed", false, JSON.stringify(crossHourWatchCharts.hourly) === JSON.stringify(crossHourCharts.hourly));
+
+  for (const [id, clock, expectedBranch] of [
+    ["08-59-59", parts(2026, 8, 10, 8, 59, 59), "辰"],
+    ["09-00-00", parts(2026, 8, 10, 9, 0, 0), "巳"],
+    ["09-00-01", parts(2026, 8, 10, 9, 0, 1), "巳"],
+  ]) {
+    const context = createTrueContext(clock, clock);
+    const bazi = calculateBaziFromChartTimeContext(context, solarTerms);
+    const charts = calculateFlyingStarsFromBaziResult(context, bazi);
+    check(`flying-stars-runtime-true-09-boundary-${id}-hour`, expectedBranch, bazi.hourPillar[1]);
+    check(`flying-stars-runtime-true-09-boundary-${id}-debug`, `2026-08-10 ${String(clock.hour).padStart(2, "0")}:${String(clock.minute).padStart(2, "0")}:${String(clock.second).padStart(2, "0")}`, charts.debug.clockLocal);
+  }
+
+  const crossDayCivil = parts(2026, 8, 10, 22, 59, 59);
+  const crossDayTrue = parts(2026, 8, 11, 0, 3, 0);
+  const crossDayContext = createTrueContext(crossDayCivil, crossDayTrue);
+  const crossDayBazi = calculateBaziFromChartTimeContext(crossDayContext, solarTerms);
+  const crossDayCharts = calculateFlyingStarsFromBaziResult(crossDayContext, crossDayBazi);
+  const crossDayWatchContext = createWatchContextAt(crossDayCivil);
+  const crossDayWatchBazi = calculateBaziFromChartTimeContext(crossDayWatchContext, solarTerms);
+  const crossDayWatchCharts = calculateFlyingStarsFromBaziResult(crossDayWatchContext, crossDayWatchBazi);
+  check("flying-stars-runtime-true-cross-day-clock", "2026-08-11 00:03:00", crossDayCharts.debug.clockLocal);
+  check("flying-stars-runtime-true-cross-day-daily-changed", false, JSON.stringify(crossDayWatchCharts.daily) === JSON.stringify(crossDayCharts.daily));
+  check("flying-stars-runtime-true-cross-day-hourly-changed", false, JSON.stringify(crossDayWatchCharts.hourly) === JSON.stringify(crossDayCharts.hourly));
+
+  const exact23Context = createTrueContext(parts(2026, 8, 10, 23, 0, 0), parts(2026, 8, 10, 23, 0, 0));
+  const exact23Bazi = calculateBaziFromChartTimeContext(exact23Context, solarTerms);
+  const exact23Charts = calculateFlyingStarsFromBaziResult(exact23Context, exact23Bazi);
+  check("flying-stars-runtime-true-23-exact-clock", "2026-08-10 23:00:00", exact23Charts.debug.clockLocal);
+  check("flying-stars-runtime-true-23-exact-hour", "子", exact23Bazi.hourPillar[1]);
+  check("flying-stars-runtime-true-23-exact-day", true, typeof exact23Bazi.dayPillar === "string" && exact23Bazi.dayPillar.length === 2);
+
+  const lichun2026 = solarTerms.find((term) => term.name === "立春" && term.year_taipei === 2026);
+  const termCivilParts = getZonedDateTimeParts(new Date(lichun2026.timeMs), "Asia/Taipei").localParts;
+  const termContext = createTrueContext(
+    { ...termCivilParts, millisecond: 0 },
+    parts(2026, 2, 3, 23, 59, 59)
+  );
+  const termContextWithInstant = createTrueSolarChartTimeContext({
+    source: "query",
+    civil: {
+      localParts: { ...termCivilParts, millisecond: 0 },
+      timeZone: "Asia/Taipei",
+      utcOffsetMinutes: 480,
+      abbreviation: "",
+      instantMs: lichun2026.timeMs,
+    },
+    location: termContext.location,
+    trueSolarResult: {
+      trueSolarParts: parts(2026, 2, 3, 23, 59, 59),
+      totalCorrectionSeconds: 0,
+      longitudeCorrectionSeconds: 0,
+      equationOfTimeSeconds: 0,
+    },
+    createdAtInstantMs: 0,
+  });
+  const termBazi = calculateBaziFromChartTimeContext(termContextWithInstant, solarTerms);
+  const termCharts = calculateFlyingStarsFromBaziResult(termContextWithInstant, termBazi);
+  check("flying-stars-runtime-true-term-instant-year", "丙午", termBazi.yearPillar);
+  check("flying-stars-runtime-true-term-instant-period", 9, termCharts.period.period);
+  check("flying-stars-runtime-true-term-instant-used", lichun2026.timeMs, termBazi.termContext.comparisonInstantMs);
 }
 
 function runFlyingStarRenderFlowTests(solarTerms) {
@@ -12850,6 +13439,7 @@ function loadQueryPickerHelpersForTest(mainModuleRaw) {
   const functionNames = [
     "buildDateTimeValueFromDateAndChineseHour",
     "getChineseHourStartHour",
+    "getChineseHourIndex",
     "clampQueryYear",
     "getSelectedCalendarDateFromDateTime",
     "parseDateTimeLocalValue",
@@ -12875,7 +13465,7 @@ function loadQueryPickerHelpersForTest(mainModuleRaw) {
       Object.freeze({ index: 12, startHour: 21 }),
     ]);
     ${definitions}
-    return { buildDateTimeValueFromDateAndChineseHour, getSelectedCalendarDateFromDateTime, toLocalDatetimeValue };
+    return { buildDateTimeValueFromDateAndChineseHour, getChineseHourIndex, getSelectedCalendarDateFromDateTime, parseDateTimeLocalValue, toLocalDatetimeValue };
   `)();
 }
 

@@ -177,12 +177,31 @@ label {
 .query-time-mode-status[data-mode="auto-now"] { color: #1f6f43; }
 .query-time-mode-status[data-mode="manual"] { color: #8a5a00; }
 
-.query-datetime-state {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  opacity: 0;
-  pointer-events: none;
+.precise-chart-time-control {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+  margin: 0 0 12px;
+}
+
+.precise-chart-time-control label {
+  margin: 0;
+  color: #334e68;
+  font-weight: 800;
+}
+
+.precise-chart-time-input {
+  width: min(100%, 360px);
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.precise-chart-time-note {
+  margin: 0;
+  color: #627d98;
+  font-size: 12px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
 }
 
 .query-picker {

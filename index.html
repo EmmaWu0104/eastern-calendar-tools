@@ -20,8 +20,11 @@
           </div>
           <p id="chart-query-time-mode-status" class="query-time-mode-status" role="status">● 跟隨現在時間</p>
         </div>
-        <label class="visually-hidden" for="datetime">排盤時間</label>
-        <input id="datetime" class="query-datetime-state" type="datetime-local" step="1" aria-label="排盤時間">
+        <div id="precise-chart-time-control" class="precise-chart-time-control">
+          <label for="datetime">精確排盤時間</label>
+          <input id="datetime" class="precise-chart-time-input" type="datetime-local" step="1" aria-label="精確排盤時間" aria-describedby="precise-chart-time-note">
+          <p id="precise-chart-time-note" class="precise-chart-time-note">供交節、換日與時辰邊界精確查詢</p>
+        </div>
         <div class="query-picker">
           <section class="query-calendar" aria-label="日期月曆">
             <div class="query-calendar-header">
@@ -70,7 +73,7 @@
             <label class="true-solar-time-source-option"><input id="true-solar-time-source-query" type="radio" name="true-solar-time-source" value="query" checked><span>上方排盤時間（臺灣 UTC+8）<small class="true-solar-time-source-badge">正式排盤來源</small></span></label>
             <label class="true-solar-time-source-option"><input id="true-solar-time-source-device" type="radio" name="true-solar-time-source" value="device"><span>裝置目前時間（僅換算查詢）與時區</span></label>
             <label class="true-solar-time-source-option"><input id="true-solar-time-source-custom" type="radio" name="true-solar-time-source" value="custom"><span>自訂當地日期時間（僅換算查詢）與時區</span></label>
-            <p id="true-solar-time-source-note" class="true-solar-time-detail true-solar-time-source-note">此區可獨立查詢真太陽時；正式排盤目前以頁面上方「排盤時間」為準。裝置／自訂時間不會改動正式四柱。</p>
+            <p id="true-solar-time-source-note" class="true-solar-time-detail true-solar-time-source-note">此區可獨立查詢真太陽時；正式排盤目前以頁面上方「排盤時間」為準。裝置／自訂時間不會改動正式四柱或飛星。</p>
           </fieldset>
           <div class="true-solar-time-watch"><strong id="true-solar-time-watch-title">上方排盤時間</strong><p id="true-solar-time-watch-value">--</p><small id="true-solar-time-watch-note">來自上方排盤時間（Asia/Taipei）</small></div>
           <div id="true-solar-time-device-fields" class="true-solar-time-device-fields" hidden>
@@ -120,7 +123,7 @@
             <p id="true-solar-time-solar-events-message" role="status" aria-live="polite"></p>
           </section>
           <div id="true-solar-time-apply-actions" class="true-solar-time-apply-actions" hidden><button id="true-solar-time-apply" type="button" hidden>套用真太陽時至全部排盤</button></div>
-          <p id="true-solar-time-query-only-note" class="true-solar-time-query-only-note" hidden>正式四柱目前使用頁面上方「排盤時間」；此區的裝置／自訂時間僅供獨立換算查詢。</p>
+          <p id="true-solar-time-query-only-note" class="true-solar-time-query-only-note" hidden>正式四柱與九宮飛星目前使用頁面上方「排盤時間」；此區的裝置／自訂時間僅供獨立換算查詢。</p>
         </section>
       </div>
 

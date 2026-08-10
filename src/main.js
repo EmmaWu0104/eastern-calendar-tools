@@ -6,7 +6,10 @@ import {
   getEffectiveDateKeyFromLocalParts,
 } from "./bazi.js";
 import { calculateBaziFromChartTimeContext } from "./baziChartTimeAdapter.js";
-import { createTrueSolarChartTimeContext } from "./chartTimeContext.js";
+import {
+  createTrueSolarChartTimeContext,
+  createWatchChartTimeContext,
+} from "./chartTimeContext.js";
 import { getDailyGodsByStem } from "./dailyGods.js";
 import {
   formatBaziDailySummary,
@@ -15,7 +18,7 @@ import {
   getDailyDaHuangDao,
 } from "./dailyInfo.js";
 import { getDongGongDaySelection } from "./dongGongDaySelection.js";
-import { calculateAllFlyingStarCharts } from "./flyingStars.js";
+import { calculateFlyingStarsFromBaziResult } from "./flyingStarsChartTimeAdapter.js";
 import {
   createCombinedFlyingStarSummary,
   createCombinedFlyingStarViewModel,
@@ -255,6 +258,7 @@ const elements = {
 };
 
 let currentCalendarResult = null;
+let currentWatchBaziResult = null;
 let currentSolarTerms = null;
 let isJinhanDunTypeManuallyOverridden = false;
 let isAutoNowMode = false;
@@ -393,6 +397,7 @@ function syncChartDisplayModeFromLocation() {
 }
 
 function renderChartDisplayMode() {
+  const requestId = ++latestBaziRenderRequestId;
   const isTrueSolar = isTrueSolarDisplayMode(chartDisplayMode);
   const nextMode = isTrueSolar ? "watch" : "true-solar";
   const switchUrl = buildChartDisplayModeUrl(nextMode, window.location);
@@ -402,7 +407,7 @@ function renderChartDisplayMode() {
   elements.trueSolarTimeTab.textContent = isTrueSolar ? "⌚ 手錶時間" : "☀ 真太陽時";
   elements.chartTimeModeTitle.textContent = isTrueSolar ? "☀ 真太陽時排盤" : "⌚ 手錶時間排盤";
   elements.chartTimeModeDescription.textContent = isTrueSolar
-    ? "四柱節氣已使用真太陽時，其餘功能目前仍維持手錶時間。"
+    ? "四柱與九宮飛星已使用真太陽時；金函、登貴與奇門仍維持手錶時間。"
     : "目前各盤維持既有手錶時間計算。";
   elements.chartTimeModeSwitchLink.textContent = isTrueSolar ? "返回手錶時間排盤" : "切換至真太陽時排盤";
   elements.chartTimeModeSwitchLink.href = switchUrl;
@@ -416,14 +421,16 @@ function renderChartDisplayMode() {
   }
   if (currentCalendarResult && currentSolarTerms) {
     renderBaziForActiveDisplayMode();
+    refreshFlyingStarsForCurrentChartTime(requestId);
   }
   renderChartTimeStatus();
 }
 
 function resetLegacyChartTimeState() {
   chartTimeState.mode = CHART_TIME_MODE.WATCH;
-  chartTimeState.watchDateTimeValue = elements.datetime.value || null;
-  chartTimeState.effectiveDateTimeValue = elements.datetime.value || null;
+  const canonicalDateTimeValue = normalizeLocalDateTimeValueWithSeconds(elements.datetime.value);
+  chartTimeState.watchDateTimeValue = canonicalDateTimeValue;
+  chartTimeState.effectiveDateTimeValue = canonicalDateTimeValue;
   chartTimeState.location = null;
   clearCurrentTrueSolarChartContext();
 }
@@ -828,7 +835,8 @@ function isSameCalendarDate(date, year, month, day) {
 }
 
 function requestRenderDateTime(dateTimeValue) {
-  if (!parseDateTimeLocalValue(dateTimeValue)) {
+  dateTimeValue = normalizeLocalDateTimeValueWithSeconds(dateTimeValue);
+  if (!dateTimeValue) {
     return;
   }
 
@@ -846,7 +854,8 @@ function requestRenderDateTime(dateTimeValue) {
 }
 
 function refreshBaziForCurrentChartTime(dateTimeValue, requestId) {
-  if (!currentSolarTerms || !parseDateTimeLocalValue(dateTimeValue)) {
+  dateTimeValue = normalizeLocalDateTimeValueWithSeconds(dateTimeValue);
+  if (!currentSolarTerms || !dateTimeValue) {
     return false;
   }
 
@@ -858,6 +867,7 @@ function refreshBaziForCurrentChartTime(dateTimeValue, requestId) {
     }
 
     currentCalendarResult = result;
+    currentWatchBaziResult = result;
     currentDateTimeValue = effectiveDateTimeValue;
     chartTimeState.watchDateTimeValue = dateTimeValue;
     chartTimeState.effectiveDateTimeValue = effectiveDateTimeValue;
@@ -867,6 +877,7 @@ function refreshBaziForCurrentChartTime(dateTimeValue, requestId) {
     } else {
       renderResult(result, effectiveDateTimeValue);
     }
+    refreshFlyingStarsForCurrentChartTime(requestId);
     return true;
   } catch {
     return false;
@@ -878,6 +889,10 @@ function isLatestBaziRenderRequest(requestId) {
 }
 
 async function renderByDateTime(dateTimeValue, requestId = latestBaziRenderRequestId) {
+  dateTimeValue = normalizeLocalDateTimeValueWithSeconds(dateTimeValue);
+  if (!dateTimeValue) {
+    return;
+  }
   setMessage("計算中...", "loading");
   isCalculating = true;
 
@@ -892,6 +907,7 @@ async function renderByDateTime(dateTimeValue, requestId = latestBaziRenderReque
       return;
     }
     currentCalendarResult = result;
+    currentWatchBaziResult = result;
     currentSolarTerms = solarTerms;
     currentDateTimeValue = effectiveDateTimeValue;
     chartTimeState.watchDateTimeValue = dateTimeValue;
@@ -903,7 +919,7 @@ async function renderByDateTime(dateTimeValue, requestId = latestBaziRenderReque
       renderResult(result, effectiveDateTimeValue);
     }
     renderQueryPicker();
-    renderFlyingStars(result, effectiveDateTimeValue);
+    refreshFlyingStarsForCurrentChartTime(requestId);
     await renderJinhanYujing(result, effectiveDateTimeValue, requestId);
     if (!isLatestBaziRenderRequest(requestId)) {
       return;
@@ -918,6 +934,7 @@ async function renderByDateTime(dateTimeValue, requestId = latestBaziRenderReque
       return;
     }
     currentCalendarResult = null;
+    currentWatchBaziResult = null;
     currentSolarTerms = null;
     currentDateTimeValue = null;
     clearResult();
@@ -1031,6 +1048,7 @@ function renderUnavailableTrueSolarBazi(error = null) {
 
 function clearResult() {
   currentCalendarResult = null;
+  currentWatchBaziResult = null;
   currentSolarTerms = null;
   elements.baziTimeBasis.hidden = true;
   updateWeekdayLabel("");
@@ -1523,10 +1541,102 @@ function createDailyGodsCell(palace) {
   return cell;
 }
 
-function renderFlyingStars(calendarResult, inputDateTime) {
+function refreshFlyingStarsForCurrentChartTime(requestId = latestBaziRenderRequestId) {
+  if (!isLatestBaziRenderRequest(requestId)) {
+    return false;
+  }
+
+  const isTrueSolar = isTrueSolarDisplayMode(chartDisplayMode);
+  let context = null;
+  let baziResult = null;
+  if (isTrueSolar) {
+    context = currentTrueSolarChartContext;
+    baziResult = currentTrueSolarBaziResult;
+    if (!context || !baziResult) {
+      renderUnavailableFlyingStars("真太陽時九宮飛星尚未就緒：請先完成有效座標計算。");
+      return false;
+    }
+    const watchDateTimeValue = chartTimeState.watchDateTimeValue ?? elements.datetime.value;
+    if (context.compatibility?.watchLocalDateTimeValue !== watchDateTimeValue) {
+      renderUnavailableFlyingStars("真太陽時九宮飛星尚未同步目前排盤時間。");
+      return false;
+    }
+  } else {
+    baziResult = currentWatchBaziResult ?? currentCalendarResult;
+    const watchDateTimeValue = chartTimeState.watchDateTimeValue
+      ?? elements.datetime.value
+      ?? currentDateTimeValue;
+    context = createCurrentWatchChartTimeContext(watchDateTimeValue);
+    if (!context || !baziResult) {
+      clearFlyingStars();
+      return false;
+    }
+  }
+
   try {
-    const charts = calculateAllFlyingStarCharts(calendarResult, inputDateTime);
+    const charts = calculateFlyingStarsFromBaziResult(context, baziResult);
+    if (!isLatestBaziRenderRequest(requestId)) {
+      return false;
+    }
+    return renderFlyingStars(charts, requestId);
+  } catch (error) {
+    if (!isLatestBaziRenderRequest(requestId)) {
+      return false;
+    }
+    console.error("九宮飛星計算失敗", error);
+    clearFlyingStars();
+    const message = error instanceof Error ? error.message : String(error);
+    elements.flyingStarsMessage.textContent = `九宮飛星計算失敗：${message}`;
+    return false;
+  }
+}
+
+function createCurrentWatchChartTimeContext(dateTimeValue) {
+  dateTimeValue = normalizeLocalDateTimeValueWithSeconds(dateTimeValue);
+  if (!dateTimeValue) {
+    return null;
+  }
+  const localParts = parseTopQueryDateTimeLocalParts(dateTimeValue);
+  if (!localParts) {
+    return null;
+  }
+  const civilResolution = resolveLocalDateTimeInTimeZone({
+    localParts,
+    timeZone: "Asia/Taipei",
+  });
+  if (civilResolution.status !== "resolved") {
+    return null;
+  }
+  return createWatchChartTimeContext({
+    source: TRUE_SOLAR_TIME_SOURCE.QUERY,
+    civil: {
+      localParts: { ...civilResolution.localParts, millisecond: 0 },
+      timeZone: civilResolution.timeZone,
+      utcOffsetMinutes: civilResolution.utcOffsetMinutes,
+      abbreviation: civilResolution.abbreviation,
+      instantMs: civilResolution.instant.getTime(),
+    },
+    compatibility: {
+      taipeiLegacyDateTimeValue: dateTimeValue,
+    },
+    createdAtInstantMs: Date.now(),
+  });
+}
+
+function renderUnavailableFlyingStars(message) {
+  clearFlyingStars();
+  elements.flyingStarsMessage.textContent = message;
+}
+
+function renderFlyingStars(charts, requestId = null) {
+  if (requestId !== null && !isLatestBaziRenderRequest(requestId)) {
+    return false;
+  }
+  try {
     const afflictionViewModel = createFlyingStarAfflictionViewModel(charts);
+    if (requestId !== null && !isLatestBaziRenderRequest(requestId)) {
+      return false;
+    }
     elements.flyingStarsMessage.textContent = "";
     elements.flyingStars.replaceChildren(
       createCombinedFlyingStarChart(charts, afflictionViewModel),
@@ -1561,11 +1671,16 @@ function renderFlyingStars(calendarResult, inputDateTime) {
         afflictionViewModel.individualCellMarkers.hourly
       )
     );
+    return true;
   } catch (error) {
+    if (requestId !== null && !isLatestBaziRenderRequest(requestId)) {
+      return false;
+    }
     console.error("九宮飛星計算失敗", error);
     clearFlyingStars();
     const message = error instanceof Error ? error.message : String(error);
     elements.flyingStarsMessage.textContent = `九宮飛星計算失敗：${message}`;
+    return false;
   }
 }
 
@@ -1888,6 +2003,7 @@ function restoreTrueSolarTimeGeolocateButton() {
 
 function renderTrueSolarTimeForWatchDate(dateTimeValue) {
   if (trueSolarTimeSource !== TRUE_SOLAR_TIME_SOURCE.QUERY) return;
+  dateTimeValue = normalizeLocalDateTimeValueWithSeconds(dateTimeValue);
   const localParts = parseTopQueryDateTimeLocalParts(dateTimeValue);
   if (!localParts) return;
   renderTrueSolarTimeForContext({
@@ -1993,8 +2109,9 @@ function renderActiveTrueSolarTime() {
  */
 function renderFormalTrueSolarChartTime() {
   invalidateCurrentTrueSolarChartContext();
+  const canonicalDateTimeValue = normalizeLocalDateTimeValueWithSeconds(elements.datetime.value);
   const localParts = parseTopQueryDateTimeLocalParts(elements.datetime.value);
-  if (!localParts) {
+  if (!canonicalDateTimeValue || !localParts) {
     renderBaziForActiveDisplayMode();
     renderChartTimeStatus();
     return;
@@ -2026,6 +2143,9 @@ function renderFormalTrueSolarChartTime() {
         accuracy: trueSolarTimeLocation.accuracy ?? null,
       },
       trueSolarResult: result,
+      compatibility: {
+        watchLocalDateTimeValue: canonicalDateTimeValue,
+      },
     };
     currentTrueSolarChartContext = createCurrentTrueSolarChartContext();
     renderBaziForActiveDisplayMode();
@@ -2396,8 +2516,8 @@ function renderChartQueryTimeModeStatus() {
 function setTrueSolarTimeStatus(message, type) { elements.trueSolarTimeStatus.textContent = message; elements.trueSolarTimeStatus.className = `section-message ${type ? `section-message-${type}` : ""}`.trim(); }
 function formatDateTimeLocalParts(parts) { return parts && Number.isInteger(parts.year) ? `${String(parts.year).padStart(4, "0")}-${String(parts.month).padStart(2, "0")}-${String(parts.day).padStart(2, "0")}T${String(parts.hour).padStart(2, "0")}:${String(parts.minute).padStart(2, "0")}:${String(parts.second).padStart(2, "0")}` : null; }
 function resolveEffectiveChartDateTimeValue(watchDateTimeValue) { return chartTimeState.mode === CHART_TIME_MODE.TRUE_SOLAR ? formatDateTimeLocalParts(chartTimeState.trueSolarResult?.trueSolarParts) ?? watchDateTimeValue : watchDateTimeValue; }
-function applyTrueSolarTimeToCharts() { if (trueSolarTimeSource !== TRUE_SOLAR_TIME_SOURCE.QUERY) { setTrueSolarTimeStatus("此時間來源目前僅供真太陽時查詢。", "error"); return; } const watch = elements.datetime.value; const result = chartTimeState.trueSolarResult; if (!trueSolarTimeLocation || !result || !watch) { setTrueSolarTimeStatus("請先完成真太陽時計算。", "error"); return; } chartTimeState = { mode: CHART_TIME_MODE.TRUE_SOLAR, watchDateTimeValue: watch, effectiveDateTimeValue: formatDateTimeLocalParts(result.trueSolarParts), trueSolarResult: result, location: { ...trueSolarTimeLocation } }; pauseAutoNowMode(); setTrueSolarTimeStatus("已固定此刻的真太陽時排盤；點「現在時間」可重新取得當下時間。", ""); void renderByDateTime(watch); }
-function restoreWatchChartTime(message = "", shouldRender = true) { chartTimeState.mode = CHART_TIME_MODE.WATCH; chartTimeState.effectiveDateTimeValue = elements.datetime.value; chartTimeState.location = null; if (message) setMessage(message, ""); if (shouldRender && elements.datetime.value) requestRenderDateTime(elements.datetime.value); else renderChartTimeStatus(); }
+function applyTrueSolarTimeToCharts() { if (trueSolarTimeSource !== TRUE_SOLAR_TIME_SOURCE.QUERY) { setTrueSolarTimeStatus("此時間來源目前僅供真太陽時查詢。", "error"); return; } const watch = normalizeLocalDateTimeValueWithSeconds(elements.datetime.value); const result = chartTimeState.trueSolarResult; if (!trueSolarTimeLocation || !result || !watch) { setTrueSolarTimeStatus("請先完成真太陽時計算。", "error"); return; } chartTimeState = { mode: CHART_TIME_MODE.TRUE_SOLAR, watchDateTimeValue: watch, effectiveDateTimeValue: formatDateTimeLocalParts(result.trueSolarParts), trueSolarResult: result, location: { ...trueSolarTimeLocation } }; pauseAutoNowMode(); setTrueSolarTimeStatus("已固定此刻的真太陽時排盤；點「現在時間」可重新取得當下時間。", ""); void renderByDateTime(watch); }
+function restoreWatchChartTime(message = "", shouldRender = true) { const canonicalDateTimeValue = normalizeLocalDateTimeValueWithSeconds(elements.datetime.value); chartTimeState.mode = CHART_TIME_MODE.WATCH; chartTimeState.watchDateTimeValue = canonicalDateTimeValue; chartTimeState.effectiveDateTimeValue = canonicalDateTimeValue; chartTimeState.location = null; if (message) setMessage(message, ""); if (shouldRender && canonicalDateTimeValue) requestRenderDateTime(canonicalDateTimeValue); else renderChartTimeStatus(); }
 function renderChartTimeStatus() {
   if (isTrueSolarDisplayMode(chartDisplayMode)) {
     elements.chartTimeStatusTitle.textContent = currentTrueSolarBaziResult
@@ -3922,4 +4042,9 @@ function toLocalDatetimeValue(date) {
   const second = String(date.getSeconds()).padStart(2, "0");
 
   return `${year}-${month}-${day}T${hour}:${minute}:${second}`;
+}
+
+function normalizeLocalDateTimeValueWithSeconds(value) {
+  const date = parseDateTimeLocalValue(value);
+  return date ? toLocalDatetimeValue(date) : null;
 }
