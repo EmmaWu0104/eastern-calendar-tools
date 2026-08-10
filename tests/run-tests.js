@@ -49,7 +49,7 @@ const {
   isGengDay,
 } = await import("../src/dailyInfo.js");
 const { getDongGongDaySelection } = await import("../src/dongGongDaySelection.js");
-const { SEXAGENARY_CYCLE } = await import("../src/ganzhi.js");
+const { SEXAGENARY_CYCLE, getDayPillarFromLocalParts } = await import("../src/ganzhi.js");
 const {
   formatHexagramLabel,
   getHexagramByTrigrams,
@@ -68,9 +68,21 @@ const {
 } = await import("../src/guideng.js");
 const {
   getJinhanDunType,
+  createJinhanBoundarySwitch,
   JINHAN_DUN_TYPE_MODE,
   JINHAN_DUN_TYPE_STATUS,
+  resolveJinhanDunTypeFromLocalParts,
 } = await import("../src/jinhanDunType.js");
+const {
+  calculateJinhanFromChartTimeContext,
+  createJinhanCalculationInput,
+  formatJinhanChartTimeDebug,
+  getChineseHourInfoFromLocalParts,
+  getJinhanClockLocalParts,
+  getJinhanTermLocalParts,
+  resolveJinhanDunTypeFromChartTimeContext,
+  validateJinhanChartTimeInput,
+} = await import("../src/jinhanChartTimeAdapter.js");
 const {
   getJinhanBlackYellowHours,
   getJinhanDeitiesByPalace,
@@ -303,6 +315,7 @@ const [
   thirdPartyDataRaw,
   lunarSourceDocRaw,
   securityDocRaw,
+  jinhanChartTimeAdapterRaw,
 ] = await Promise.all([
   readFile(new URL("../data/solar_terms_1899_2101.json", import.meta.url), "utf8"),
   readFile(new URL("./testcases.json", import.meta.url), "utf8"),
@@ -324,6 +337,7 @@ const [
   readFile(new URL("../THIRD_PARTY_DATA.md", import.meta.url), "utf8"),
   readFile(new URL("../docs/76_農曆資料來源與時間基準.md", import.meta.url), "utf8"),
   readFile(new URL("../docs/79_前端輸入安全盤點與補強.md", import.meta.url), "utf8"),
+  readFile(new URL("../src/jinhanChartTimeAdapter.js", import.meta.url), "utf8"),
 ]);
 
 const solarTerms = normalizeSolarTerms(JSON.parse(termsRaw));
@@ -369,6 +383,7 @@ let jinhanPanCount = 0;
 let jinhanBlackYellowHourCount = 0;
 let jinhanLookupVerifiedCaseCount = 0;
 let jinhanDunTypeVerifiedCaseCount = 0;
+let jinhanChartTimeAdapterVerifiedCaseCount = 0;
 let qimenYuanJuTermCount = 0;
 let qimenPlateFileCount = 0;
 let qimenPlateNullCount = 0;
@@ -711,6 +726,7 @@ qimenPlateObjectCount = qimenStats.plateObjects;
 
 runJinhanYujingLookupTests();
 runJinhanDunTypeV1Tests();
+runJinhanChartTimeAdapterTests(solarTerms);
 runQimenHelperTests();
 runQimenFuTouScanTests();
 runQimenTermAssignmentTests();
@@ -841,6 +857,7 @@ if (failures.length > 0) {
   );
   console.log(`金函玉鏡查表測試通過：${jinhanLookupVerifiedCaseCount} cases`);
   console.log(`金函玉鏡超神接氣 v1 測試通過：${jinhanDunTypeVerifiedCaseCount} cases`);
+  console.log(`金函玉鏡 ChartTimeContext adapter 測試通過：${jinhanChartTimeAdapterVerifiedCaseCount} cases`);
   console.log(
     `奇門遁甲資料檢查通過：${qimenYuanJuTermCount} terms, ${qimenPlateFileCount} plate files, ${qimenPlateObjectCount} plate objects, ${qimenPlateNullCount} null plates`
   );
@@ -1804,6 +1821,391 @@ function runJinhanDunTypeV1Tests() {
     jinhanDunTypeVerifiedCaseCount += 1;
     assertJinhanDunTypeResult(testCase.id, actual, testCase.expected);
   }
+}
+
+function runJinhanChartTimeAdapterTests(solarTerms) {
+  const check = (id, expected, actual) => {
+    jinhanChartTimeAdapterVerifiedCaseCount += 1;
+    assertEqual(id, "result", expected, actual);
+  };
+  const throws = (id, callback, expectedMessagePart = "") => {
+    let message = "";
+    try {
+      callback();
+    } catch (error) {
+      message = error instanceof Error ? error.message : String(error);
+    }
+    check(id, true, message.length > 0 && message.includes(expectedMessagePart));
+  };
+  const parts = (year, month, day, hour, minute, second = 0, millisecond = 0) => ({
+    year,
+    month,
+    day,
+    hour,
+    minute,
+    second,
+    millisecond,
+  });
+  const instantFor = (localParts, utcOffsetMinutes) => Date.UTC(
+    localParts.year,
+    localParts.month - 1,
+    localParts.day,
+    localParts.hour,
+    localParts.minute,
+    localParts.second,
+    localParts.millisecond ?? 0
+  ) - utcOffsetMinutes * 60_000;
+  const carrierFromParts = (localParts) => new Date(Date.UTC(
+    localParts.year,
+    localParts.month - 1,
+    localParts.day,
+    localParts.hour,
+    localParts.minute,
+    localParts.second,
+    localParts.millisecond ?? 0
+  ));
+  const createContextAt = ({
+    mode = CHART_CONTEXT_MODE_WATCH,
+    localParts = parts(2026, 8, 10, 8, 0),
+    timeZone = "Asia/Taipei",
+    utcOffsetMinutes = 480,
+    instantMs = instantFor(localParts, utcOffsetMinutes),
+    location = { latitude: 25.033964, longitude: 121.564468, accuracy: null },
+    source = "custom",
+  } = {}) => {
+    const zoned = getZonedDateTimeParts(new Date(instantMs), timeZone);
+    const civilLocalParts = { ...zoned.localParts, millisecond: 0 };
+    const civil = {
+      localParts: civilLocalParts,
+      timeZone,
+      utcOffsetMinutes: zoned.utcOffsetMinutes,
+      abbreviation: zoned.abbreviation,
+      instantMs,
+    };
+    if (mode === CHART_CONTEXT_MODE_WATCH) {
+      return createWatchChartTimeContext({ source, civil, createdAtInstantMs: 0 });
+    }
+    const trueSolarResult = calculateTrueSolarTime({
+      date: carrierFromParts(civilLocalParts),
+      latitude: location.latitude,
+      longitude: location.longitude,
+      utcOffsetMinutes: zoned.utcOffsetMinutes,
+      useUtcComponents: true,
+    });
+    return createTrueSolarChartTimeContext({
+      source,
+      civil,
+      location,
+      trueSolarResult,
+      createdAtInstantMs: 0,
+    });
+  };
+  const dateParts = (dateKey, hour = 12, minute = 0, second = 0) => {
+    const [year, month, day] = dateKey.split("-").map(Number);
+    return parts(year, month, day, hour, minute, second);
+  };
+  const addCivilDays = (dateKey, days) => {
+    const [year, month, day] = dateKey.split("-").map(Number);
+    const date = new Date(Date.UTC(year, month - 1, day) + days * 86_400_000);
+    return [
+      String(date.getUTCFullYear()).padStart(4, "0"),
+      String(date.getUTCMonth() + 1).padStart(2, "0"),
+      String(date.getUTCDate()).padStart(2, "0"),
+    ].join("-");
+  };
+  const findPartsForStem = (stem, startDateKey = "2026-01-01") => {
+    const [year, month, day] = startDateKey.split("-").map(Number);
+    const startMs = Date.UTC(year, month - 1, day);
+    for (let dayOffset = 0; dayOffset < 400; dayOffset += 1) {
+      const date = new Date(startMs + dayOffset * 86_400_000);
+      const candidate = parts(
+        date.getUTCFullYear(),
+        date.getUTCMonth() + 1,
+        date.getUTCDate(),
+        12,
+        0,
+        0,
+        0
+      );
+      if (getDayPillarFromLocalParts(candidate).pillar[0] === stem) return candidate;
+    }
+    throw new Error(`找不到日干 ${stem} fixture`);
+  };
+  const makeBoundary = (boundary, stem, startDateKey) => createJinhanBoundarySwitch({
+    boundary,
+    termLocalParts: findPartsForStem(stem, startDateKey),
+    termTimeMs: instantFor(findPartsForStem(stem, startDateKey), 480),
+  });
+  const makeTerm = (year, name, isoWithOffset) => ({
+    year_taipei: year,
+    name,
+    timeMs: Date.parse(isoWithOffset),
+  });
+
+  const watchContext = createContextAt({
+    mode: CHART_CONTEXT_MODE_WATCH,
+    localParts: parts(2026, 8, 10, 8, 0),
+  });
+  const trueSolarContext = createContextAt({
+    mode: CHART_CONTEXT_MODE_TRUE_SOLAR,
+    localParts: parts(2026, 8, 10, 8, 0),
+  });
+  const watchBazi = calculateBaziFromChartTimeContext(watchContext, solarTerms);
+  const trueSolarBazi = calculateBaziFromChartTimeContext(trueSolarContext, solarTerms);
+  const watchResult = calculateJinhanFromChartTimeContext({
+    context: watchContext,
+    baziResult: watchBazi,
+    solarTerms,
+  });
+  const trueSolarResult = calculateJinhanFromChartTimeContext({
+    context: trueSolarContext,
+    baziResult: trueSolarBazi,
+    solarTerms,
+  });
+
+  check("jinhan-adapter-watch-valid", JINHAN_DUN_TYPE_STATUS.RESOLVED, watchResult.status);
+  check("jinhan-adapter-true-solar-valid", JINHAN_DUN_TYPE_STATUS.RESOLVED, trueSolarResult.status);
+  check("jinhan-adapter-watch-clock-authority", JSON.stringify(watchContext.civil.localParts), JSON.stringify(getJinhanClockLocalParts(watchContext)));
+  check("jinhan-adapter-true-solar-clock-authority", JSON.stringify(trueSolarContext.trueSolar.localParts), JSON.stringify(getJinhanClockLocalParts(trueSolarContext)));
+  check("jinhan-adapter-watch-day-authority", watchBazi.dayPillar, watchResult.dayPillar);
+  check("jinhan-adapter-true-solar-day-authority", trueSolarBazi.dayPillar, trueSolarResult.dayPillar);
+  check("jinhan-adapter-watch-pan-day", watchBazi.dayPillar, watchResult.pan.meta.pillar);
+  check("jinhan-adapter-true-solar-pan-day", trueSolarBazi.dayPillar, trueSolarResult.pan.meta.pillar);
+  check("jinhan-adapter-debug-locale-independent", false, /GMT|\bTue\b|\bJan\b/.test(JSON.stringify(formatJinhanChartTimeDebug(trueSolarResult))));
+
+  const invalidContext = { ...watchContext, astronomy: { ...watchContext.astronomy, comparisonInstantMs: 0 } };
+  check("jinhan-adapter-invalid-context", false, validateJinhanChartTimeInput({
+    context: invalidContext,
+    baziResult: watchBazi,
+    solarTerms,
+  }).valid);
+  throws("jinhan-adapter-missing-bazi", () => createJinhanCalculationInput({ context: watchContext, solarTerms }), "baziResult");
+  const missingTerms = calculateJinhanFromChartTimeContext({ context: watchContext, baziResult: watchBazi, solarTerms: null });
+  check("jinhan-adapter-missing-terms-unsupported", JINHAN_DUN_TYPE_STATUS.UNSUPPORTED, missingTerms.status);
+  check("jinhan-adapter-missing-terms-no-watch-fallback", null, missingTerms.pan);
+  throws("jinhan-adapter-invalid-term-time", () => getJinhanTermLocalParts({ context: watchContext, term: { name: "冬至", timeMs: Infinity } }), "term.timeMs");
+  throws("jinhan-adapter-true-solar-missing-location", () => getJinhanTermLocalParts({ context: { ...trueSolarContext, location: null }, term: solarTerms[0] }), "location");
+
+  for (const [id, hour, expected] of [
+    ["00-59", 0, "子"],
+    ["01-00", 1, "丑"],
+    ["08-59", 8, "辰"],
+    ["09-00", 9, "巳"],
+    ["16-59", 16, "申"],
+    ["17-00", 17, "酉"],
+    ["22-59", 22, "亥"],
+    ["23-00", 23, "子"],
+  ]) {
+    check(`jinhan-adapter-hour-${id}`, expected, getChineseHourInfoFromLocalParts(parts(2026, 8, 10, hour, hour === 0 ? 59 : 0)).branch);
+  }
+  check("jinhan-adapter-hour-index-23", 1, getChineseHourInfoFromLocalParts(parts(2026, 8, 10, 23, 0)).index);
+  check("jinhan-adapter-hour-invalid", null, getChineseHourInfoFromLocalParts({ hour: 24 }));
+
+  const dayPanByWatch = getJinhanYujingDayPan(watchBazi.dayPillar, watchResult.dunTypeResult.dunType);
+  check("jinhan-adapter-day-pan-lookup", JSON.stringify(dayPanByWatch), JSON.stringify(watchResult.pan));
+  check("jinhan-adapter-black-yellow-by-day", JSON.stringify(getJinhanBlackYellowHours(watchBazi.dayPillar)), JSON.stringify(watchResult.blackYellowHours));
+  check("jinhan-adapter-deities-by-pan-meta", JSON.stringify(getJinhanDeitiesByPalace(watchResult.pan.meta)), JSON.stringify(watchResult.deitiesByPalace));
+  check("jinhan-adapter-true-solar-next-day-ready", true, trueSolarResult.clockLocalParts.hour >= 0 && trueSolarResult.clockLocalParts.hour <= 23);
+
+  const stemExpected = [
+    ["甲", 0, JINHAN_DUN_TYPE_MODE.ZHENG_SHOU],
+    ["乙", -1, JINHAN_DUN_TYPE_MODE.JIE_QI],
+    ["丙", -2, JINHAN_DUN_TYPE_MODE.JIE_QI],
+    ["丁", -3, JINHAN_DUN_TYPE_MODE.JIE_QI],
+    ["戊", -4, JINHAN_DUN_TYPE_MODE.JIE_QI],
+    ["己", 5, JINHAN_DUN_TYPE_MODE.CHAO_SHEN],
+    ["庚", 4, JINHAN_DUN_TYPE_MODE.CHAO_SHEN],
+    ["辛", 3, JINHAN_DUN_TYPE_MODE.CHAO_SHEN],
+    ["壬", 2, JINHAN_DUN_TYPE_MODE.CHAO_SHEN],
+    ["癸", 1, JINHAN_DUN_TYPE_MODE.CHAO_SHEN],
+  ];
+  for (const [stem, offsetDays, mode] of stemExpected) {
+    const boundary = makeBoundary("冬至", stem, "2026-01-01");
+    check(`jinhan-adapter-mapping-${stem}-offset`, offsetDays, boundary.offsetDays);
+    check(`jinhan-adapter-mapping-${stem}-mode`, mode, boundary.mode);
+    check(`jinhan-adapter-mapping-${stem}-stem`, stem, boundary.termStem);
+  }
+
+  const previousWinter = makeBoundary("冬至", "甲", "2025-01-01");
+  const previousSummer = makeBoundary("夏至", "甲", "2025-05-01");
+  const currentSummer = makeBoundary("夏至", "甲", "2026-05-01");
+  const currentWinter = makeBoundary("冬至", "甲", "2026-11-01");
+  const annual = (queryLocalParts, overrides = {}) => resolveJinhanDunTypeFromLocalParts({
+    queryLocalParts,
+    previousWinter,
+    currentSummer,
+    currentWinter,
+    prePreviousWinter: makeBoundary("冬至", "甲", "2024-01-01"),
+    previousSummer,
+    ...overrides,
+  });
+  const winterBefore = dateParts(addCivilDays(currentWinter.switchDate, -1), 22, 59, 59);
+  const winterAt = dateParts(addCivilDays(currentWinter.switchDate, -1), 23, 0, 0);
+  const winterAfter = dateParts(currentWinter.switchDate, 0, 0, 1);
+  check("jinhan-adapter-winter-switch-minus-1s", "陰遁", annual(winterBefore).dunType);
+  check("jinhan-adapter-winter-switch-exact-23", "陽遁", annual(winterAt).dunType);
+  check("jinhan-adapter-winter-switch-plus-1s", "陽遁", annual(winterAfter).dunType);
+  check("jinhan-adapter-winter-zheng-shou", JINHAN_DUN_TYPE_MODE.ZHENG_SHOU, annual(winterAt).mode);
+
+  const summerBefore = dateParts(addCivilDays(currentSummer.switchDate, -1), 22, 59, 59);
+  const summerAt = dateParts(addCivilDays(currentSummer.switchDate, -1), 23, 0, 0);
+  const summerAfter = dateParts(currentSummer.switchDate, 0, 0, 1);
+  check("jinhan-adapter-summer-switch-minus-1s", "陽遁", annual(summerBefore).dunType);
+  check("jinhan-adapter-summer-switch-exact-23", "陰遁", annual(summerAt).dunType);
+  check("jinhan-adapter-summer-switch-plus-1s", "陰遁", annual(summerAfter).dunType);
+  check("jinhan-adapter-summer-zheng-shou", JINHAN_DUN_TYPE_MODE.ZHENG_SHOU, annual(summerAt).mode);
+
+  for (const [stem, offsetDays] of [["乙", -1], ["丙", -2], ["丁", -3], ["戊", -4]]) {
+    const boundary = makeBoundary("冬至", stem, "2026-11-01");
+    const result = annual(dateParts(boundary.switchDate, 12), { currentWinter: boundary });
+    check(`jinhan-adapter-early-${stem}-offset`, offsetDays, boundary.offsetDays);
+    check(`jinhan-adapter-early-${stem}-dun`, "陽遁", result.dunType);
+    check(`jinhan-adapter-early-${stem}-switch`, boundary.switchDate, result.switchEffectiveDay);
+  }
+  const earlyWinter = makeBoundary("冬至", "乙", "2026-11-01");
+  check("jinhan-adapter-winter-early-before-term", true, earlyWinter.switchDate < earlyWinter.termEffectiveDate);
+  check("jinhan-adapter-summer-early-before-term", true, makeBoundary("夏至", "戊", "2026-05-01").switchDate < makeBoundary("夏至", "戊", "2026-05-01").termEffectiveDate);
+
+  for (const [stem, offsetDays] of [["己", 5], ["庚", 4], ["辛", 3], ["壬", 2], ["癸", 1]]) {
+    const boundary = makeBoundary("冬至", stem, "2026-11-01");
+    const beforeSwitch = annual(dateParts(boundary.termEffectiveDate, 12), { currentWinter: boundary });
+    const afterSwitch = annual(dateParts(boundary.switchDate, 12), { currentWinter: boundary });
+    check(`jinhan-adapter-late-${stem}-offset`, offsetDays, boundary.offsetDays);
+    check(`jinhan-adapter-late-${stem}-pending-dun`, "陰遁", beforeSwitch.dunType);
+    check(`jinhan-adapter-late-${stem}-after-dun`, "陽遁", afterSwitch.dunType);
+    check(`jinhan-adapter-late-${stem}-mode`, JINHAN_DUN_TYPE_MODE.CHAO_SHEN, beforeSwitch.mode);
+  }
+  const lateSummer = makeBoundary("夏至", "癸", "2026-05-01");
+  check("jinhan-adapter-summer-late-after-term", true, lateSummer.switchDate > lateSummer.termEffectiveDate);
+  check("jinhan-adapter-summer-late-pending-dun", "陽遁", annual(dateParts(lateSummer.termEffectiveDate, 12), { currentSummer: lateSummer }).dunType);
+  check("jinhan-adapter-summer-late-after-dun", "陰遁", annual(dateParts(lateSummer.switchDate, 12), { currentSummer: lateSummer }).dunType);
+
+  const termWinter = solarTerms.find((term) => term.name === "冬至" && term.year_taipei === 2026);
+  const termAt2259 = { ...termWinter, timeMs: Date.parse("2026-12-21T14:59:59.000Z") };
+  const termAt2300 = { ...termWinter, timeMs: Date.parse("2026-12-21T15:00:00.000Z") };
+  const termAt2301 = { ...termWinter, timeMs: Date.parse("2026-12-21T15:00:01.000Z") };
+  const watchTermBoundaryContext = createContextAt({ mode: CHART_CONTEXT_MODE_WATCH });
+  const trueTermBoundaryContext = createContextAt({
+    mode: CHART_CONTEXT_MODE_TRUE_SOLAR,
+    location: { latitude: 25, longitude: 121.8, accuracy: null },
+  });
+  const watchTermParts = [termAt2259, termAt2300, termAt2301].map((term) => getJinhanTermLocalParts({ context: watchTermBoundaryContext, term }));
+  check("jinhan-adapter-term-watch-22-59-59", 22, watchTermParts[0].localParts.hour);
+  check("jinhan-adapter-term-watch-23-00-00", 23, getJinhanTermLocalParts({ context: watchTermBoundaryContext, term: termAt2300 }).localParts.hour);
+  check("jinhan-adapter-term-watch-23-00-01", 23, getJinhanTermLocalParts({ context: watchTermBoundaryContext, term: termAt2301 }).localParts.hour);
+  check("jinhan-adapter-term-watch-effective-day-boundary", false,
+    getDayPillarFromLocalParts(watchTermParts[0].localParts).effectiveDate === getDayPillarFromLocalParts(watchTermParts[1].localParts).effectiveDate);
+  const trueTermParts = [
+    { ...termWinter, timeMs: Date.UTC(2026, 0, 9, 14, 59, 57) },
+    { ...termWinter, timeMs: Date.UTC(2026, 0, 9, 14, 59, 58) },
+    { ...termWinter, timeMs: Date.UTC(2026, 0, 9, 14, 59, 59) },
+  ].map((term) => getJinhanTermLocalParts({ context: trueTermBoundaryContext, term }));
+  check("jinhan-adapter-term-true-solar-before-2300", true, trueTermParts[0].localParts.hour === 22);
+  check("jinhan-adapter-term-true-solar-at-2300", true, trueTermParts[1].localParts.hour === 23);
+  check("jinhan-adapter-term-true-solar-after-2300", true, trueTermParts[2].localParts.hour === 23);
+  check("jinhan-adapter-term-true-solar-effective-day-boundary", false,
+    getDayPillarFromLocalParts(trueTermParts[0].localParts).effectiveDate === getDayPillarFromLocalParts(trueTermParts[1].localParts).effectiveDate);
+
+  const divergenceInstantMs = Date.UTC(2026, 0, 9, 14, 59, 59);
+  const divergenceWatchContext = createContextAt({
+    mode: CHART_CONTEXT_MODE_WATCH,
+    instantMs: divergenceInstantMs,
+  });
+  const divergenceTrueContext = createContextAt({
+    mode: CHART_CONTEXT_MODE_TRUE_SOLAR,
+    instantMs: divergenceInstantMs,
+    location: { latitude: 25, longitude: 121.8, accuracy: null },
+  });
+  const divergenceTerm = makeTerm(2026, "冬至", "2026-01-09T22:59:59+08:00");
+  const divergenceWatchTerm = getJinhanTermLocalParts({ context: divergenceWatchContext, term: divergenceTerm });
+  const divergenceTrueTerm = getJinhanTermLocalParts({ context: divergenceTrueContext, term: divergenceTerm });
+  const divergenceWatchBoundary = createJinhanBoundarySwitch({ boundary: "冬至", termLocalParts: divergenceWatchTerm.localParts, termTimeMs: divergenceTerm.timeMs });
+  const divergenceTrueBoundary = createJinhanBoundarySwitch({ boundary: "冬至", termLocalParts: divergenceTrueTerm.localParts, termTimeMs: divergenceTerm.timeMs });
+  check("jinhan-adapter-divergence-watch-old-day", "2026-01-09", divergenceWatchBoundary.termEffectiveDate);
+  check("jinhan-adapter-divergence-true-new-day", "2026-01-10", divergenceTrueBoundary.termEffectiveDate);
+  check("jinhan-adapter-divergence-term-day-pillar", false, divergenceWatchBoundary.termDayPillar === divergenceTrueBoundary.termDayPillar);
+  check("jinhan-adapter-divergence-mode", false, divergenceWatchBoundary.mode === divergenceTrueBoundary.mode);
+  check("jinhan-adapter-divergence-query-clock", false, JSON.stringify(getJinhanClockLocalParts(divergenceWatchContext)) === JSON.stringify(getJinhanClockLocalParts(divergenceTrueContext)));
+
+  const divergenceTerms = [
+    makeTerm(2024, "冬至", "2024-12-21T12:00:00+08:00"),
+    makeTerm(2025, "夏至", "2025-06-21T12:00:00+08:00"),
+    makeTerm(2025, "冬至", "2025-12-21T12:00:00+08:00"),
+    makeTerm(2026, "夏至", "2026-06-21T12:00:00+08:00"),
+    divergenceTerm,
+  ];
+  const divergenceWatch = resolveJinhanDunTypeFromChartTimeContext({ context: divergenceWatchContext, solarTerms: divergenceTerms });
+  const divergenceTrue = resolveJinhanDunTypeFromChartTimeContext({ context: divergenceTrueContext, solarTerms: divergenceTerms });
+  check("jinhan-adapter-query-boundary-divergence-watch", JINHAN_DUN_TYPE_MODE.CHAO_SHEN, divergenceWatch.mode);
+  check("jinhan-adapter-query-boundary-divergence-true", JINHAN_DUN_TYPE_MODE.ZHENG_SHOU, divergenceTrue.mode);
+  check("jinhan-adapter-query-boundary-divergence-dun", false, divergenceWatch.dunType === divergenceTrue.dunType);
+  check("jinhan-adapter-query-boundary-divergence-switch", divergenceTrue.switchEffectiveDay, divergenceWatch.switchEffectiveDay);
+  check("jinhan-adapter-term-eot-recomputed", false, trueSolarResult.debug.queryEotMinutes === trueSolarResult.debug.termEotMinutes);
+  check("jinhan-adapter-term-not-query-solar-reuse", false, divergenceTrueTerm.localParts === divergenceTrueContext.trueSolar.localParts);
+
+  const annualCases = [
+    ["january-previous-winter", parts(2026, 1, 5, 12, 0), "冬至"],
+    ["pre-summer", parts(2026, 6, 1, 12, 0), "冬至"],
+    ["post-summer", parts(2026, 8, 1, 12, 0), "夏至"],
+    ["post-winter", parts(2026, 12, 30, 12, 0), "冬至"],
+  ];
+  for (const [id, localParts, expectedBoundary] of annualCases) {
+    const context = createContextAt({ mode: CHART_CONTEXT_MODE_WATCH, localParts });
+    const result = calculateJinhanFromChartTimeContext({
+      context,
+      baziResult: calculateBaziFromChartTimeContext(context, solarTerms),
+      solarTerms,
+    });
+    check(`jinhan-adapter-annual-${id}-status`, JINHAN_DUN_TYPE_STATUS.RESOLVED, result.status);
+    check(`jinhan-adapter-annual-${id}-boundary`, expectedBoundary, result.dunTypeResult.boundary);
+  }
+
+  const overseasCases = [
+    ["tokyo", "Asia/Tokyo", 540, parts(2026, 8, 10, 12, 0), { latitude: 35.68, longitude: 139.65, accuracy: null }],
+    ["la-summer", "America/Los_Angeles", -420, parts(2026, 8, 10, 12, 0), { latitude: 34.0522, longitude: -118.2437, accuracy: null }],
+    ["la-winter", "America/Los_Angeles", -480, parts(2026, 12, 10, 12, 0), { latitude: 34.0522, longitude: -118.2437, accuracy: null }],
+    ["kathmandu", "Asia/Kathmandu", 345, parts(2026, 8, 10, 12, 0), { latitude: 27.7172, longitude: 85.324, accuracy: null }],
+    ["lord-howe", "Australia/Lord_Howe", 630, parts(2027, 4, 10, 12, 0), { latitude: -31.55, longitude: 159.08, accuracy: null }],
+  ];
+  for (const [id, timeZone, offset, localParts, location] of overseasCases) {
+    const context = createContextAt({ mode: CHART_CONTEXT_MODE_TRUE_SOLAR, timeZone, utcOffsetMinutes: offset, localParts, location });
+    const termLocal = getJinhanTermLocalParts({ context, term: termWinter });
+    check(`jinhan-adapter-overseas-${id}-zone`, timeZone, termLocal.timeZone);
+    check(`jinhan-adapter-overseas-${id}-parts`, true, Number.isInteger(termLocal.localParts.year) && Number.isInteger(termLocal.localParts.hour));
+    check(`jinhan-adapter-overseas-${id}-term-eot`, true, Number.isFinite(termLocal.equationOfTimeSeconds));
+  }
+
+  const probeTerms = [
+    makeTerm(2024, "冬至", "2024-12-21T12:00:00+08:00"),
+    makeTerm(2025, "夏至", "2025-06-21T12:00:00+08:00"),
+    makeTerm(2025, "冬至", "2025-12-21T12:00:00+08:00"),
+    makeTerm(2026, "夏至", "2026-06-21T12:00:00+08:00"),
+    makeTerm(2026, "冬至", "2026-12-21T12:00:00+08:00"),
+  ];
+  const probeContext = createContextAt({
+    mode: CHART_CONTEXT_MODE_TRUE_SOLAR,
+    localParts: parts(2026, 8, 10, 8, 0),
+    location: { latitude: 25.033964, longitude: 121.564468, accuracy: null },
+  });
+  const probeInput = JSON.stringify({ context: probeContext, baziResult: { dayPillar: "丙辰" }, solarTerms: probeTerms });
+  const runProbe = (timeZone) => execFileSync(
+    process.execPath,
+    ["tests/jinhan-chart-time-adapter-probe.mjs", probeInput],
+    { cwd: process.cwd(), env: { ...process.env, TZ: timeZone }, encoding: "utf8" }
+  ).trim();
+  const probeTaipei = runProbe("Asia/Taipei");
+  check("jinhan-adapter-process-tz-utc", probeTaipei, runProbe("UTC"));
+  check("jinhan-adapter-process-tz-los-angeles", probeTaipei, runProbe("America/Los_Angeles"));
+
+  check("jinhan-adapter-static-no-guideng", false, /guideng|calculateGuiDeng/i.test(jinhanChartTimeAdapterRaw));
+  check("jinhan-adapter-static-no-solar-events", false, /solarEvents|calculateSolarEvents/i.test(jinhanChartTimeAdapterRaw));
+  check("jinhan-adapter-static-no-main", false, /main\.js|from\s+["']\.\/main/.test(jinhanChartTimeAdapterRaw));
+  check("jinhan-adapter-static-no-dom", false, /\bdocument\b|\bwindow\b|navigator|localStorage|sessionStorage/.test(jinhanChartTimeAdapterRaw));
+  check("jinhan-adapter-static-reuses-true-solar-core", true, jinhanChartTimeAdapterRaw.includes('from "./trueSolarTime.js"') && jinhanChartTimeAdapterRaw.includes("calculateTrueSolarTime"));
+  check("jinhan-adapter-static-no-eot-formula", false, /calculateEquationOfTime|NOAA|Meeus|meanLongitude/.test(jinhanChartTimeAdapterRaw));
+  check("jinhan-adapter-static-no-bazi-formula", false, /DAY_PILLAR_BASE|civilDateToEpochMs|firstHourStemIndex/.test(jinhanChartTimeAdapterRaw));
+  check("jinhan-adapter-static-no-network-or-dependency", false, /fetch\(|node_modules|npm:|process\.env/.test(jinhanChartTimeAdapterRaw));
+  check("jinhan-adapter-static-uses-bazi-clock-helper", true, jinhanChartTimeAdapterRaw.includes("getBaziClockLocalParts"));
 }
 
 function assertJinhanDunTypeResult(id, actual, expected) {

@@ -1,4 +1,4 @@
-import { getDayPillar } from "./ganzhi.js";
+import { getDayPillar, getDayPillarFromLocalParts } from "./ganzhi.js";
 import { parseLocalDateTime } from "./solarTerms.js";
 
 // 金函玉鏡超神接氣陰陽遁判斷 v1。
@@ -38,6 +38,63 @@ export const JINHAN_STEM_SWITCH_OFFSETS = Object.freeze({
   壬: Object.freeze({ offsetDays: 2, mode: JINHAN_DUN_TYPE_MODE.CHAO_SHEN }),
   癸: Object.freeze({ offsetDays: 1, mode: JINHAN_DUN_TYPE_MODE.CHAO_SHEN }),
 });
+
+/**
+ * Builds the v1 boundary snapshot from an already-resolved local clock.
+ * The local clock is authoritative for the 23:00 effective-day rule; the
+ * astronomical term instant is retained only for diagnostics.
+ */
+export function createJinhanBoundarySwitch({ boundary, termLocalParts, termTimeMs = null } = {}) {
+  if (boundary !== "冬至" && boundary !== "夏至") {
+    throw new TypeError("boundary 必須是冬至或夏至");
+  }
+  const termDayPillar = getDayPillarFromLocalParts(termLocalParts);
+  const termDateTime = formatLocalDateTime(termLocalParts);
+  const termStem = termDayPillar.pillar[0];
+  const switchRule = JINHAN_STEM_SWITCH_OFFSETS[termStem];
+  if (!switchRule) {
+    throw new TypeError(`節氣交節日干無法判斷金函規則：${termStem}`);
+  }
+
+  return {
+    boundary,
+    termDateTime,
+    termLocalParts: cloneLocalParts(termLocalParts),
+    termTimeMs: Number.isFinite(termTimeMs) ? termTimeMs : null,
+    termDayPillar: termDayPillar.pillar,
+    termStem,
+    termEffectiveDate: termDayPillar.effectiveDate,
+    switchDate: addDaysToCivilDate(termDayPillar.effectiveDate, switchRule.offsetDays),
+    offsetDays: switchRule.offsetDays,
+    mode: switchRule.mode,
+    dunTypeAfter: boundary === "冬至" ? YANG_DUN : YIN_DUN,
+    dunTypeBefore: boundary === "冬至" ? YIN_DUN : YANG_DUN,
+  };
+}
+
+/** Resolves the existing v1 annual interval from explicit local snapshots. */
+export function resolveJinhanDunTypeFromLocalParts({
+  queryLocalParts,
+  previousWinter,
+  currentSummer,
+  currentWinter,
+  prePreviousWinter = null,
+  previousSummer = null,
+} = {}) {
+  const queryEffectiveDate = getDayPillarFromLocalParts(queryLocalParts).effectiveDate;
+  if (!previousWinter || !currentSummer || !currentWinter) {
+    return createUnsupportedResult("缺少冬至 / 夏至邊界資料，無法判斷金函玉鏡陰陽遁。");
+  }
+
+  if (compareCivilDates(queryEffectiveDate, previousWinter.switchDate) < 0) {
+    if (!prePreviousWinter || !previousSummer) {
+      return createUnsupportedResult("缺少前一年冬至 / 夏至邊界資料，無法判斷金函玉鏡陰陽遁。");
+    }
+    return resolveDunType(queryEffectiveDate, prePreviousWinter, previousSummer, previousWinter);
+  }
+
+  return resolveDunType(queryEffectiveDate, previousWinter, currentSummer, currentWinter);
+}
 
 export function getJinhanDunType(dateTime, calendarResult, solarTerms) {
   void calendarResult;
@@ -120,27 +177,11 @@ function getBoundarySwitch(year, boundaryName, solarTerms) {
   }
 
   const termDateTime = formatTermLocalDateTime(term);
-  const termDayPillar = getDayPillar(termDateTime).pillar;
-  const termEffectiveDate = getDayPillar(termDateTime).effectiveDate;
-  const termStem = termDayPillar[0];
-  const switchRule = JINHAN_STEM_SWITCH_OFFSETS[termStem];
-
-  if (!switchRule) {
-    return null;
-  }
-
-  return {
+  return createJinhanBoundarySwitch({
     boundary: boundaryName,
-    termDateTime,
-    termDayPillar,
-    termStem,
-    termEffectiveDate,
-    switchDate: addDaysToCivilDate(termEffectiveDate, switchRule.offsetDays),
-    offsetDays: switchRule.offsetDays,
-    mode: switchRule.mode,
-    dunTypeAfter: boundaryName === "冬至" ? YANG_DUN : YIN_DUN,
-    dunTypeBefore: boundaryName === "冬至" ? YIN_DUN : YANG_DUN,
-  };
+    termLocalParts: parseLocalDateTime(termDateTime),
+    termTimeMs: getTermTimeMs(term),
+  });
 }
 
 function findSolarTerm(year, name, solarTerms) {
@@ -194,6 +235,8 @@ function createResolvedResult(dunType, boundary, reason) {
     dunType,
     mode: boundary.mode,
     boundary: boundary.boundary,
+    switchEffectiveDay: boundary.switchDate,
+    offsetDays: boundary.offsetDays,
     reason,
   };
 }
@@ -204,8 +247,26 @@ function createUnsupportedResult(reason) {
     dunType: null,
     mode: JINHAN_DUN_TYPE_MODE.UNKNOWN,
     boundary: null,
+    switchEffectiveDay: null,
+    offsetDays: null,
     reason,
   };
+}
+
+function cloneLocalParts(parts) {
+  return {
+    year: parts.year,
+    month: parts.month,
+    day: parts.day,
+    hour: parts.hour,
+    minute: parts.minute,
+    second: parts.second,
+    millisecond: parts.millisecond ?? 0,
+  };
+}
+
+function formatLocalDateTime(parts) {
+  return `${String(parts.year).padStart(4, "0")}-${String(parts.month).padStart(2, "0")}-${String(parts.day).padStart(2, "0")}T${String(parts.hour).padStart(2, "0")}:${String(parts.minute).padStart(2, "0")}:${String(parts.second).padStart(2, "0")}.${String(parts.millisecond ?? 0).padStart(3, "0")}`;
 }
 
 function addDaysToCivilDate(civilDate, days) {
