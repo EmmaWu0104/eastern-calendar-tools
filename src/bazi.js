@@ -64,6 +64,7 @@ export function calculateBaziFromSeparatedTimeInputs({
   termComparisonInstantMs,
   termLookupYear,
   clockLocalParts,
+  effectiveDayDateKey,
   solarTerms,
 } = {}) {
   if (!Number.isFinite(termComparisonInstantMs)) {
@@ -72,6 +73,14 @@ export function calculateBaziFromSeparatedTimeInputs({
   if (!Number.isInteger(termLookupYear)) {
     throw new TypeError("termLookupYear 必須是整數");
   }
+  const derivedEffectiveDayDateKey = getEffectiveDateKeyFromLocalParts(clockLocalParts);
+  if (!derivedEffectiveDayDateKey) {
+    throw new TypeError("clockLocalParts 必須是完整有效的 local parts");
+  }
+  if (effectiveDayDateKey !== undefined && effectiveDayDateKey !== derivedEffectiveDayDateKey) {
+    throw new TypeError("effectiveDayDateKey 必須符合 clockLocalParts 的 23:00 換日規則");
+  }
+  const resolvedEffectiveDayDateKey = effectiveDayDateKey ?? derivedEffectiveDayDateKey;
   const termContext = findSolarTermContextByTimeMs(termComparisonInstantMs, solarTerms, {
     ...clockLocalParts,
     timeMs: termComparisonInstantMs,
@@ -89,6 +98,7 @@ export function calculateBaziFromSeparatedTimeInputs({
     dayPillar,
     hourPillar,
     solarTerms,
+    dailyInfoDateKey: resolvedEffectiveDayDateKey,
   });
 }
 
@@ -100,6 +110,7 @@ function calculateBaziFromResolvedInputs({
   dayPillar,
   hourPillar,
   solarTerms,
+  dailyInfoDateKey,
 }) {
   const currentHou = getCurrentHouFromTermContext(termContext);
   const nextHou = getNextHouFromTermContext(termContext, solarTerms);
@@ -109,6 +120,10 @@ function calculateBaziFromResolvedInputs({
     solarTerms,
     yearPillar: yearPillar.pillar,
     dayPillar: dayPillar.pillar,
+    dateKeyOverride: dailyInfoDateKey,
+    seasonOverride: dailyInfoDateKey !== undefined
+      ? getSeasonByMonthBranch(monthBranch.branch)
+      : undefined,
   });
 
   return {
@@ -146,23 +161,32 @@ function getJianchuFromBranches(monthBranch, dayPillar) {
   return getJianchuByBranches(monthBranch, dayBranch);
 }
 
-function getDailyInfoFromContext({ termContext, solarTerms, yearPillar, dayPillar }) {
+function getDailyInfoFromContext({ termContext, solarTerms, yearPillar, dayPillar, dateKeyOverride, seasonOverride }) {
   const targetTimeMs = termContext?.dateTime?.timeMs;
-  const dateKey = Number.isFinite(targetTimeMs) ? getEffectiveDateKeyByTimeMs(targetTimeMs) : "";
+  const hasExplicitDateKey = typeof dateKeyOverride === "string";
+  const dateKey = hasExplicitDateKey
+    ? dateKeyOverride
+    : Number.isFinite(targetTimeMs) ? getEffectiveDateKeyByTimeMs(targetTimeMs) : "";
   const targetYear = getYearFromDateKey(dateKey);
   const nextTerm = termContext?.nextTerm;
+  const upcomingTermDateKey = hasExplicitDateKey
+    ? getTaipeiEffectiveDateKeyByTimeMs(nextTerm?.timeMs)
+    : "";
 
   return getDailyInfoByBranches({
     yearBranch: typeof yearPillar === "string" ? yearPillar[1] : "",
     dayPillar,
     upcomingTermName: nextTerm?.name ?? "",
-    isPreviousEffectiveDay:
-      Number.isFinite(targetTimeMs) && Number.isFinite(nextTerm?.timeMs)
+    isPreviousEffectiveDay: hasExplicitDateKey
+      ? isPreviousEffectiveDayByDateKeys(dateKey, upcomingTermDateKey)
+      : Number.isFinite(targetTimeMs) && Number.isFinite(nextTerm?.timeMs)
         ? isPreviousEffectiveDayOfTerm(targetTimeMs, nextTerm.timeMs)
         : false,
-    season: getSeasonByCurrentTermName(termContext?.currentTerm?.name),
+    season: seasonOverride ?? getSeasonByCurrentTermName(termContext?.currentTerm?.name),
     dateKey,
-    sanfuDateKeys: Number.isFinite(targetYear) ? getSanfuDateKeysForYear(targetYear, solarTerms) : null,
+    sanfuDateKeys: Number.isFinite(targetYear)
+      ? getSanfuDateKeysForYear(targetYear, solarTerms, { useTaipeiDateBasis: hasExplicitDateKey })
+      : null,
   });
 }
 
@@ -252,6 +276,14 @@ function getSeasonByCurrentTermName(currentTermName) {
   return null;
 }
 
+function getSeasonByMonthBranch(monthBranch) {
+  if (["寅", "卯", "辰"].includes(monthBranch)) return "春季";
+  if (["巳", "午", "未"].includes(monthBranch)) return "夏季";
+  if (["申", "酉", "戌"].includes(monthBranch)) return "秋季";
+  if (["亥", "子", "丑"].includes(monthBranch)) return "冬季";
+  return null;
+}
+
 function isPreviousEffectiveDayOfTerm(targetTimeMs, upcomingTermTimeMs) {
   if (!Number.isFinite(targetTimeMs) || !Number.isFinite(upcomingTermTimeMs)) {
     return false;
@@ -264,7 +296,15 @@ function isPreviousEffectiveDayOfTerm(targetTimeMs, upcomingTermTimeMs) {
   return targetDateKey === previousDateKey;
 }
 
-function getSanfuDateKeysForYear(targetYear, solarTerms) {
+function isPreviousEffectiveDayByDateKeys(targetDateKey, upcomingTermDateKey) {
+  if (!isDateKey(targetDateKey) || !isDateKey(upcomingTermDateKey)) {
+    return false;
+  }
+
+  return targetDateKey === addDaysToDateKeyUtc(upcomingTermDateKey, -1);
+}
+
+function getSanfuDateKeysForYear(targetYear, solarTerms, options = {}) {
   if (!Number.isInteger(targetYear) || !Array.isArray(solarTerms)) {
     return null;
   }
@@ -275,10 +315,13 @@ function getSanfuDateKeysForYear(targetYear, solarTerms) {
     return null;
   }
 
-  const summerSolsticeDateKey = getEffectiveDateKeyByTimeMs(summerSolstice.timeMs);
-  const liqiuDateKey = getEffectiveDateKeyByTimeMs(liqiu.timeMs);
-  const summerGengDays = findGengDateKeysFrom(summerSolsticeDateKey, 4);
-  const liqiuGengDays = findGengDateKeysFrom(liqiuDateKey, 1);
+  const dateKeyFromTerm = options.useTaipeiDateBasis
+    ? getTaipeiEffectiveDateKeyByTimeMs
+    : getEffectiveDateKeyByTimeMs;
+  const summerSolsticeDateKey = dateKeyFromTerm(summerSolstice.timeMs);
+  const liqiuDateKey = dateKeyFromTerm(liqiu.timeMs);
+  const summerGengDays = findGengDateKeysFrom(summerSolsticeDateKey, 4, options);
+  const liqiuGengDays = findGengDateKeysFrom(liqiuDateKey, 1, options);
 
   if (summerGengDays.length < 4 || liqiuGengDays.length < 1) {
     return null;
@@ -313,17 +356,27 @@ function findTermForYear(solarTerms, termName, termYear) {
     );
 }
 
-function findGengDateKeysFrom(startDateKey, requiredCount) {
+function findGengDateKeysFrom(startDateKey, requiredCount, options = {}) {
   const gengDateKeys = [];
   let currentDateKey = startDateKey;
 
   for (let offset = 0; offset < 80 && gengDateKeys.length < requiredCount; offset += 1) {
-    const dayPillar = getDayPillar(`${currentDateKey}T00:00:00`).pillar;
+    const dayPillar = getDayPillarFromLocalParts({
+      year: Number(currentDateKey.slice(0, 4)),
+      month: Number(currentDateKey.slice(5, 7)),
+      day: Number(currentDateKey.slice(8, 10)),
+      hour: 0,
+      minute: 0,
+      second: 0,
+      millisecond: 0,
+    }).pillar;
     if (isGengDay(dayPillar)) {
       gengDateKeys.push(currentDateKey);
     }
 
-    currentDateKey = addDaysToDateKey(currentDateKey, 1);
+    currentDateKey = options.useTaipeiDateBasis
+      ? addDaysToDateKeyUtc(currentDateKey, 1)
+      : addDaysToDateKey(currentDateKey, 1);
   }
 
   return gengDateKeys;
@@ -338,6 +391,38 @@ function getEffectiveDateKeyByTimeMs(timeMs) {
   return formatDateKey(date);
 }
 
+function getTaipeiEffectiveDateKeyByTimeMs(timeMs) {
+  if (!Number.isFinite(timeMs)) {
+    return "";
+  }
+
+  const date = new Date(timeMs + 8 * 60 * 60 * 1000);
+  const localParts = {
+    year: date.getUTCFullYear(),
+    month: date.getUTCMonth() + 1,
+    day: date.getUTCDate(),
+    hour: date.getUTCHours(),
+    minute: date.getUTCMinutes(),
+    second: date.getUTCSeconds(),
+    millisecond: date.getUTCMilliseconds(),
+  };
+  return getEffectiveDateKeyFromLocalParts(localParts);
+}
+
+/** Returns the 23:00-effective date for a wall-clock component snapshot. */
+export function getEffectiveDateKeyFromLocalParts(parts) {
+  if (!isCompleteLocalParts(parts)) {
+    return "";
+  }
+
+  const date = new Date(Date.UTC(parts.year, parts.month - 1, parts.day));
+  if (parts.hour >= 23) {
+    date.setUTCDate(date.getUTCDate() + 1);
+  }
+
+  return formatUtcDateKey(date);
+}
+
 function addDaysToDateKey(dateKey, dayOffset) {
   const date = createLocalDateFromDateKey(dateKey);
   if (!date) {
@@ -348,9 +433,51 @@ function addDaysToDateKey(dateKey, dayOffset) {
   return formatDateKey(date);
 }
 
+function addDaysToDateKeyUtc(dateKey, dayOffset) {
+  if (!isDateKey(dateKey) || !Number.isInteger(dayOffset)) {
+    return "";
+  }
+
+  const [year, month, day] = dateKey.split("-").map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  date.setUTCDate(date.getUTCDate() + dayOffset);
+  return formatUtcDateKey(date);
+}
+
 function getYearFromDateKey(dateKey) {
-  const date = createLocalDateFromDateKey(dateKey);
-  return date ? date.getFullYear() : NaN;
+  return isDateKey(dateKey) ? Number(dateKey.slice(0, 4)) : NaN;
+}
+
+function isDateKey(value) {
+  return typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value);
+}
+
+function isCompleteLocalParts(parts) {
+  if (!parts || typeof parts !== "object" || parts instanceof Date) {
+    return false;
+  }
+
+  const names = ["year", "month", "day", "hour", "minute", "second", "millisecond"];
+  if (!names.every((name) => Number.isInteger(parts[name]))) {
+    return false;
+  }
+
+  const date = new Date(Date.UTC(
+    parts.year,
+    parts.month - 1,
+    parts.day,
+    parts.hour,
+    parts.minute,
+    parts.second,
+    parts.millisecond
+  ));
+  return date.getUTCFullYear() === parts.year
+    && date.getUTCMonth() === parts.month - 1
+    && date.getUTCDate() === parts.day
+    && date.getUTCHours() === parts.hour
+    && date.getUTCMinutes() === parts.minute
+    && date.getUTCSeconds() === parts.second
+    && date.getUTCMilliseconds() === parts.millisecond;
 }
 
 function createLocalDateFromDateKey(dateKey) {
@@ -371,5 +498,12 @@ function formatDateKey(date) {
   const year = String(date.getFullYear()).padStart(4, "0");
   const month = String(date.getMonth() + 1).padStart(2, "0");
   const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function formatUtcDateKey(date) {
+  const year = String(date.getUTCFullYear()).padStart(4, "0");
+  const month = String(date.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(date.getUTCDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
 }

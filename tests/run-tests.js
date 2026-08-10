@@ -12,7 +12,11 @@ const {
 } = await import("../src/annualAfflictions.js");
 const { access, readdir, readFile } = await import("node:fs/promises");
 const { fileURLToPath } = await import("node:url");
-const { calculateBaziFromSolarTerms } = await import("../src/bazi.js");
+const {
+  calculateBaziFromSeparatedTimeInputs,
+  calculateBaziFromSolarTerms,
+  getEffectiveDateKeyFromLocalParts,
+} = await import("../src/bazi.js");
 const {
   calculateBaziFromChartTimeContext,
   createBaziCalculationInputFromChartTimeContext,
@@ -30,6 +34,7 @@ const {
   getDailyClashByDayBranch,
   getDailyInfoByBranches,
   formatBaziDailySummary,
+  formatBaziDailySummaryFromDateKey,
   getSanfuByDateKey,
   getSeasonalMarkerByUpcomingTerm,
   getSuiPoByBranches,
@@ -313,6 +318,14 @@ let timeZoneCatalogVerifiedCaseCount = 0;
 let chartDisplayModeVerifiedCaseCount = 0;
 let chartTimeContextVerifiedCaseCount = 0;
 let baziChartTimeAdapterVerifiedCaseCount = 0;
+let trueSolarBaziRuntimeVerifiedCaseCount = 0;
+let trueSolarBaziRuntimeBugFixVerifiedCaseCount = 0;
+let trueSolarSharedQueryRuntimeVerifiedCaseCount = 0;
+let chartQueryTimeUxVerifiedCaseCount = 0;
+let trueSolarFormalTimeSyncBugFixVerifiedCaseCount = 0;
+let trueSolarQuerySourceIsolationBugFixVerifiedCaseCount = 0;
+let trueSolarDailyInfoVerifiedCaseCount = 0;
+let trueSolarBaziPriorityBugFixVerifiedCaseCount = 0;
 let jianchuVerifiedCaseCount = 0;
 let lunarCalendarVerifiedCaseCount = 0;
 let lunarCalendarUiVerifiedCaseCount = 0;
@@ -716,8 +729,16 @@ runDailyInfoTests();
 runTrueSolarTimeTests();
 runTrueSolarTimeUiTests();
 runChartDisplayModeTests();
-runChartTimeContextTests();
-runBaziChartTimeAdapterTests();
+  runChartTimeContextTests();
+  runBaziChartTimeAdapterTests();
+  runTrueSolarBaziRuntimeTests();
+  runTrueSolarBaziRuntimeBugFixTests();
+  runTrueSolarSharedQueryRuntimeTests();
+  runChartQueryTimeUxTests();
+  runTrueSolarFormalTimeSyncBugFixTests();
+  runTrueSolarQuerySourceIsolationBugFixTests();
+  runTrueSolarBaziPriorityBugFixTests(solarTerms);
+  runTrueSolarDailyInfoTests(solarTerms);
 await runSolarEventsTests();
 await runTimeZoneTests();
 runTimeZoneCatalogTests();
@@ -754,6 +775,14 @@ if (failures.length > 0) {
   console.log(`排盤顯示模式測試通過：${chartDisplayModeVerifiedCaseCount} cases`);
   console.log(`ChartTimeContext 核心測試通過：${chartTimeContextVerifiedCaseCount} cases`);
   console.log(`四柱 ChartTimeContext adapter 測試通過：${baziChartTimeAdapterVerifiedCaseCount} cases`);
+  console.log(`真太陽時四柱 runtime 測試通過：${trueSolarBaziRuntimeVerifiedCaseCount} cases`);
+  console.log(`真太陽時四柱 runtime blocking bug 修復測試通過：${trueSolarBaziRuntimeBugFixVerifiedCaseCount} cases`);
+  console.log(`真太陽時四柱共用查詢時間 R2 測試通過：${trueSolarSharedQueryRuntimeVerifiedCaseCount} cases`);
+  console.log(`排盤時間來源 UX R3 測試通過：${chartQueryTimeUxVerifiedCaseCount} cases`);
+  console.log(`正式真太陽四柱時間同步 blocking bug 修復測試通過：${trueSolarFormalTimeSyncBugFixVerifiedCaseCount} cases`);
+  console.log(`正式排盤／B-C 查詢來源隔離 blocking bug 修復測試通過：${trueSolarQuerySourceIsolationBugFixVerifiedCaseCount} cases`);
+  console.log(`auto-now 四柱優先更新 blocking bug 修復測試通過：${trueSolarBaziPriorityBugFixVerifiedCaseCount} cases`);
+  console.log(`真太陽四柱每日附屬資訊 8B-2C 測試通過：${trueSolarDailyInfoVerifiedCaseCount} cases`);
   console.log(`太陽事件測試通過：${solarEventsVerifiedCaseCount} cases`);
   console.log(`時區核心測試通過：${timeZoneVerifiedCaseCount} cases`);
   console.log(`時區搜尋 catalog 測試通過：${timeZoneCatalogVerifiedCaseCount} cases`);
@@ -8963,7 +8992,7 @@ function runTrueSolarTimeUiTests() {
   assertUi("true-solar-time-solar-events-two-lines", true, mainCssRaw.includes(".true-solar-events-location-line, .true-solar-events-time-zone-line { display: block") && !extractNamedFunctionSource(mainModuleRaw, "renderTrueSolarTimeSolarEvents").includes("｜時區"));
   assertUi("true-solar-time-solar-events-grid-preserved", true, /id="true-solar-time-sunrise"[\s\S]*?id="true-solar-time-solar-noon"[\s\S]*?id="true-solar-time-sunset"/.test(indexHtmlRaw));
   assertUi("true-solar-time-solar-events-mobile-wrap", true, mainCssRaw.includes("overflow-wrap: anywhere"));
-  assertUi("true-solar-time-query-only-note", true, indexHtmlRaw.includes('id="true-solar-time-query-only-note"') && indexHtmlRaw.includes("目前尚未影響下方排盤結果"));
+  assertUi("true-solar-time-query-only-note", true, indexHtmlRaw.includes('id="true-solar-time-query-only-note"') && indexHtmlRaw.includes("正式四柱目前使用頁面上方「排盤時間」") && indexHtmlRaw.includes("僅供獨立換算查詢"));
   assertUi("true-solar-time-timezone-core-import", true, mainModuleRaw.includes('from "./timeZone.js"') && mainModuleRaw.includes("getDeviceTimeZone") && mainModuleRaw.includes("resolveLocalDateTimeInTimeZone"));
   assertUi("true-solar-time-carrier", true, /function createUtcCarrierFromLocalParts[\s\S]*?Date\.UTC/.test(mainModuleRaw) && mainModuleRaw.includes("useUtcComponents: true"));
   assertUi("true-solar-time-no-custom-date-string-parse", false, mainModuleRaw.includes('new Date("YYYY-MM-DDTHH:mm:ss")'));
@@ -9276,6 +9305,7 @@ function runBaziChartTimeAdapterTests() {
   check("bazi-adapter-watch-pillar-compatibility", JSON.stringify([legacyWatch.yearPillar, legacyWatch.monthPillar, legacyWatch.dayPillar, legacyWatch.hourPillar]), JSON.stringify([watchResult.yearPillar, watchResult.monthPillar, watchResult.dayPillar, watchResult.hourPillar]));
   check("bazi-adapter-watch-term-compatibility", JSON.stringify([legacyWatch.currentTerm.name, legacyWatch.nextTerm.name, legacyWatch.meta]), JSON.stringify([watchResult.currentTerm.name, watchResult.nextTerm.name, watchResult.meta]));
   check("bazi-adapter-watch-debug-effective-day", "2026-08-07", watchResult.debug.effectiveDayDateKey);
+  check("bazi-adapter-input-explicit-effective-day", "2026-08-07", createBaziCalculationInputFromChartTimeContext(watchContext).effectiveDayDateKey);
 
   for (const [id, clock] of [["before", parts(2026, 5, 29, 22, 59, 59)], ["exact", parts(2026, 5, 29, 23, 0, 0)], ["after", parts(2026, 5, 29, 23, 0, 1)], ["midnight", parts(2026, 5, 30, 0, 0, 1)]]) {
     const context = createChartTimeContext(contextInput({ civilParts: clock }));
@@ -9417,7 +9447,766 @@ function runBaziChartTimeAdapterTests() {
   check("bazi-adapter-static-no-dom", false, /\bdocument\b|\bwindow\b|\bnavigator\b|geolocation|localStorage/.test(baziChartTimeAdapterRaw));
   check("bazi-adapter-static-no-runtime-coupling", false, /chartTimeState|chartDisplayMode|from\s+["']\.\/main\.js/.test(baziChartTimeAdapterRaw));
   check("bazi-adapter-static-no-other-chart-import", false, /from\s+["']\.\/(flyingStars|jinhan|qimen)/.test(baziChartTimeAdapterRaw));
-  check("bazi-adapter-static-main-not-wired", false, /baziChartTimeAdapter/.test(mainModuleRaw));
+  check("bazi-adapter-static-main-runtime-wired", true, mainModuleRaw.includes('from "./baziChartTimeAdapter.js"'));
+}
+
+function runTrueSolarBaziRuntimeTests() {
+  const check = (id, expected, actual) => {
+    trueSolarBaziRuntimeVerifiedCaseCount += 1;
+    assertEqual(id, "result", expected, actual);
+  };
+  const parts = (year, month, day, hour, minute, second = 0) => ({ year, month, day, hour, minute, second, millisecond: 0 });
+  const instantFor = (value, offsetMinutes) => Date.UTC(value.year, value.month - 1, value.day, value.hour, value.minute, value.second) - offsetMinutes * 60_000;
+  const trueSolarContext = (source, localParts, timeZone, offset, trueSolarParts, disambiguation = null) => createTrueSolarChartTimeContext({
+    source,
+    civil: { localParts, timeZone, utcOffsetMinutes: offset, abbreviation: "", instantMs: instantFor(localParts, offset), disambiguation },
+    location: { latitude: 25, longitude: 121.5, accuracy: null },
+    trueSolarResult: { trueSolarParts, totalCorrectionSeconds: 0, longitudeCorrectionSeconds: 0, equationOfTimeSeconds: 0 },
+    createdAtInstantMs: 0,
+  });
+
+  const watchInput = "2026-08-07T08:49:00";
+  const watchResult = calculateBaziFromSolarTerms(watchInput, solarTerms);
+  const watchSnapshot = JSON.stringify(watchResult);
+  const trueContext = trueSolarContext("query", parts(2026, 8, 7, 8, 49), "Asia/Taipei", 480, parts(2026, 8, 7, 8, 47, 30));
+  const trueResult = calculateBaziFromChartTimeContext(trueContext, solarTerms);
+  check("true-solar-runtime-watch-legacy", true, watchSnapshot === JSON.stringify(calculateBaziFromSolarTerms(watchInput, solarTerms)));
+  check("true-solar-runtime-ready-adapter", true, trueResult && trueResult.debug.clockMode === "true-solar");
+  check("true-solar-runtime-does-not-overwrite-watch", watchSnapshot, JSON.stringify(watchResult));
+  check("true-solar-runtime-day-from-local", true, trueResult.debug.clockLocalDateTime.includes("08:47:30"));
+  check("true-solar-runtime-term-from-civil-instant", trueContext.civil.instantMs, trueResult.termContext.comparisonInstantMs);
+
+  const deviceContext = trueSolarContext("device", parts(2026, 8, 7, 8, 49), "Asia/Taipei", 480, parts(2026, 8, 7, 8, 47));
+  const customContext = trueSolarContext("custom", parts(2026, 8, 6, 14, 21), "America/Los_Angeles", -420, parts(2026, 8, 6, 13, 22));
+  check("true-solar-runtime-source-a", "query", trueContext.source);
+  check("true-solar-runtime-source-b", "device", deviceContext.source);
+  check("true-solar-runtime-source-c", "custom", customContext.source);
+  check("true-solar-runtime-source-b-context", "Asia/Taipei", deviceContext.civil.timeZone);
+  check("true-solar-runtime-source-c-context", "America/Los_Angeles", customContext.civil.timeZone);
+  check("true-solar-runtime-custom-clock", "2026-08-06 13:22:00", calculateBaziFromChartTimeContext(customContext, solarTerms).debug.clockLocalDateTime);
+
+  const lichun = solarTerms.find((term) => term.name === "立春" && term.year_taipei === 2026);
+  for (const [id, delta, expectedYear] of [["before", -1, "乙巳"], ["exact", 0, "丙午"], ["after", 1, "丙午"]]) {
+    const boundaryClock = parts(2026, 2, 4, 4, 2);
+    const boundaryResult = calculateBaziFromChartTimeContext(createTrueSolarChartTimeContext({
+      source: "query",
+      civil: { localParts: boundaryClock, timeZone: "Asia/Taipei", utcOffsetMinutes: 480, abbreviation: "", instantMs: lichun.timeMs + delta, disambiguation: null },
+      location: { latitude: 25, longitude: 121.5, accuracy: null },
+      trueSolarResult: { trueSolarParts: parts(2026, 2, 4, 3, 54), totalCorrectionSeconds: 0, longitudeCorrectionSeconds: 0, equationOfTimeSeconds: 0 },
+      createdAtInstantMs: 0,
+    }), solarTerms);
+    check(`true-solar-runtime-lichun-${id}`, expectedYear, boundaryResult.yearPillar);
+  }
+
+  const unavailableSource = extractNamedFunctionSource(mainModuleRaw, "renderBaziForActiveDisplayMode");
+  check("true-solar-runtime-no-fallback", true, unavailableSource.includes("renderUnavailableTrueSolarBazi") && unavailableSource.includes("if (!currentTrueSolarChartContext)"));
+  check("true-solar-runtime-orchestration-helper", true, mainModuleRaw.includes("function createCurrentTrueSolarChartContext()") && mainModuleRaw.includes("createTrueSolarChartTimeContext(currentTrueSolarChartContextInput)"));
+  check("true-solar-runtime-separate-result-state", true, mainModuleRaw.includes("currentTrueSolarBaziResult") && mainModuleRaw.includes("currentCalendarResult = result"));
+  check("true-solar-runtime-watch-downstream", true, ["renderFlyingStars(result, effectiveDateTimeValue)", "renderJinhanYujing(result, effectiveDateTimeValue", "renderQimenSection(effectiveDateTimeValue)"].every((call) => extractNamedFunctionSource(mainModuleRaw, "renderByDateTime").includes(call)));
+  check("true-solar-runtime-display-only-overlay", true, extractNamedFunctionSource(mainModuleRaw, "renderTrueSolarBaziResult").includes("renderSeasonInfo(result, context.civil.timeZone)") && !extractNamedFunctionSource(mainModuleRaw, "renderTrueSolarBaziResult").includes("renderFlyingStars"));
+
+  const formatterSource = extractNamedFunctionSource(mainModuleRaw, "formatTermDateTime");
+  const autumnTerm = solarTerms.find((term) => term.name === "立秋" && term.year_taipei === 2026);
+  const winterTerm = solarTerms.find((term) => term.name === "小寒" && term.year_taipei === 2027);
+  const tokyoTerm = getZonedDateTimeParts(new Date(autumnTerm.timeMs), "Asia/Tokyo");
+  const laSummerTerm = getZonedDateTimeParts(new Date(autumnTerm.timeMs), "America/Los_Angeles");
+  const laWinterTerm = getZonedDateTimeParts(new Date(winterTerm.timeMs), "America/Los_Angeles");
+  check("true-solar-runtime-term-tokyo-offset", 540, tokyoTerm.utcOffsetMinutes);
+  check("true-solar-runtime-term-la-summer-offset", -420, laSummerTerm.utcOffsetMinutes);
+  check("true-solar-runtime-term-la-winter-offset", -480, laWinterTerm.utcOffsetMinutes);
+  check("true-solar-runtime-term-identity-shared", autumnTerm.timeMs, new Date(autumnTerm.utc).getTime());
+  check("true-solar-runtime-term-formatter-iana", true, formatterSource.includes("getZonedDateTimeParts(new Date(term.timeMs), timeZone)"));
+  check("true-solar-runtime-term-formatter-not-query-offset", false, formatterSource.includes("civil.utcOffsetMinutes"));
+  check("true-solar-runtime-term-formatter-watch-preserved", true, formatterSource.includes("date.getFullYear()") && formatterSource.includes("timeZone = null"));
+  check("true-solar-runtime-lingering-result-cleared", true, mainModuleRaw.includes("currentTrueSolarChartContext = null") && mainModuleRaw.includes("currentTrueSolarBaziResult = null"));
+}
+
+function runTrueSolarBaziRuntimeBugFixTests() {
+  const check = (id, expected, actual) => {
+    trueSolarBaziRuntimeBugFixVerifiedCaseCount += 1;
+    assertEqual(id, "result", expected, actual);
+  };
+
+  const formatChartTimeStatusDateTime = loadChartTimeStatusDateTimeForTest(mainModuleRaw);
+  check("true-solar-runtime-watch-status-empty", "時間初始化中…", formatChartTimeStatusDateTime(""));
+  check("true-solar-runtime-watch-status-invalid", "時間初始化中…", formatChartTimeStatusDateTime("not-a-date"));
+  check("true-solar-runtime-watch-status-valid", "2026/08/07 08:49:00", formatChartTimeStatusDateTime("2026-08-07T08:49:00"));
+
+  const statusSource = extractNamedFunctionSource(mainModuleRaw, "renderChartTimeStatus");
+  check("true-solar-runtime-watch-status-no-unsafe-chain", false, statusSource.includes("getLocalDateParts(parseDateTimeLocalValue"));
+  check("true-solar-runtime-watch-status-uses-safe-formatter", true, statusSource.includes("formatChartTimeStatusDateTime"));
+  check("true-solar-runtime-watch-status-global-no-unsafe-chain", false, /getLocalDateParts\(\s*parseDateTimeLocalValue/.test(mainModuleRaw));
+
+  const initializeSource = extractNamedFunctionSource(mainModuleRaw, "initializeChartDisplayMode");
+  const startAutoNowSource = extractNamedFunctionSource(mainModuleRaw, "startAutoNowMode");
+  check("true-solar-runtime-watch-init-keeps-safe-render", true, initializeSource.includes("renderChartDisplayMode") && startAutoNowSource.includes("refreshFromCurrentTime()"));
+
+  const locationSync = loadTrueSolarLocationSyncForTest(mainModuleRaw);
+  check("true-solar-runtime-coordinate-empty", null, locationSync.sync("", { showError: false }));
+  check("true-solar-runtime-coordinate-empty-clears-state", null, locationSync.getLocation());
+
+  const decimal = locationSync.sync("35.681236, 139.767125", { showError: false });
+  check("true-solar-runtime-coordinate-decimal-location", true, decimal?.latitude === 35.681236 && decimal?.longitude === 139.767125);
+  check("true-solar-runtime-coordinate-decimal-normalized", "35.681236, 139.767125", locationSync.getInput());
+
+  const dms = locationSync.sync("35°40'52.4\"N 139°46'1.65\"E", { showError: false });
+  check("true-solar-runtime-coordinate-dms-location", true, dms?.sourceFormat === "dms" && Math.abs(dms.latitude - 35.6812222222) < 0.00000001 && Math.abs(dms.longitude - 139.767125) < 0.00000001);
+
+  const invalid = locationSync.sync("abc", { showError: true });
+  check("true-solar-runtime-coordinate-invalid", null, invalid);
+  check("true-solar-runtime-coordinate-invalid-clears-state", null, locationSync.getLocation());
+  check("true-solar-runtime-coordinate-invalid-message", true, locationSync.getStatuses().at(-1)?.message.includes("無法辨識座標"));
+
+  locationSync.setLocation({ latitude: 35.681236, longitude: 139.767125, accuracy: 12 });
+  const sameGeolocation = locationSync.sync("35.681236, 139.767125", { showError: false });
+  check("true-solar-runtime-coordinate-preserves-geolocation-accuracy", 12, sameGeolocation?.accuracy);
+
+  const modeSource = extractNamedFunctionSource(mainModuleRaw, "renderChartDisplayMode");
+  check("true-solar-runtime-mode-entry-syncs-existing-coordinate", true, modeSource.includes("syncTrueSolarTimeLocationFromCoordinateInput({ showError: false })"));
+  check("true-solar-runtime-mode-entry-sync-before-render", true, modeSource.indexOf("syncTrueSolarTimeLocationFromCoordinateInput") < modeSource.indexOf("renderActiveTrueSolarTime()"));
+  check("true-solar-runtime-mode-entry-no-legacy-button", false, modeSource.includes("calculateTrueSolarTimeFromCoordinateInput"));
+
+  check("true-solar-runtime-coordinate-input-listener", true, mainModuleRaw.includes('elements.trueSolarTimeCoordinate.addEventListener("input", handleTrueSolarTimeCoordinateInput)'));
+  check("true-solar-runtime-coordinate-change-listener", true, mainModuleRaw.includes('elements.trueSolarTimeCoordinate.addEventListener("change", handleTrueSolarTimeCoordinateChange)'));
+  const inputSource = extractNamedFunctionSource(mainModuleRaw, "handleTrueSolarTimeCoordinateInput");
+  const changeSource = extractNamedFunctionSource(mainModuleRaw, "handleTrueSolarTimeCoordinateChange");
+  check("true-solar-runtime-coordinate-input-clears-stale-state", true, inputSource.includes("trueSolarTimeLocation = null") && inputSource.includes("clearTrueSolarTimePresentation()"));
+  check("true-solar-runtime-coordinate-change-rerenders", true, changeSource.includes("syncTrueSolarTimeLocationFromCoordinateInput") && changeSource.includes("renderActiveTrueSolarTime()"));
+  check("true-solar-runtime-coordinate-change-no-duplicate-mode-render", false, changeSource.includes("renderChartDisplayMode()"));
+
+  const calculateSource = extractNamedFunctionSource(mainModuleRaw, "calculateTrueSolarTimeFromCoordinateInput");
+  check("true-solar-runtime-legacy-button-reuses-sync-helper", true, calculateSource.includes("syncTrueSolarTimeLocationFromCoordinateInput") && !calculateSource.includes("parseCoordinateInput"));
+  const clearPresentationSource = extractNamedFunctionSource(mainModuleRaw, "clearTrueSolarTimePresentation");
+  check("true-solar-runtime-clear-presentation-keeps-location", false, clearPresentationSource.includes("trueSolarTimeLocation = null"));
+  const contextSource = extractNamedFunctionSource(mainModuleRaw, "renderTrueSolarTimeForContext");
+  const formalSource = extractNamedFunctionSource(mainModuleRaw, "renderFormalTrueSolarChartTime");
+  check("true-solar-runtime-coordinate-change-rebuilds-context-and-bazi", true, formalSource.includes("createCurrentTrueSolarChartContext()") && formalSource.includes("renderBaziForActiveDisplayMode()"));
+}
+
+function runTrueSolarSharedQueryRuntimeTests() {
+  const check = (id, expected, actual) => {
+    trueSolarSharedQueryRuntimeVerifiedCaseCount += 1;
+    assertEqual(id, "result", expected, actual);
+  };
+  const parts = (year, month, day, hour, minute, second = 0) => ({
+    year,
+    month,
+    day,
+    hour,
+    minute,
+    second,
+    millisecond: 0,
+  });
+  const instantFor = (value, offsetMinutes) => Date.UTC(
+    value.year,
+    value.month - 1,
+    value.day,
+    value.hour,
+    value.minute,
+    value.second
+  ) - offsetMinutes * 60_000;
+  const createFixtureContext = (civilLocalParts, trueSolarLocalParts, correctionSeconds = 0) => createTrueSolarChartTimeContext({
+    source: "query",
+    civil: {
+      localParts: civilLocalParts,
+      timeZone: "Asia/Taipei",
+      utcOffsetMinutes: 480,
+      abbreviation: "",
+      instantMs: instantFor(civilLocalParts, 480),
+    },
+    location: { latitude: 25.033964, longitude: 121.564468, accuracy: null },
+    trueSolarResult: {
+      trueSolarParts: trueSolarLocalParts,
+      totalCorrectionSeconds: correctionSeconds,
+      longitudeCorrectionSeconds: 0,
+      equationOfTimeSeconds: correctionSeconds,
+    },
+    createdAtInstantMs: 0,
+  });
+
+  const formalSource = extractNamedFunctionSource(mainModuleRaw, "renderFormalTrueSolarChartTime");
+  const activeSource = extractNamedFunctionSource(mainModuleRaw, "renderActiveTrueSolarTime");
+  const contextSource = extractNamedFunctionSource(mainModuleRaw, "renderTrueSolarTimeForContext");
+  const byDateTimeSource = extractNamedFunctionSource(mainModuleRaw, "renderByDateTime");
+  const displayModeSource = extractNamedFunctionSource(mainModuleRaw, "renderChartDisplayMode");
+  const sourceChangeSource = extractNamedFunctionSource(mainModuleRaw, "handleTrueSolarTimeSourceChange");
+  const customSource = extractNamedFunctionSource(mainModuleRaw, "renderTrueSolarTimeForCustomInput");
+  const deviceSource = extractNamedFunctionSource(mainModuleRaw, "renderTrueSolarTimeForDeviceNow");
+  const statusSource = extractNamedFunctionSource(mainModuleRaw, "renderChartTimeStatus");
+
+  check("true-solar-r2-formal-shared-query-call", true, byDateTimeSource.includes("renderFormalTrueSolarChartTime()") && displayModeSource.includes("renderFormalTrueSolarChartTime()"));
+  const calculationSource = extractNamedFunctionSource(mainModuleRaw, "resolveTrueSolarTimeCalculation");
+  check("true-solar-r2-formal-query-source-a", true, formalSource.includes('source: TRUE_SOLAR_TIME_SOURCE.QUERY') && formalSource.includes('timeZone: "Asia/Taipei"') && formalSource.includes("resolveTrueSolarTimeCalculation(context)"));
+  check("true-solar-r2-formal-context-only-top-query", true, formalSource.includes("parseTopQueryDateTimeLocalParts(elements.datetime.value)") && !formalSource.includes("trueSolarTimeSource"));
+  check("true-solar-r2-bc-functions-retained", true, activeSource.includes("TRUE_SOLAR_TIME_SOURCE.DEVICE") && activeSource.includes("TRUE_SOLAR_TIME_SOURCE.CUSTOM") && deviceSource.includes("renderTrueSolarTimeForContext") && customSource.includes("renderTrueSolarTimeForContext"));
+  check("true-solar-r2-bc-do-not-write-formal-context", true, !contextSource.includes("currentTrueSolarChartContextInput") && contextSource.includes("clearTrueSolarTimePresentation({ clearFormalChart: false })") && formalSource.includes("currentTrueSolarChartContextInput = {") && calculationSource.includes("resolveLocalDateTimeInTimeZone"));
+  check("true-solar-r2-bc-source-switch-preserves-formal", true, sourceChangeSource.includes("clearTrueSolarTimePresentation({ clearFormalChart: false })") && !sourceChangeSource.includes("renderFormalTrueSolarChartTime"));
+  check("true-solar-r2-custom-device-no-formal-fallback", false, customSource.includes("renderFormalTrueSolarChartTime") || deviceSource.includes("renderFormalTrueSolarChartTime"));
+  check("true-solar-r2-shared-watch-local", true, calculationSource.includes("civilResolution") && formalSource.includes("civilResolution.localParts") && formalSource.includes("timeZone: civilResolution.timeZone"));
+  check("true-solar-r2-status-has-three-clock-lines", true, statusSource.includes("currentTrueSolarChartContext.trueSolar.localParts") && statusSource.includes("手錶時間") && statusSource.includes("真太陽時") && statusSource.includes("時區") && (statusSource.match(/chart-time-status-detail-line/g) ?? []).length >= 3);
+  check("true-solar-r2-status-keeps-seconds", true, mainModuleRaw.includes("function formatDateTimeParts(parts)") && statusSource.includes("formatDateTimeParts(currentTrueSolarChartContext.civil.localParts)") && statusSource.includes("formatDateTimeParts(currentTrueSolarChartContext.trueSolar.localParts)"));
+  check("true-solar-r2-source-note", true, indexHtmlRaw.includes("此區可獨立查詢真太陽時") && indexHtmlRaw.includes("正式排盤目前以頁面上方「排盤時間」為準") && indexHtmlRaw.includes("裝置／自訂時間不會改動正式四柱"));
+  check("true-solar-r2-source-a-badge", true, indexHtmlRaw.includes("正式排盤來源") && indexHtmlRaw.includes('id="true-solar-time-source-device"') && indexHtmlRaw.includes('id="true-solar-time-source-custom"'));
+  check("true-solar-r2-query-only-note", true, indexHtmlRaw.includes("正式四柱目前使用頁面上方「排盤時間」") && indexHtmlRaw.includes("僅供獨立換算查詢"));
+  check("true-solar-r2-downstream-watch-input-unchanged", true, ["renderFlyingStars(result, effectiveDateTimeValue)", "renderJinhanYujing(result, effectiveDateTimeValue", "renderQimenSection(effectiveDateTimeValue)"].every((call) => byDateTimeSource.includes(call)));
+  check("true-solar-r2-no-forbidden-expansion", false, /localStorage|sessionStorage|fetch\(|NOAA|SunCalc|solar_terms\.json/.test(mainModuleRaw));
+
+  const watchInput = "2026-08-07T17:00:05";
+  const watchResult = calculateBaziFromSolarTerms(watchInput, solarTerms);
+  const watchLocalParts = parts(2026, 8, 7, 17, 0, 5);
+  // This is the requested semantic fixture: assume a -9-second correction so
+  // the adapter can be checked at the 酉／申 hour boundary without changing
+  // the project's existing true-solar formula.
+  const assumedTrueSolarParts = parts(2026, 8, 7, 16, 59, 56);
+  const formalContext = createFixtureContext(watchLocalParts, assumedTrueSolarParts, -9);
+  const trueResult = calculateBaziFromChartTimeContext(formalContext, solarTerms);
+  check("true-solar-r2-fixture-watch-hour", "酉", watchResult.hourPillar?.[1]);
+  check("true-solar-r2-fixture-true-solar-hour", "申", trueResult.hourPillar?.[1]);
+  check("true-solar-r2-fixture-shared-watch-local", watchInput, formalContext.compatibility.watchLocalDateTimeValue);
+  check("true-solar-r2-fixture-true-local-seconds", "2026-08-07 16:59:56", trueResult.debug.clockLocalDateTime);
+  check("true-solar-r2-fixture-top-query-timezone", "Asia/Taipei", formalContext.civil.timeZone);
+
+  const previousDayContext = createFixtureContext(parts(2026, 8, 7, 0, 3, 0), parts(2026, 8, 6, 23, 59, 59), -181);
+  const nextDayContext = createFixtureContext(parts(2026, 8, 7, 23, 59, 58), parts(2026, 8, 8, 0, 0, 4), 6);
+  check("true-solar-r2-cross-day-previous", -1, previousDayContext.trueSolar.dayOffset);
+  check("true-solar-r2-cross-day-next", 1, nextDayContext.trueSolar.dayOffset);
+  check("true-solar-r2-cross-day-keeps-local-dates", "2026-08-06T23:59:59", previousDayContext.compatibility.trueSolarLocalDateTimeValue);
+  check("true-solar-r2-cross-day-next-local-date", "2026-08-08T00:00:04", nextDayContext.compatibility.trueSolarLocalDateTimeValue);
+
+  const actualFormulaResult = calculateTrueSolarTime({
+    date: new Date(Date.UTC(2026, 7, 7, 17, 0, 5)),
+    latitude: 25.033964,
+    longitude: 121.564468,
+    utcOffsetMinutes: 480,
+    useUtcComponents: true,
+  });
+  check("true-solar-r2-existing-formula-still-returns-local", true, Number.isInteger(actualFormulaResult.trueSolarParts?.hour) && Number.isInteger(actualFormulaResult.trueSolarParts?.second));
+}
+
+function runChartQueryTimeUxTests() {
+  const check = (id, expected, actual) => {
+    chartQueryTimeUxVerifiedCaseCount += 1;
+    assertEqual(id, "result", expected, actual);
+  };
+  const queryStatusSource = extractNamedFunctionSource(mainModuleRaw, "renderChartQueryTimeModeStatus");
+  const startSource = extractNamedFunctionSource(mainModuleRaw, "startAutoNowMode");
+  const pauseSource = extractNamedFunctionSource(mainModuleRaw, "pauseAutoNowMode");
+  const refreshSource = extractNamedFunctionSource(mainModuleRaw, "refreshFromCurrentTime");
+  const requestSource = extractNamedFunctionSource(mainModuleRaw, "requestRenderDateTime");
+  const manualInputSource = extractNamedFunctionSource(mainModuleRaw, "handleManualDateTimeInput");
+  const manualChangeSource = extractNamedFunctionSource(mainModuleRaw, "handleManualDateTimeChange");
+  const switchSource = extractNamedFunctionSource(mainModuleRaw, "handleChartDisplayModeSwitchClick");
+  const sourceChangeSource = extractNamedFunctionSource(mainModuleRaw, "handleTrueSolarTimeSourceChange");
+  const watchSummarySource = extractNamedFunctionSource(mainModuleRaw, "renderTrueSolarTimeWatchSummary");
+  const watchDateSource = extractNamedFunctionSource(mainModuleRaw, "renderTrueSolarTimeForWatchDate");
+  const chartStatusSource = extractNamedFunctionSource(mainModuleRaw, "renderChartTimeStatus");
+  const tabListenerStart = mainModuleRaw.indexOf("elements.tabButtons.forEach");
+  const tabListenerEnd = mainModuleRaw.indexOf("elements.useNow.addEventListener", tabListenerStart);
+  const tabListenerSource = mainModuleRaw.slice(tabListenerStart, tabListenerEnd);
+
+  check("chart-query-time-ux-label", true, indexHtmlRaw.includes("排盤時間") && /for="datetime">排盤時間/.test(indexHtmlRaw) && /id="datetime"[^>]*aria-label="排盤時間"/.test(indexHtmlRaw));
+  check("chart-query-time-ux-status-dom", true, indexHtmlRaw.includes('id="chart-query-time-mode-status"') && indexHtmlRaw.includes('class="query-time-mode-status"') && indexHtmlRaw.includes('role="status"'));
+  check("chart-query-time-ux-value-dom", true, indexHtmlRaw.includes('id="chart-query-time-value"') && indexHtmlRaw.includes('class="query-time-summary"'));
+  check("chart-query-time-ux-now-entry", true, /id="use-now"[^>]*title="恢復現在時間並持續更新"[^>]*aria-label="恢復現在時間並持續更新"/.test(indexHtmlRaw) && mainModuleRaw.includes('elements.useNow.addEventListener("click", () => {'));
+  check("chart-query-time-ux-initial-auto-copy", "● 跟隨現在時間", indexHtmlRaw.match(/id="chart-query-time-mode-status"[^>]*>\s*([^<]+)\s*<\/p>/)?.[1]?.trim());
+  check("chart-query-time-ux-status-derived-from-state", true, queryStatusSource.includes("isAutoNowMode ? \"● 跟隨現在時間\" : \"○ 手動查詢時間\"") && queryStatusSource.includes("chartQueryTimeModeStatus.dataset.mode = isAutoNowMode ? \"auto-now\" : \"manual\""));
+  check("chart-query-time-ux-status-has-no-second-state", true, (mainModuleRaw.match(/let isAutoNowMode\s*=/g) ?? []).length === 1 && !mainModuleRaw.includes("chartQueryTimeModeState"));
+  check("chart-query-time-ux-status-formats-value", true, queryStatusSource.includes("elements.chartQueryTimeValue.textContent = formatChartTimeStatusDateTime(elements.datetime.value)"));
+  check("chart-query-time-ux-auto-start-renders-status", true, startSource.includes("isAutoNowMode = true") && startSource.includes("renderChartQueryTimeModeStatus()") && startSource.includes("stopAutoNowRefresh()") && startSource.includes("setInterval(refreshFromCurrentTime, AUTO_NOW_REFRESH_MS)"));
+  check("chart-query-time-ux-manual-pause-renders-status", true, pauseSource.includes("isAutoNowMode = false") && pauseSource.includes("renderChartQueryTimeModeStatus()") && pauseSource.includes("stopAutoNowRefresh()"));
+  check("chart-query-time-ux-manual-input-pauses", true, manualInputSource.includes("pauseAutoNowMode()") && manualChangeSource.includes("pauseAutoNowMode()"));
+  check("chart-query-time-ux-valid-render-syncs-status", true, requestSource.includes("renderChartQueryTimeModeStatus()") && requestSource.indexOf("renderChartQueryTimeModeStatus()") < requestSource.indexOf("renderByDateTime(dateTimeValue)"));
+  check("chart-query-time-ux-auto-refresh-updates-summary", true, refreshSource.includes("elements.datetime.value = toLocalDatetimeValue(new Date())") && refreshSource.includes("renderChartQueryTimeModeStatus()"));
+  check("chart-query-time-ux-manual-timer-guard", true, refreshSource.includes("if (!isAutoNowMode)") && refreshSource.includes("return"));
+  check("chart-query-time-ux-mode-switch-keeps-state", false, switchSource.includes("startAutoNowMode()") || switchSource.includes("pauseAutoNowMode()"));
+  check("chart-query-time-ux-tab-keeps-state", false, /(?:startAutoNowMode|pauseAutoNowMode)/.test(tabListenerSource));
+  check("chart-query-time-ux-source-bc-keeps-state", false, /function handleTrueSolarTimeSourceChange\(\)[\s\S]*?(?:startAutoNowMode|pauseAutoNowMode|isAutoNowMode)/.test(mainModuleRaw));
+  check("chart-query-time-ux-source-a-label", true, indexHtmlRaw.includes("上方排盤時間（臺灣 UTC+8）") && indexHtmlRaw.includes("正式排盤來源") && mainModuleRaw.includes('sourceLabel = source === TRUE_SOLAR_TIME_SOURCE.DEVICE ? "裝置目前時間（僅換算查詢）"') && mainModuleRaw.includes(' : "上方排盤時間";'));
+  check("chart-query-time-ux-source-bc-labels", true, indexHtmlRaw.includes("裝置目前時間（僅換算查詢）") && indexHtmlRaw.includes("自訂當地日期時間（僅換算查詢）"));
+  check("chart-query-time-ux-source-a-shared-value", true, watchDateSource.includes("renderTrueSolarTimeForContext") && mainModuleRaw.includes("renderTrueSolarTimeForWatchDate(elements.datetime.value)") && mainModuleRaw.includes("elements.trueSolarTimeWatchValue.textContent = formatDateTimeParts(localParts)"));
+  check("chart-query-time-ux-source-help", true, indexHtmlRaw.includes("此區可獨立查詢真太陽時；正式排盤目前以頁面上方「排盤時間」為準") && indexHtmlRaw.includes("裝置／自訂時間不會改動正式四柱"));
+  check("chart-query-time-ux-status-keeps-chart-time-basis", false, chartStatusSource.includes("手動查詢時間") || chartStatusSource.includes("跟隨現在時間"));
+  check("chart-query-time-ux-mobile-scoped-css", true, mainCssRaw.includes(".query-time-summary") && mainCssRaw.includes(".query-time-mode-status") && mainCssRaw.includes("flex-wrap: wrap") && !mainCssRaw.includes("body { overflow-x: hidden"));
+  check("chart-query-time-ux-no-network-clock", false, /fetch\(|\bNTP\b|網路時間|server.?time|Date header/i.test(mainModuleRaw + indexHtmlRaw));
+  check("chart-query-time-ux-no-forbidden-runtime-change", true, mainModuleRaw.includes('from "./baziChartTimeAdapter.js"') && mainModuleRaw.includes('from "./chartTimeContext.js"') && !mainModuleRaw.includes("createChartTimeContext("));
+
+  const renderStatus = loadChartQueryTimeModeStatusForTest(mainModuleRaw);
+  const autoFixture = {
+    datetime: { value: "2026-08-07T17:00:05" },
+    chartQueryTimeValue: { textContent: "" },
+    chartQueryTimeModeStatus: { textContent: "", dataset: {} },
+  };
+  renderStatus(autoFixture, true);
+  check("chart-query-time-ux-auto-status-behavior", "● 跟隨現在時間", autoFixture.chartQueryTimeModeStatus.textContent);
+  check("chart-query-time-ux-auto-value-behavior", "2026/08/07 17:00:05", autoFixture.chartQueryTimeValue.textContent);
+  renderStatus(autoFixture, false);
+  check("chart-query-time-ux-manual-status-behavior", "○ 手動查詢時間", autoFixture.chartQueryTimeModeStatus.textContent);
+  check("chart-query-time-ux-manual-value-kept", "2026/08/07 17:00:05", autoFixture.chartQueryTimeValue.textContent);
+}
+
+function runTrueSolarFormalTimeSyncBugFixTests() {
+  const check = (id, expected, actual) => {
+    trueSolarFormalTimeSyncBugFixVerifiedCaseCount += 1;
+    assertEqual(id, "result", expected, actual);
+  };
+
+  const queryPicker = loadQueryPickerHelpersForTest(mainModuleRaw);
+  const parseTopQueryDateTimeLocalParts = loadTopQueryDateTimeLocalPartsForTest(mainModuleRaw);
+  const clockSource = extractNamedFunctionSource(mainModuleRaw, "refreshTrueSolarTimeClock");
+  const autoClockSource = extractNamedFunctionSource(mainModuleRaw, "refreshQueryTimeFromAutoNowClock");
+  const clockSyncSource = extractNamedFunctionSource(mainModuleRaw, "syncTrueSolarTimeClockRefresh");
+  const refreshSource = extractNamedFunctionSource(mainModuleRaw, "refreshFromCurrentTime");
+  const requestSource = extractNamedFunctionSource(mainModuleRaw, "requestRenderDateTime");
+  const manualInputSource = extractNamedFunctionSource(mainModuleRaw, "handleManualDateTimeInput");
+  const manualChangeSource = extractNamedFunctionSource(mainModuleRaw, "handleManualDateTimeChange");
+  const formalSource = extractNamedFunctionSource(mainModuleRaw, "renderFormalTrueSolarChartTime");
+  const calculationSource = extractNamedFunctionSource(mainModuleRaw, "resolveTrueSolarTimeCalculation");
+  const contextSource = extractNamedFunctionSource(mainModuleRaw, "renderTrueSolarTimeForContext");
+  const statusSource = extractNamedFunctionSource(mainModuleRaw, "renderChartTimeStatus");
+  const clearSource = extractNamedFunctionSource(mainModuleRaw, "clearCurrentTrueSolarChartContext");
+  const invalidateSource = extractNamedFunctionSource(mainModuleRaw, "invalidateCurrentTrueSolarChartContext");
+  const renderFormalStatus = loadFormalChartTimeStatusForTest(mainModuleRaw);
+
+  const fixedDate = new Date(2026, 7, 7, 17, 0, 5);
+  check("true-solar-sync-to-local-keeps-seconds", "2026-08-07T17:00:05", queryPicker.toLocalDatetimeValue(fixedDate));
+  check("true-solar-sync-top-parser-keeps-seconds", 5, parseTopQueryDateTimeLocalParts("2026-08-07T17:00:05")?.second);
+  check("true-solar-sync-top-parser-adds-millisecond", 0, parseTopQueryDateTimeLocalParts("2026-08-07T17:00:05")?.millisecond);
+  check("true-solar-sync-formal-reads-current-top", true, formalSource.includes("parseTopQueryDateTimeLocalParts(elements.datetime.value)"));
+  check("true-solar-sync-formal-invalidates-before-build", true, formalSource.indexOf("invalidateCurrentTrueSolarChartContext()") < formalSource.indexOf("resolveTrueSolarTimeCalculation(context)"));
+  check("true-solar-sync-formal-rebuilds-context", true, formalSource.includes("currentTrueSolarChartContextInput = {") && formalSource.includes("currentTrueSolarChartContext = createCurrentTrueSolarChartContext()"));
+  check("true-solar-sync-formal-rebuilds-bazi", true, formalSource.includes("renderBaziForActiveDisplayMode()") && mainModuleRaw.includes("currentTrueSolarBaziResult = calculateBaziFromChartTimeContext"));
+  check("true-solar-sync-request-invalidates-old-context", true, requestSource.includes("invalidateCurrentTrueSolarChartContext()"));
+  check("true-solar-sync-manual-input-invalidates", true, manualInputSource.includes("invalidateCurrentTrueSolarChartContext()") && manualChangeSource.includes("invalidateCurrentTrueSolarChartContext()"));
+  check("true-solar-sync-invalidation-clears-context-and-result", true, invalidateSource.includes("clearCurrentTrueSolarChartContext()") && clearSource.includes("currentTrueSolarChartContext = null") && clearSource.includes("currentTrueSolarBaziResult = null"));
+  check("true-solar-sync-auto-clock-uses-existing-clock", true, clockSource.includes("refreshQueryTimeFromAutoNowClock()") && !clockSource.includes("setInterval"));
+  check("true-solar-sync-auto-clock-reads-new-now", true, autoClockSource.includes("toLocalDatetimeValue(new Date())") && autoClockSource.includes("elements.datetime.value = dateTimeValue"));
+  check("true-solar-sync-auto-clock-updates-summary", true, autoClockSource.includes("renderChartQueryTimeModeStatus()") && autoClockSource.includes("syncQueryPickerFromDateTime(dateTimeValue"));
+  check("true-solar-sync-auto-clock-rebuilds-formal", true, autoClockSource.includes("renderFormalTrueSolarChartTime()") && autoClockSource.includes("isTrueSolarDisplayMode(chartDisplayMode)"));
+  check("true-solar-sync-auto-clock-no-new-timer", false, autoClockSource.includes("setInterval") || autoClockSource.includes("setTimeout"));
+  check("true-solar-sync-bc-auto-reuses-existing-clock", true, clockSyncSource.includes("trueSolarTimeSource === TRUE_SOLAR_TIME_SOURCE.DEVICE") && clockSyncSource.includes("|| isAutoNowMode") && autoClockSource.includes("isTrueSolarDisplayMode(chartDisplayMode)"));
+  check("true-solar-sync-main-auto-flow-kept", true, refreshSource.includes("toLocalDatetimeValue(new Date())") && refreshSource.includes("requestRenderDateTime(elements.datetime.value)"));
+  check("true-solar-sync-status-uses-current-context", true, statusSource.includes("currentTrueSolarChartContext.civil.localParts") && statusSource.includes("currentTrueSolarChartContext.trueSolar.localParts"));
+  check("true-solar-sync-one-auto-now-interval", 1, (mainModuleRaw.match(/setInterval\(refreshFromCurrentTime, AUTO_NOW_REFRESH_MS\)/g) ?? []).length);
+  check("true-solar-sync-one-formal-clock-interval", 1, (mainModuleRaw.match(/setInterval\(\s*refreshTrueSolarTimeClock,\s*TRUE_SOLAR_TIME_CLOCK_REFRESH_MS/g) ?? []).length);
+  check("true-solar-sync-query-source-remains-formal-only", true, formalSource.includes("source: TRUE_SOLAR_TIME_SOURCE.QUERY") && formalSource.includes('timeZone: "Asia/Taipei"') && !formalSource.includes("trueSolarTimeSource"));
+  check("true-solar-sync-bc-stays-isolated", true, !contextSource.includes("currentTrueSolarChartContextInput") && contextSource.includes("clearTrueSolarTimePresentation({ clearFormalChart: false })") && formalSource.includes("resolveTrueSolarTimeCalculation(context)"));
+  check("true-solar-sync-coordinate-state-is-independent", true, calculationSource.includes("trueSolarTimeLocation.latitude") && !contextSource.includes("elements.datetime.value ="));
+  check("true-solar-sync-reload-starts-current-flow", true, extractNamedFunctionSource(mainModuleRaw, "initializeChartDisplayMode").includes("renderChartDisplayMode") && extractNamedFunctionSource(mainModuleRaw, "startAutoNowMode").includes("refreshFromCurrentTime()"));
+
+  const watchInput = "2026-08-07T16:59:40";
+  const watchLocalParts = { year: 2026, month: 8, day: 7, hour: 16, minute: 59, second: 40, millisecond: 0 };
+  const actualFormulaResult = calculateTrueSolarTime({
+    date: new Date(Date.UTC(2026, 7, 7, 16, 59, 40)),
+    latitude: 25.033964,
+    longitude: 121.564468,
+    utcOffsetMinutes: 480,
+    useUtcComponents: true,
+  });
+  const formalContext = createTrueSolarChartTimeContext({
+    source: "query",
+    civil: {
+      localParts: watchLocalParts,
+      timeZone: "Asia/Taipei",
+      utcOffsetMinutes: 480,
+      abbreviation: "",
+      instantMs: Date.UTC(2026, 7, 7, 16, 59, 40) - 480 * 60_000,
+    },
+    location: { latitude: 25.033964, longitude: 121.564468, accuracy: null },
+    trueSolarResult: actualFormulaResult,
+    createdAtInstantMs: 0,
+  });
+  const watchResult = calculateBaziFromSolarTerms(watchInput, solarTerms);
+  const trueSolarResult = calculateBaziFromChartTimeContext(formalContext, solarTerms);
+  check("true-solar-sync-actual-formula-crosses-1700", true, actualFormulaResult.trueSolarParts.hour === 17 && actualFormulaResult.trueSolarParts.minute === 0);
+  check("true-solar-sync-actual-formula-correction-positive", true, actualFormulaResult.totalCorrectionSeconds > 0);
+  check("true-solar-sync-fixture-watch-seconds", "2026-08-07T16:59:40", formalContext.compatibility.watchLocalDateTimeValue);
+  check("true-solar-sync-fixture-true-seconds", "2026-08-07T17:00:06", formalContext.compatibility.trueSolarLocalDateTimeValue);
+  check("true-solar-sync-fixture-watch-hour", "申", watchResult.hourPillar?.[1]);
+  check("true-solar-sync-fixture-true-solar-hour", "酉", trueSolarResult.hourPillar?.[1]);
+  check("true-solar-sync-fixture-true-solar-debug-seconds", "2026-08-07 17:00:06", trueSolarResult.debug.clockLocalDateTime);
+  const fixtureStatus = renderFormalStatus(formalContext, true);
+  check("true-solar-sync-status-fixture-watch-seconds", "手錶時間：2026/08/07 16:59:40", fixtureStatus.lines[0]);
+  check("true-solar-sync-status-fixture-true-seconds", "真太陽時：2026/08/07 17:00:06", fixtureStatus.lines[1]);
+
+  const laterInput = "2026-08-07T16:59:50";
+  const laterFormulaResult = calculateTrueSolarTime({
+    date: new Date(Date.UTC(2026, 7, 7, 16, 59, 50)),
+    latitude: 25.033964,
+    longitude: 121.564468,
+    utcOffsetMinutes: 480,
+    useUtcComponents: true,
+  });
+  const laterContext = createTrueSolarChartTimeContext({
+    source: "query",
+    civil: {
+      localParts: { ...watchLocalParts, second: 50 },
+      timeZone: "Asia/Taipei",
+      utcOffsetMinutes: 480,
+      abbreviation: "",
+      instantMs: Date.UTC(2026, 7, 7, 16, 59, 50) - 480 * 60_000,
+    },
+    location: { latitude: 25.033964, longitude: 121.564468, accuracy: null },
+    trueSolarResult: laterFormulaResult,
+    createdAtInstantMs: 0,
+  });
+  check("true-solar-sync-top-change-invalidates-old-civil", false, formalContext.compatibility.watchLocalDateTimeValue === laterContext.compatibility.watchLocalDateTimeValue);
+  check("true-solar-sync-top-change-rebuilds-true-local", false, formalContext.compatibility.trueSolarLocalDateTimeValue === laterContext.compatibility.trueSolarLocalDateTimeValue);
+  check("true-solar-sync-later-context-keeps-seconds", "2026-08-07T16:59:50", laterContext.compatibility.watchLocalDateTimeValue);
+  const laterStatus = renderFormalStatus(laterContext, true);
+  check("true-solar-sync-status-after-top-change-watch", "手錶時間：2026/08/07 16:59:50", laterStatus.lines[0]);
+  check("true-solar-sync-status-after-top-change-true", "真太陽時：2026/08/07 17:00:16", laterStatus.lines[1]);
+
+  const morningLocalParts = { year: 2026, month: 8, day: 7, hour: 8, minute: 12, second: 49, millisecond: 0 };
+  const morningFormulaResult = calculateTrueSolarTime({
+    date: new Date(Date.UTC(2026, 7, 7, 8, 12, 49)),
+    latitude: 25.033964,
+    longitude: 121.564468,
+    utcOffsetMinutes: 480,
+    useUtcComponents: true,
+  });
+  const morningContext = createTrueSolarChartTimeContext({
+    source: "query",
+    civil: {
+      localParts: morningLocalParts,
+      timeZone: "Asia/Taipei",
+      utcOffsetMinutes: 480,
+      abbreviation: "",
+      instantMs: Date.UTC(2026, 7, 7, 8, 12, 49) - 480 * 60_000,
+    },
+    location: { latitude: 25.033964, longitude: 121.564468, accuracy: null },
+    trueSolarResult: morningFormulaResult,
+    createdAtInstantMs: 0,
+  });
+  const morningStatus = renderFormalStatus(morningContext, true);
+  check("true-solar-sync-status-morning-watch", "手錶時間：2026/08/07 08:12:49", morningStatus.lines[0]);
+  check("true-solar-sync-status-morning-true", "真太陽時：2026/08/07 08:13:13", morningStatus.lines[1]);
+}
+
+function runTrueSolarQuerySourceIsolationBugFixTests() {
+  const check = (id, expected, actual) => {
+    trueSolarQuerySourceIsolationBugFixVerifiedCaseCount += 1;
+    assertEqual(id, "result", expected, actual);
+  };
+
+  const formalSource = extractNamedFunctionSource(mainModuleRaw, "renderFormalTrueSolarChartTime");
+  const calculationSource = extractNamedFunctionSource(mainModuleRaw, "resolveTrueSolarTimeCalculation");
+  const querySource = extractNamedFunctionSource(mainModuleRaw, "renderTrueSolarTimeForContext");
+  const clockSource = extractNamedFunctionSource(mainModuleRaw, "refreshTrueSolarTimeClock");
+  const autoClockSource = extractNamedFunctionSource(mainModuleRaw, "refreshQueryTimeFromAutoNowClock");
+  const sourceChangeSource = extractNamedFunctionSource(mainModuleRaw, "handleTrueSolarTimeSourceChange");
+  const displayModeSource = extractNamedFunctionSource(mainModuleRaw, "renderChartDisplayMode");
+  const tabSourceStart = mainModuleRaw.indexOf("elements.tabButtons.forEach");
+  const tabSourceEnd = mainModuleRaw.indexOf("elements.useNow.addEventListener", tabSourceStart);
+  const tabSource = mainModuleRaw.slice(tabSourceStart, tabSourceEnd);
+
+  const forbiddenFormalDom = [
+    "renderTrueSolarTimeWatchSummary",
+    "trueSolarTimeWatchTitle",
+    "trueSolarTimeWatchValue",
+    "trueSolarTimeWatchNote",
+    "trueSolarTimeResult",
+    "trueSolarTimeLocationValue",
+    "trueSolarTimeSolarEvents",
+    "renderTrueSolarTimeSolarEvents",
+    "setTrueSolarTimeStatus",
+    "trueSolarTimeSourceQuery",
+    "trueSolarTimeSourceDevice",
+    "trueSolarTimeSourceCustom",
+  ];
+  check("source-isolation-formal-no-query-dom", false, forbiddenFormalDom.some((token) => formalSource.includes(token)));
+  check("source-isolation-formal-no-query-render", false, formalSource.includes("renderTrueSolarTimeForContext") || formalSource.includes("createTrueSolarTimeResultContent"));
+  check("source-isolation-formal-only-context-and-chart", true, formalSource.includes("currentTrueSolarChartContextInput = {") && formalSource.includes("currentTrueSolarChartContext = createCurrentTrueSolarChartContext()") && formalSource.includes("renderBaziForActiveDisplayMode()") && formalSource.includes("renderChartTimeStatus()"));
+  check("source-isolation-compute-helper-no-dom", false, /document|elements\.|render|setTrueSolarTimeStatus|trueSolarTimeSource\s*=/.test(calculationSource));
+  check("source-isolation-compute-helper-returns-calculation", true, calculationSource.includes("return { civilResolution, carrierDate, result }") && calculationSource.includes("calculateTrueSolarTime"));
+  check("source-isolation-query-owns-summary", true, querySource.includes("renderTrueSolarTimeWatchSummary(context)") && querySource.includes("elements.trueSolarTimeResult.replaceChildren"));
+  check("source-isolation-query-owns-events", true, querySource.includes("renderTrueSolarTimeSolarEvents(context, carrierDate)"));
+  check("source-isolation-query-owns-status", true, querySource.includes("setTrueSolarTimeStatus("));
+  check("source-isolation-query-uses-compute-helper", true, querySource.includes("resolveTrueSolarTimeCalculation(context)"));
+  check("source-isolation-query-keeps-formal-context-separate", false, querySource.includes("currentTrueSolarChartContextInput") || querySource.includes("currentTrueSolarChartContext ="));
+  check("source-isolation-custom-no-auto-panel-refresh", true, autoClockSource.includes("trueSolarTimeSource === TRUE_SOLAR_TIME_SOURCE.QUERY") && autoClockSource.includes("renderTrueSolarTimeForWatchDate(dateTimeValue)") && !autoClockSource.includes("renderTrueSolarTimeForCustomInput"));
+  check("source-isolation-clock-device-refresh", true, clockSource.includes("trueSolarTimeSource === TRUE_SOLAR_TIME_SOURCE.DEVICE") && clockSource.includes("renderTrueSolarTimeForDeviceNow()"));
+  check("source-isolation-clock-query-refresh", true, clockSource.includes("trueSolarTimeSource === TRUE_SOLAR_TIME_SOURCE.QUERY && isAutoNowMode") && autoClockSource.includes("renderTrueSolarTimeForWatchDate(dateTimeValue)"));
+  check("source-isolation-clock-custom-no-query-render", true, clockSource.includes("if (isAutoNowMode) {") && autoClockSource.includes("if (trueSolarTimeSource === TRUE_SOLAR_TIME_SOURCE.QUERY)"));
+  check("source-isolation-formal-keeps-source-state", false, formalSource.includes("trueSolarTimeSource =") || formalSource.includes("trueSolarTimeSourceQuery.checked") || formalSource.includes("trueSolarTimeSourceDevice.checked") || formalSource.includes("trueSolarTimeSourceCustom.checked"));
+  check("source-isolation-compute-keeps-source-state", false, calculationSource.includes("trueSolarTimeSource ="));
+  check("source-isolation-source-change-keeps-formal", true, sourceChangeSource.includes("clearTrueSolarTimePresentation({ clearFormalChart: false })") && !sourceChangeSource.includes("renderFormalTrueSolarChartTime"));
+  check("source-isolation-source-radio-state-owned-by-user", true, sourceChangeSource.includes("trueSolarTimeSource = event.target.value") && !/trueSolarTimeSource\s*=\s*[^=]/.test(autoClockSource));
+  check("source-isolation-tab-does-not-change-source", false, /trueSolarTimeSource\s*=|trueSolarTimeSource.*checked/.test(tabSource));
+  check("source-isolation-mode-does-not-change-source", false, /trueSolarTimeSource\s*=|trueSolarTimeSource.*checked/.test(displayModeSource));
+  check("source-isolation-tab-keeps-query-controls", true, tabSource.includes("setActiveTab(button.getAttribute(\"aria-controls\"))"));
+  check("source-isolation-formal-top-authority", true, formalSource.includes("parseTopQueryDateTimeLocalParts(elements.datetime.value)") && formalSource.includes('timeZone: "Asia/Taipei"'));
+  check("source-isolation-bc-not-formal-civil", true, !querySource.includes("elements.datetime.value") && formalSource.includes("source: TRUE_SOLAR_TIME_SOURCE.QUERY"));
+  check("source-isolation-no-render-recursion", 1, (formalSource.match(/renderFormalTrueSolarChartTime\(\)/g) ?? []).length);
+  check("source-isolation-no-new-timer", false, formalSource.includes("setInterval") || calculationSource.includes("setInterval") || querySource.includes("setInterval"));
+  check("source-isolation-existing-timer-counts", 1, (mainModuleRaw.match(/setInterval\(refreshFromCurrentTime, AUTO_NOW_REFRESH_MS\)/g) ?? []).length);
+  check("source-isolation-custom-label-retained", true, indexHtmlRaw.includes("自訂當地日期時間（僅換算查詢）") && mainModuleRaw.includes("自訂當地時間（僅換算查詢）"));
+  check("source-isolation-device-label-retained", true, indexHtmlRaw.includes("裝置目前時間（僅換算查詢）") && mainModuleRaw.includes("裝置目前時間（僅換算查詢）"));
+}
+
+function runTrueSolarBaziPriorityBugFixTests(solarTerms) {
+  const check = (id, expected, actual) => {
+    trueSolarBaziPriorityBugFixVerifiedCaseCount += 1;
+    assertEqual(id, "result", expected, actual);
+  };
+  const parts = (year, month, day, hour, minute, second = 0) => ({
+    year,
+    month,
+    day,
+    hour,
+    minute,
+    second,
+    millisecond: 0,
+  });
+  const instantFor = (value, offsetMinutes) => Date.UTC(
+    value.year,
+    value.month - 1,
+    value.day,
+    value.hour,
+    value.minute,
+    value.second
+  ) - offsetMinutes * 60_000;
+  const createBoundaryContext = (trueSolarLocalParts, civilLocalParts = parts(2026, 8, 10, 9, 0)) =>
+    createTrueSolarChartTimeContext({
+      source: "query",
+      civil: {
+        localParts: civilLocalParts,
+        timeZone: "Asia/Taipei",
+        utcOffsetMinutes: 480,
+        abbreviation: "",
+        instantMs: instantFor(civilLocalParts, 480),
+      },
+      location: { latitude: 25.033964, longitude: 121.564468, accuracy: null },
+      trueSolarResult: {
+        trueSolarParts: trueSolarLocalParts,
+        totalCorrectionSeconds: 0,
+        longitudeCorrectionSeconds: 0,
+        equationOfTimeSeconds: 0,
+      },
+      createdAtInstantMs: 0,
+    });
+
+  for (const [id, input, expectedHour] of [
+    ["before", "2026-08-10T08:59:59", "辰"],
+    ["exact", "2026-08-10T09:00:00", "巳"],
+    ["after", "2026-08-10T09:00:01", "巳"],
+  ]) {
+    const result = calculateBaziFromSolarTerms(input, solarTerms);
+    check(`bazi-priority-watch-0900-${id}`, expectedHour, result.hourPillar?.[1]);
+  }
+
+  const before2300 = calculateBaziFromSolarTerms("2026-08-10T22:59:59", solarTerms);
+  const exact2300 = calculateBaziFromSolarTerms("2026-08-10T23:00:00", solarTerms);
+  const after2300 = calculateBaziFromSolarTerms("2026-08-10T23:00:01", solarTerms);
+  check("bazi-priority-watch-2300-before-hour", "亥", before2300.hourPillar?.[1]);
+  check("bazi-priority-watch-2300-exact-hour", "子", exact2300.hourPillar?.[1]);
+  check("bazi-priority-watch-2300-after-hour", "子", after2300.hourPillar?.[1]);
+  check("bazi-priority-watch-2300-exact-day", false, before2300.dayPillar === exact2300.dayPillar);
+  check("bazi-priority-watch-2300-daily-panel-input", exact2300.dayPillar?.[1], exact2300.dailyInfo?.clothing?.dayBranch);
+
+  const trueSolarBefore = calculateBaziFromChartTimeContext(
+    createBoundaryContext(parts(2026, 8, 10, 8, 59, 59)),
+    solarTerms
+  );
+  const trueSolarExact = calculateBaziFromChartTimeContext(
+    createBoundaryContext(parts(2026, 8, 10, 9, 0, 0)),
+    solarTerms
+  );
+  check("bazi-priority-true-solar-0900-before", "辰", trueSolarBefore.hourPillar?.[1]);
+  check("bazi-priority-true-solar-0900-exact", "巳", trueSolarExact.hourPillar?.[1]);
+  check("bazi-priority-true-solar-0900-local-snapshot", "2026-08-10 09:00:00", trueSolarExact.debug.clockLocalDateTime);
+
+  const fullSource = extractNamedFunctionSource(mainModuleRaw, "renderByDateTime");
+  const prioritySource = extractNamedFunctionSource(mainModuleRaw, "refreshBaziForCurrentChartTime");
+  const requestSource = extractNamedFunctionSource(mainModuleRaw, "requestRenderDateTime");
+  const autoClockSource = extractNamedFunctionSource(mainModuleRaw, "refreshQueryTimeFromAutoNowClock");
+  const manualChangeSource = extractNamedFunctionSource(mainModuleRaw, "handleManualDateTimeChange");
+  const jinhanSource = extractNamedFunctionSource(mainModuleRaw, "renderJinhanYujing");
+  const renderSource = extractNamedFunctionSource(mainModuleRaw, "renderTrueSolarBaziResult");
+
+  check("bazi-priority-diagnosis-full-awaits-jinhan", true, fullSource.includes("await renderJinhanYujing(") && fullSource.indexOf("renderResult(result, effectiveDateTimeValue)") < fullSource.indexOf("await renderJinhanYujing("));
+  check("bazi-priority-diagnosis-jinhan-awaits-gui-deng", true, jinhanSource.includes("await getGuiDengForCalendarResult("));
+  check("bazi-priority-lightweight-no-await", false, /\bawait\b/.test(prioritySource));
+  check("bazi-priority-lightweight-no-downstream", false, /renderFlyingStars|renderJinhanYujing|renderQimenSection/.test(prioritySource));
+  check("bazi-priority-lightweight-watch-renders-bazi", true, prioritySource.includes("renderResult(result, effectiveDateTimeValue)"));
+  check("bazi-priority-lightweight-true-solar-renders-formal", true, prioritySource.includes("renderFormalTrueSolarChartTime()"));
+  check("bazi-priority-request-refreshes-before-queue", true, requestSource.indexOf("refreshBaziForCurrentChartTime(") < requestSource.indexOf("if (isCalculating)"));
+  check("bazi-priority-request-queues-full-render", true, requestSource.includes("pendingDateTimeValue = dateTimeValue") && requestSource.includes("renderByDateTime(dateTimeValue)"));
+  check("bazi-priority-auto-clock-refreshes-bazi", true, autoClockSource.includes("refreshBaziForCurrentChartTime(dateTimeValue, requestId)"));
+  check("bazi-priority-manual-boundary-refreshes-bazi", true, manualChangeSource.includes("requestRenderDateTime(elements.datetime.value)"));
+  check("bazi-priority-generation-state", true, mainModuleRaw.includes("let latestBaziRenderRequestId = 0") && mainModuleRaw.includes("function isLatestBaziRenderRequest(requestId)"));
+  const firstAwaitGuard = fullSource.indexOf("if (!isLatestBaziRenderRequest(requestId))");
+  const afterJinhanGuard = fullSource.indexOf("if (!isLatestBaziRenderRequest(requestId))", fullSource.indexOf("await renderJinhanYujing("));
+  check("bazi-priority-stale-guard-before-write", true, firstAwaitGuard >= 0 && fullSource.indexOf("currentCalendarResult = result") > firstAwaitGuard);
+  check("bazi-priority-stale-guard-after-downstream-await", true, afterJinhanGuard > fullSource.indexOf("await renderJinhanYujing("));
+  check("bazi-priority-jinhan-stale-guard", true, jinhanSource.includes("requestId !== null && !isLatestBaziRenderRequest(requestId)"));
+  check("bazi-priority-current-input-committed-before-dom", true, prioritySource.indexOf("chartTimeState.watchDateTimeValue = dateTimeValue") < prioritySource.indexOf("renderResult(result, effectiveDateTimeValue)"));
+  check("bazi-priority-true-solar-same-snapshot", true, renderSource.includes("context.trueSolar?.localParts") && prioritySource.includes("renderFormalTrueSolarChartTime()"));
+  check("bazi-priority-daily-panel-not-cleared", false, prioritySource.includes("clearPillarExtraPanel()") || renderSource.includes("clearPillarExtraPanel()"));
+  check("bazi-priority-no-new-timer", 2, (mainModuleRaw.match(/setInterval\(/g) ?? []).length);
+  check("bazi-priority-downstream-watch-inputs", true, ["renderFlyingStars(result, effectiveDateTimeValue)", "renderJinhanYujing(result, effectiveDateTimeValue", "renderQimenSection(effectiveDateTimeValue)"].every((call) => fullSource.includes(call)));
+  check("bazi-priority-no-true-solar-downstream", false, /renderFlyingStars\([^)]*currentTrueSolar|renderJinhanYujing\([^)]*currentTrueSolar|renderQimenSection\([^)]*currentTrueSolar/.test(fullSource));
+}
+
+function runTrueSolarDailyInfoTests(solarTerms) {
+  const check = (id, expected, actual) => {
+    trueSolarDailyInfoVerifiedCaseCount += 1;
+    assertEqual(id, "result", expected, actual);
+  };
+  const parts = (year, month, day, hour, minute, second = 0) => ({
+    year,
+    month,
+    day,
+    hour,
+    minute,
+    second,
+    millisecond: 0,
+  });
+  const instantFor = (value, offsetMinutes) => Date.UTC(
+    value.year,
+    value.month - 1,
+    value.day,
+    value.hour,
+    value.minute,
+    value.second
+  ) - offsetMinutes * 60_000;
+  const makeTrueSolarResult = (civilLocalParts, trueSolarLocalParts, timeZone = "Asia/Taipei", offsetMinutes = 480) =>
+    calculateBaziFromChartTimeContext(
+      createTrueSolarChartTimeContext({
+        source: "query",
+        civil: {
+          localParts: civilLocalParts,
+          timeZone,
+          utcOffsetMinutes: offsetMinutes,
+          abbreviation: "",
+          instantMs: instantFor(civilLocalParts, offsetMinutes),
+        },
+        location: { latitude: 24.984898, longitude: 121.540626, accuracy: null },
+        trueSolarResult: {
+          trueSolarParts: trueSolarLocalParts,
+          totalCorrectionSeconds: 0,
+          longitudeCorrectionSeconds: 0,
+          equationOfTimeSeconds: 0,
+        },
+        createdAtInstantMs: 0,
+      }),
+      solarTerms
+    );
+
+  const sameDayCivil = parts(2026, 8, 10, 12, 0);
+  const sameDayTrue = parts(2026, 8, 10, 12, 0);
+  const sameDay = makeTrueSolarResult(sameDayCivil, sameDayTrue);
+  const sameDayDailyInfo = sameDay.dailyInfo;
+  check("true-solar-daily-info-result-exists", true, Boolean(sameDayDailyInfo));
+  check("true-solar-jianchu-exists", true, Boolean(sameDay.jianchu));
+  check("true-solar-jianchu-day-branch", sameDay.dayPillar[1], sameDay.jianchu?.dayBranch);
+  check("true-solar-jianchu-month-branch", sameDay.monthBranch, sameDay.jianchu?.monthBranch);
+  check("true-solar-daily-clothing-day-branch", sameDay.dayPillar[1], sameDayDailyInfo?.clothing?.dayBranch);
+  check("true-solar-daily-clash-day-branch", sameDay.dayPillar[1], sameDayDailyInfo?.clash?.dayBranch);
+  check(
+    "true-solar-daily-huangdao-source",
+    JSON.stringify(getDailyDaHuangDao(sameDay.monthBranch, sameDay.dayPillar[1])),
+    JSON.stringify(getDailyDaHuangDao(sameDay.monthBranch, sameDayDailyInfo?.clothing?.dayBranch))
+  );
+  check(
+    "true-solar-summary-uses-effective-date",
+    true,
+    formatBaziDailySummaryFromDateKey({
+      dateKey: sameDay.debug.effectiveDayDateKey,
+      dayBranch: sameDay.dayPillar[1],
+      clashZodiac: sameDayDailyInfo?.clash?.zodiac,
+      jianchuName: sameDay.jianchu?.fullName,
+    }).startsWith("🗓 2026.08.10")
+  );
+
+  const previousDay = makeTrueSolarResult(
+    parts(2026, 8, 10, 0, 3),
+    parts(2026, 8, 9, 22, 59, 59)
+  );
+  const nextDay = makeTrueSolarResult(
+    parts(2026, 8, 10, 0, 3),
+    parts(2026, 8, 10, 23, 0, 0)
+  );
+  check("true-solar-previous-day-date-key", "2026-08-09", previousDay.debug.effectiveDayDateKey);
+  check("true-solar-next-day-date-key", "2026-08-11", nextDay.debug.effectiveDayDateKey);
+  check("true-solar-previous-day-meta-aligns", previousDay.debug.effectiveDayDateKey, previousDay.meta.effectiveDayDate);
+  check("true-solar-next-day-meta-aligns", nextDay.debug.effectiveDayDateKey, nextDay.meta.effectiveDayDate);
+  check("true-solar-previous-day-clothing-aligns", previousDay.dayPillar[1], previousDay.dailyInfo?.clothing?.dayBranch);
+  check("true-solar-next-day-clash-aligns", nextDay.dayPillar[1], nextDay.dailyInfo?.clash?.dayBranch);
+  check("true-solar-2300-before", "2026-08-09", getEffectiveDateKeyFromLocalParts(parts(2026, 8, 9, 22, 59, 59)));
+  check("true-solar-2300-exact", "2026-08-10", getEffectiveDateKeyFromLocalParts(parts(2026, 8, 9, 23, 0, 0)));
+
+  const sanfuBefore = makeTrueSolarResult(
+    parts(2026, 7, 24, 12, 0),
+    parts(2026, 7, 24, 22, 59, 59)
+  );
+  const sanfuAtBoundary = makeTrueSolarResult(
+    parts(2026, 7, 24, 12, 0),
+    parts(2026, 7, 24, 23, 0, 0)
+  );
+  check("true-solar-sanfu-before-effective-day", "初伏", sanfuBefore.dailyInfo?.sanfu?.type);
+  check("true-solar-sanfu-at-effective-day", "中伏", sanfuAtBoundary.dailyInfo?.sanfu?.type);
+
+  const springPreviousDay = makeTrueSolarResult(
+    parts(2026, 3, 19, 12, 0),
+    parts(2026, 3, 19, 12, 0)
+  );
+  check("true-solar-seasonal-marker-taipei-compatible", "離日：木離日", springPreviousDay.dailyInfo?.seasonalMarker?.label);
+
+  const explicitInput = {
+    termComparisonInstantMs: sameDay.termContext.comparisonInstantMs,
+    termLookupYear: sameDayCivil.year,
+    clockLocalParts: sameDayTrue,
+    effectiveDayDateKey: "2026-08-10",
+    solarTerms,
+  };
+  const explicitResult = calculateBaziFromSeparatedTimeInputs(explicitInput);
+  check("true-solar-explicit-effective-day-contract", "2026-08-10", explicitResult.meta.effectiveDayDate);
+  let mismatchedEffectiveDayRejected = false;
+  try {
+    calculateBaziFromSeparatedTimeInputs({ ...explicitInput, effectiveDayDateKey: "2026-08-11" });
+  } catch {
+    mismatchedEffectiveDayRejected = true;
+  }
+  check("true-solar-explicit-effective-day-mismatch-rejected", true, mismatchedEffectiveDayRejected);
+
+  const watchContext = createWatchChartTimeContext({
+    source: "query",
+    civil: {
+      localParts: sameDayCivil,
+      timeZone: "Asia/Taipei",
+      utcOffsetMinutes: 480,
+      abbreviation: "",
+      instantMs: instantFor(sameDayCivil, 480),
+    },
+    createdAtInstantMs: 0,
+  });
+  const watchResult = calculateBaziFromChartTimeContext(watchContext, solarTerms);
+  const legacyResult = calculateBaziFromSolarTerms("2026-08-10T12:00:00", solarTerms);
+  check("true-solar-watch-regression-pillars", JSON.stringify([legacyResult.yearPillar, legacyResult.monthPillar, legacyResult.dayPillar, legacyResult.hourPillar]), JSON.stringify([watchResult.yearPillar, watchResult.monthPillar, watchResult.dayPillar, watchResult.hourPillar]));
+  check("true-solar-watch-regression-daily-info", JSON.stringify(legacyResult.dailyInfo), JSON.stringify(watchResult.dailyInfo));
+  check("true-solar-term-instant-remains-civil", sameDay.termContext.comparisonInstantMs, instantFor(sameDayCivil, 480));
+
+  const trueSolarRenderSource = extractNamedFunctionSource(mainModuleRaw, "renderTrueSolarBaziResult");
+  const safeDailyInfoSource = extractNamedFunctionSource(mainModuleRaw, "getSafeTrueSolarDailyInfo");
+  const baziModeSource = extractNamedFunctionSource(mainModuleRaw, "renderBaziForActiveDisplayMode");
+  check("true-solar-render-restores-extra-panel", true, trueSolarRenderSource.includes("renderPillarExtraPanel(") && !trueSolarRenderSource.includes("clearPillarExtraPanel()"));
+  check("true-solar-hour-switch-does-not-clear-daily-panel", false, baziModeSource.includes("clearPillarExtraPanel()"));
+  check("true-solar-render-uses-effective-day-helper", true, trueSolarRenderSource.includes("getEffectiveDateKeyFromLocalParts(context.trueSolar?.localParts)"));
+  check("true-solar-overseas-seasonal-marker-safe-hidden", true, safeDailyInfoSource.includes("seasonalMarker: null") && safeDailyInfoSource.includes("Asia/Taipei"));
+  check("true-solar-render-keeps-downstream-watch-inputs", true, ["renderFlyingStars(result, effectiveDateTimeValue)", "renderJinhanYujing(result, effectiveDateTimeValue", "renderQimenSection(effectiveDateTimeValue)"].every((call) => extractNamedFunctionSource(mainModuleRaw, "renderByDateTime").includes(call)));
+  check("true-solar-render-does-not-write-shared-result", false, trueSolarRenderSource.includes("currentCalendarResult ="));
+
+  const helperSource = getEffectiveDateKeyFromLocalParts.toString();
+  check("true-solar-effective-day-no-local-getters", false, /getFullYear|getMonth\(|getDate\(|getHours\(|getMinutes\(|getSeconds\(|getMilliseconds\(/.test(helperSource));
+  const probeInput = JSON.stringify(parts(2026, 8, 9, 23, 0, 0));
+  const runProbe = (timeZone) => execFileSync(
+    process.execPath,
+    ["tests/bazi-effective-day-probe.mjs", probeInput],
+    { cwd: process.cwd(), env: { ...process.env, TZ: timeZone }, encoding: "utf8" }
+  ).trim();
+  const taipeiProbe = runProbe("Asia/Taipei");
+  check("true-solar-effective-day-process-utc", taipeiProbe, runProbe("UTC"));
+  check("true-solar-effective-day-process-los-angeles", taipeiProbe, runProbe("America/Los_Angeles"));
 }
 
 function runChartDisplayModeTests() {
@@ -9438,7 +10227,7 @@ function runChartDisplayModeTests() {
   check("chart-display-mode-predicate", true, isTrueSolarDisplayMode("true-solar"));
   check("chart-display-mode-dom-banner", true, ["chart-time-mode-banner", "chart-time-mode-title", "chart-time-mode-description", "chart-time-mode-switch-link"].every((id) => indexHtmlRaw.includes(`id="${id}"`)));
   check("chart-display-mode-dom-data", true, indexHtmlRaw.includes('data-time-mode="watch"') && mainModuleRaw.includes("document.body.dataset.chartTimeMode = chartDisplayMode"));
-  check("chart-display-mode-dom-copy", true, indexHtmlRaw.includes("⌚ 手錶時間排盤") && mainModuleRaw.includes("真太陽時排盤模式正在建立中；目前尚未影響下方排盤結果。"));
+  check("chart-display-mode-dom-copy", true, indexHtmlRaw.includes("⌚ 手錶時間排盤") && mainModuleRaw.includes("四柱節氣已使用真太陽時，其餘功能目前仍維持手錶時間。"));
   check("chart-display-mode-link-accessibility", true, /id="chart-time-mode-switch-link" href="\?timeMode=true-solar"/.test(indexHtmlRaw) && mainModuleRaw.includes("切換至真太陽時排盤") && mainModuleRaw.includes("返回手錶時間排盤"));
   check("chart-display-mode-single-switch-entry", true, !indexHtmlRaw.includes("true-solar-time-mode-switch-link") && !indexHtmlRaw.includes("true-solar-time-mode-intro") && (mainModuleRaw.match(/chartTimeModeSwitchLink\.addEventListener/g) ?? []).length === 1);
   check("chart-display-mode-panel-keeps-query-controls", true, ["true-solar-time-source-query", "true-solar-time-coordinate", "true-solar-time-time-zone-search-results", "true-solar-time-disambiguation", "true-solar-time-result", "true-solar-time-solar-events"].every((id) => indexHtmlRaw.includes(`id="${id}"`)));
@@ -9447,7 +10236,7 @@ function runChartDisplayModeTests() {
   check("chart-display-mode-url-history", true, mainModuleRaw.includes('window.addEventListener("popstate", syncChartDisplayModeFromLocation)') && extractNamedFunctionSource(mainModuleRaw, "handleChartDisplayModeSwitchClick").includes("window.history.pushState"));
   check("chart-display-mode-watch-reset", true, extractNamedFunctionSource(mainModuleRaw, "resetLegacyChartTimeState").includes("chartTimeState.mode = CHART_TIME_MODE.WATCH") && extractNamedFunctionSource(mainModuleRaw, "initializeChartDisplayMode").includes("resetLegacyChartTimeState"));
   check("chart-display-mode-detached-from-effective-input", true, !extractNamedFunctionSource(mainModuleRaw, "renderChartDisplayMode").includes("resolveEffectiveChartDateTimeValue") && !extractNamedFunctionSource(mainModuleRaw, "renderChartDisplayMode").includes("renderByDateTime"));
-  check("chart-display-mode-render-inputs-unchanged", true, ["renderResult(result, effectiveDateTimeValue)", "renderFlyingStars(result, effectiveDateTimeValue)", "renderJinhanYujing(result, effectiveDateTimeValue)", "renderQimenSection(effectiveDateTimeValue)"].every((call) => extractNamedFunctionSource(mainModuleRaw, "renderByDateTime").includes(call)));
+  check("chart-display-mode-render-inputs-unchanged", true, ["renderResult(result, effectiveDateTimeValue)", "renderFlyingStars(result, effectiveDateTimeValue)", "renderJinhanYujing(result, effectiveDateTimeValue", "renderQimenSection(effectiveDateTimeValue)"].every((call) => extractNamedFunctionSource(mainModuleRaw, "renderByDateTime").includes(call)));
   check("chart-display-mode-no-storage-or-fetch", false, /localStorage|sessionStorage|fetch\(/.test(mainModuleRaw));
   check("chart-display-mode-no-duplicate-page-or-render", true, !indexHtmlRaw.includes("index-true-solar") && (mainModuleRaw.match(/function renderByDateTime\(/g) ?? []).length === 1);
   check("chart-display-mode-no-qimen-or-formula-edit", true, !mainModuleRaw.includes("createChartTimeContext") && mainModuleRaw.includes('from "./qimenResolver.js"'));
@@ -9897,10 +10686,10 @@ function runDailyInfoTests() {
 
 function runQueryPickerTests(solarTerms) {
   const dateTimeCases = [
-    { id: "query-picker-zi", year: 2026, month: 6, day: 21, hourIndex: 1, expected: "2026-07-20T23:00" },
-    { id: "query-picker-chou", year: 2026, month: 6, day: 21, hourIndex: 2, expected: "2026-07-21T01:00" },
-    { id: "query-picker-si", year: 2026, month: 6, day: 21, hourIndex: 6, expected: "2026-07-21T09:00" },
-    { id: "query-picker-zi-cross-year", year: 2026, month: 0, day: 1, hourIndex: 1, expected: "2025-12-31T23:00" },
+    { id: "query-picker-zi", year: 2026, month: 6, day: 21, hourIndex: 1, expected: "2026-07-20T23:00:00" },
+    { id: "query-picker-chou", year: 2026, month: 6, day: 21, hourIndex: 2, expected: "2026-07-21T01:00:00" },
+    { id: "query-picker-si", year: 2026, month: 6, day: 21, hourIndex: 6, expected: "2026-07-21T09:00:00" },
+    { id: "query-picker-zi-cross-year", year: 2026, month: 0, day: 1, hourIndex: 1, expected: "2025-12-31T23:00:00" },
   ];
 
   for (const testCase of dateTimeCases) {
@@ -9919,10 +10708,10 @@ function runQueryPickerTests(solarTerms) {
   }
 
   const selectedDateCases = [
-    { id: "query-picker-auto-before-2300", input: "2026-07-20T22:59", expected: "2026-07-20" },
-    { id: "query-picker-auto-at-2300", input: "2026-07-20T23:00", expected: "2026-07-21" },
-    { id: "query-picker-auto-after-midnight", input: "2026-07-21T00:30", expected: "2026-07-21" },
-    { id: "query-picker-auto-before-next-2300", input: "2026-07-21T22:59", expected: "2026-07-21" },
+    { id: "query-picker-auto-before-2300", input: "2026-07-20T22:59:00", expected: "2026-07-20" },
+    { id: "query-picker-auto-at-2300", input: "2026-07-20T23:00:00", expected: "2026-07-21" },
+    { id: "query-picker-auto-after-midnight", input: "2026-07-21T00:30:00", expected: "2026-07-21" },
+    { id: "query-picker-auto-before-next-2300", input: "2026-07-21T22:59:00", expected: "2026-07-21" },
   ];
 
   for (const testCase of selectedDateCases) {
@@ -9934,7 +10723,7 @@ function runQueryPickerTests(solarTerms) {
     assertEqual(testCase.id, "selectedCalendarDate", testCase.expected, actual);
   }
 
-  const ziSelectedDate = queryPickerHelpers.getSelectedCalendarDateFromDateTime("2026-07-22T23:00");
+  const ziSelectedDate = queryPickerHelpers.getSelectedCalendarDateFromDateTime("2026-07-22T23:00:00");
   const ziSolarTerms = getSolarTermOnDate(solarTerms, ziSelectedDate);
   queryPickerVerifiedCaseCount += 1;
   assertEqual("query-picker-zi-solar-term-calendar-date", "term", "大暑", ziSolarTerms[0]?.name);
@@ -9943,13 +10732,13 @@ function runQueryPickerTests(solarTerms) {
     {
       id: "query-picker-zi-bazi",
       hourIndex: 1,
-      expectedDateTime: "2026-07-20T23:00",
+      expectedDateTime: "2026-07-20T23:00:00",
       expected: { dayPillar: "丙申", hourPillar: "戊子" },
     },
     {
       id: "query-picker-chou-bazi",
       hourIndex: 2,
-      expectedDateTime: "2026-07-21T01:00",
+      expectedDateTime: "2026-07-21T01:00:00",
       expected: { dayPillar: "丙申", hourPillar: "己丑" },
     },
   ];
@@ -11644,8 +12433,17 @@ function loadQueryPickerHelpersForTest(mainModuleRaw) {
       Object.freeze({ index: 12, startHour: 21 }),
     ]);
     ${definitions}
-    return { buildDateTimeValueFromDateAndChineseHour, getSelectedCalendarDateFromDateTime };
+    return { buildDateTimeValueFromDateAndChineseHour, getSelectedCalendarDateFromDateTime, toLocalDatetimeValue };
   `)();
+}
+
+function loadTopQueryDateTimeLocalPartsForTest(mainModuleRaw) {
+  const definitions = [
+    "parseTrueSolarTimeCustomLocalParts",
+    "getLocalDateParts",
+    "parseTopQueryDateTimeLocalParts",
+  ].map((name) => extractNamedFunctionSource(mainModuleRaw, name)).join("\n\n");
+  return Function(`${definitions}\nreturn parseTopQueryDateTimeLocalParts;`)();
 }
 
 function loadQueryCalendarDayDetailForTest(mainModuleRaw) {
@@ -11660,6 +12458,104 @@ function loadQueryCalendarDayDetailForTest(mainModuleRaw) {
     formatLunarCalendarLabel,
     formatLunarCalendarAccessibleLabel
   );
+}
+
+function loadChartTimeStatusDateTimeForTest(mainModuleRaw) {
+  const definitions = [
+    "parseDateTimeLocalValue",
+    "formatDateTimeParts",
+    "getLocalDateParts",
+    "formatChartTimeStatusDateTime",
+  ].map((name) => extractNamedFunctionSource(mainModuleRaw, name)).join("\n\n");
+  return Function(`${definitions}\nreturn formatChartTimeStatusDateTime;`)();
+}
+
+function loadChartQueryTimeModeStatusForTest(mainModuleRaw) {
+  const definitions = [
+    "parseDateTimeLocalValue",
+    "formatDateTimeParts",
+    "getLocalDateParts",
+    "formatChartTimeStatusDateTime",
+    "renderChartQueryTimeModeStatus",
+  ].map((name) => extractNamedFunctionSource(mainModuleRaw, name)).join("\n\n");
+  const factory = Function("elements", "isAutoNowMode", `${definitions}\nreturn renderChartQueryTimeModeStatus;`);
+  return (elements, isAutoNowMode) => factory(elements, isAutoNowMode)();
+}
+
+function loadFormalChartTimeStatusForTest(mainModuleRaw) {
+  const definitions = [
+    "formatDateTimeParts",
+    "renderChartTimeStatus",
+  ].map((name) => extractNamedFunctionSource(mainModuleRaw, name)).join("\n\n");
+  const factory = Function(
+    "elements",
+    "chartDisplayMode",
+    "currentTrueSolarBaziResult",
+    "currentTrueSolarChartContext",
+    "isTrueSolarDisplayMode",
+    "document",
+    `${definitions}\nreturn renderChartTimeStatus;`
+  );
+  return (context, ready) => {
+    const createElement = () => ({ className: "", textContent: "" });
+    const elements = {
+      chartTimeStatusTitle: createElement(),
+      chartTimeStatusDetail: {
+        textContent: "",
+        children: [],
+        replaceChildren(...children) {
+          this.children = children;
+          this.textContent = "";
+        },
+      },
+      chartTimeRestore: { hidden: false },
+    };
+    const document = { createElement };
+    const render = factory(
+      elements,
+      "true-solar",
+      ready ? {} : null,
+      context,
+      (mode) => mode === "true-solar",
+      document
+    );
+    render();
+    return {
+      title: elements.chartTimeStatusTitle.textContent,
+      lines: elements.chartTimeStatusDetail.children.map((child) => child.textContent),
+    };
+  };
+}
+
+function loadTrueSolarLocationSyncForTest(mainModuleRaw) {
+  const definition = extractNamedFunctionSource(mainModuleRaw, "syncTrueSolarTimeLocationFromCoordinateInput");
+  return Function("parseCoordinateInput", `
+    const elements = { trueSolarTimeCoordinate: { value: "" } };
+    let trueSolarTimeLocation = null;
+    const statuses = [];
+    function setTrueSolarTimeStatus(message, type) {
+      statuses.push({ message, type });
+    }
+    ${definition}
+    return {
+      sync(input, options) {
+        elements.trueSolarTimeCoordinate.value = input;
+        return syncTrueSolarTimeLocationFromCoordinateInput(options);
+      },
+      setLocation(location) {
+        trueSolarTimeLocation = location;
+      },
+      getLocation() {
+        return trueSolarTimeLocation;
+      },
+      getInput() {
+        return elements.trueSolarTimeCoordinate.value;
+      },
+      getStatuses() {
+        return statuses.slice();
+      },
+    };
+  `)(parseCoordinateInput);
 }
 
 function extractNamedFunctionSource(source, name) {

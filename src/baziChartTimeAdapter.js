@@ -1,5 +1,6 @@
 import {
   calculateBaziFromSeparatedTimeInputs,
+  getEffectiveDateKeyFromLocalParts,
 } from "./bazi.js";
 import {
   CHART_CONTEXT_MODE_TRUE_SOLAR,
@@ -60,10 +61,12 @@ export function getBaziSolarTermComparisonInstantMs(context) {
 /** Creates the explicit, non-string input contract used by the shared core. */
 export function createBaziCalculationInputFromChartTimeContext(context) {
   assertValidContext(context);
+  const clockLocalParts = Object.freeze(getBaziClockLocalParts(context));
   return Object.freeze({
     termComparisonInstantMs: context.astronomy.comparisonInstantMs,
     termLookupYear: context.civil.localParts.year,
-    clockLocalParts: Object.freeze(getBaziClockLocalParts(context)),
+    clockLocalParts,
+    effectiveDayDateKey: getEffectiveDateKeyFromLocalParts(clockLocalParts),
   });
 }
 
@@ -81,7 +84,7 @@ export function calculateBaziFromChartTimeContext(context, solarTerms) {
     termComparisonInstantIso: new Date(input.termComparisonInstantMs).toISOString(),
     clockMode: context.mode,
     clockLocalDateTime: formatLocalDateTime(input.clockLocalParts),
-    effectiveDayDateKey: getEffectiveDayDateKey(input.clockLocalParts),
+    effectiveDayDateKey: input.effectiveDayDateKey,
     dayBoundaryRule: "23:00",
   });
   return {
@@ -166,10 +169,4 @@ function cloneLocalParts(parts) {
 
 function formatLocalDateTime(parts) {
   return `${String(parts.year).padStart(4, "0")}-${String(parts.month).padStart(2, "0")}-${String(parts.day).padStart(2, "0")} ${String(parts.hour).padStart(2, "0")}:${String(parts.minute).padStart(2, "0")}:${String(parts.second).padStart(2, "0")}`;
-}
-
-function getEffectiveDayDateKey(parts) {
-  const dayMs = Date.UTC(parts.year, parts.month - 1, parts.day) + (parts.hour >= 23 ? 86_400_000 : 0);
-  const date = new Date(dayMs);
-  return `${String(date.getUTCFullYear()).padStart(4, "0")}-${String(date.getUTCMonth() + 1).padStart(2, "0")}-${String(date.getUTCDate()).padStart(2, "0")}`;
 }

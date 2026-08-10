@@ -338,6 +338,36 @@ export function formatBaziDailySummary({ date, dayBranch, clashZodiac, jianchuNa
   return `🗓 ${dateText} (${weekday})｜${dayElement}｜衝${zodiac}｜${jianchu}`;
 }
 
+/** Formats the same summary from an explicit effective date key. */
+export function formatBaziDailySummaryFromDateKey({ dateKey, dayBranch, clashZodiac, jianchuName } = {}) {
+  if (typeof dateKey !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(dateKey)) {
+    return "--";
+  }
+
+  const [year, month, day] = dateKey.split("-").map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  if (
+    date.getUTCFullYear() !== year
+    || date.getUTCMonth() !== month - 1
+    || date.getUTCDate() !== day
+  ) {
+    return "--";
+  }
+
+  const normalizedDayBranch = normalizeText(dayBranch);
+  const dayElement = BRANCH_ELEMENTS[normalizedDayBranch] ?? "—";
+  const zodiac = normalizeText(clashZodiac) || getClashingZodiacByBranch(normalizedDayBranch) || "—";
+  const jianchu = normalizeText(jianchuName) || "—";
+  const weekday = ["日", "一", "二", "三", "四", "五", "六"][date.getUTCDay()];
+  const dateText = [
+    String(year).padStart(4, "0"),
+    String(month).padStart(2, "0"),
+    String(day).padStart(2, "0"),
+  ].join(".");
+
+  return `🗓 ${dateText} (${weekday})｜${dayElement}｜衝${zodiac}｜${jianchu}`;
+}
+
 export function getDaHuangDaoFortune(deity) {
   const normalizedDeity = normalizeText(deity);
 

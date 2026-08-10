@@ -55,6 +55,7 @@ h2 {
 .true-solar-time-source, .true-solar-time-device-fields, .true-solar-time-custom-fields { display: grid; gap: 8px; padding: 12px; border: 1px solid #d8dee6; border-radius: 8px; background: #fbfcfe; min-width: 0; }
 .true-solar-time-source { gap: 3px; padding: 6px 8px; }
 .true-solar-time-source .true-solar-time-source-note { margin: 5px 0 0; }
+.true-solar-time-source-badge { margin-left: 6px; color: #6b4f00; font-size: 12px; font-weight: 700; }
 .true-solar-time-source legend, .true-solar-time-disambiguation legend { font-weight: 800; }
 .true-solar-time-source-option, .true-solar-time-disambiguation-option { display: flex; align-items: center; gap: 6px; width: max-content; max-width: 100%; min-width: 0; margin: 0; cursor: pointer; }
 .true-solar-time-source-option { min-height: auto; padding: 0; line-height: 1.4; }
@@ -134,6 +135,47 @@ label {
   white-space: nowrap;
   border: 0;
 }
+
+.query-time-summary {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border: 1px solid #d8dee6;
+  border-radius: 8px;
+  background: #fbfcfe;
+}
+
+.query-time-summary-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+  min-width: 0;
+}
+
+.query-time-summary-label {
+  color: #334e68;
+  font-weight: 800;
+}
+
+.query-time-summary-value {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: #1f2933;
+  font-size: 17px;
+}
+
+.query-time-mode-status {
+  margin: 0;
+  color: #52616f;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.query-time-mode-status[data-mode="auto-now"] { color: #1f6f43; }
+.query-time-mode-status[data-mode="manual"] { color: #8a5a00; }
 
 .query-datetime-state {
   position: absolute;
@@ -343,6 +385,17 @@ button.query-calendar-day {
   font-size: 9px;
   font-weight: 700;
   white-space: nowrap;
+}
+
+.bazi-time-basis {
+  margin: 3px 0 6px;
+  color: #627d98;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.bazi-time-basis.is-unready {
+  color: #9a6700;
 }
 
 .weekday-label {
