@@ -1,11 +1,15 @@
 const formatterCache = new Map();
-const invalidTimeZoneCache = new Set();
+export const MAX_TIME_ZONE_INPUT_LENGTH = 128;
+export const MAX_TIME_ZONE_FORMATTER_CACHE_SIZE = 128;
 
 export function getDeviceTimeZone() {
   return normalizeTimeZone(Intl.DateTimeFormat().resolvedOptions().timeZone) || "UTC";
 }
 
 export function validateTimeZone(timeZone) {
+  if (typeof timeZone !== "string" || timeZone.length > MAX_TIME_ZONE_INPUT_LENGTH) {
+    return false;
+  }
   return getFormatter(normalizeTimeZone(timeZone)) !== null;
 }
 
@@ -126,11 +130,13 @@ export function formatUtcOffset(offsetMinutes) {
 }
 
 function normalizeTimeZone(timeZone) {
-  return typeof timeZone === "string" ? timeZone.trim() : "";
+  return typeof timeZone === "string" && timeZone.length <= MAX_TIME_ZONE_INPUT_LENGTH
+    ? timeZone.trim()
+    : "";
 }
 
 function getFormatter(timeZone) {
-  if (!timeZone || invalidTimeZoneCache.has(timeZone)) {
+  if (!timeZone || timeZone.length > MAX_TIME_ZONE_INPUT_LENGTH) {
     return null;
   }
   if (formatterCache.has(timeZone)) {
@@ -149,10 +155,13 @@ function getFormatter(timeZone) {
       hourCycle: "h23",
       timeZoneName: "short",
     });
+    if (!formatterCache.has(timeZone) && formatterCache.size >= MAX_TIME_ZONE_FORMATTER_CACHE_SIZE) {
+      const oldestKey = formatterCache.keys().next().value;
+      if (oldestKey !== undefined) formatterCache.delete(oldestKey);
+    }
     formatterCache.set(timeZone, formatter);
     return formatter;
   } catch {
-    invalidTimeZoneCache.add(timeZone);
     return null;
   }
 }

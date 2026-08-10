@@ -1,3 +1,5 @@
+import { MAX_TIME_ZONE_INPUT_LENGTH } from "./timeZone.js";
+
 const FALLBACK_TIME_ZONES = Object.freeze([
   "UTC",
   "Africa/Cairo", "Africa/Johannesburg",
@@ -80,6 +82,9 @@ export function getTimeZoneSearchEntry(timeZone) {
 }
 
 export function searchTimeZones(query, { limit = 16, timeZones = getSupportedTimeZones() } = {}) {
+  if (typeof query === "string" && query.length > MAX_TIME_ZONE_INPUT_LENGTH) {
+    return [];
+  }
   const normalizedQuery = normalizeSearchText(query);
   const cappedLimit = Math.max(1, Math.min(20, Number.isInteger(limit) ? limit : 16));
   const source = Array.isArray(timeZones) ? timeZones : getSupportedTimeZones();

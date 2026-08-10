@@ -1,13 +1,18 @@
 const MS_PER_DAY = 86_400_000;
 const MAX_UTC_OFFSET_MINUTES = 14 * 60;
 const MIN_UTC_OFFSET_MINUTES = -12 * 60;
+export const MAX_COORDINATE_INPUT_LENGTH = 128;
 
 /**
  * Parses a pasted latitude/longitude pair. This UI-facing helper returns null
  * for malformed input rather than throwing.
  */
 export function parseCoordinateInput(input) {
-  if (typeof input !== "string" || input.trim() === "") {
+  if (
+    typeof input !== "string"
+    || input.length > MAX_COORDINATE_INPUT_LENGTH
+    || input.trim() === ""
+  ) {
     return null;
   }
 

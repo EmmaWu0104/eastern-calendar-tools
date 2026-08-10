@@ -8,7 +8,7 @@ The repository's code is licensed under the [MIT License](LICENSE). The CWA-deri
 - Dataset: 日曆資料
 - Dataset ID: `157677`
 - Resource: `A-A0087-001` 國農曆日期對照
-- Source URL: https://opendata.cwa.gov.tw/fileapi/v1/opendataapi/A-A0087-001?Authorization=rdec-key-123-45678-011121314&format=CSV
+- Source URL: https://opendata.cwa.gov.tw/fileapi/v1/opendataapi/A-A0087-001?format=CSV
 - Retrieved: 2026-08-03T05:39:11.801Z
 - Source format and SHA-256: UTF-8 CSV, `1977895ede93d8cac33355fa5d51cd021f384c1298e46c075b81d8be99d576be`
 - Source coverage: 2022-01-01 through 2050-12-31, 10,592 daily rows

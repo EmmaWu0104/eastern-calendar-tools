@@ -46,12 +46,16 @@ import {
 } from "./jinhanYujing.js";
 import { getJinhanDunType } from "./jinhanDunType.js";
 import { getNaYinByPillar } from "./nayin.js";
-import { calculateTrueSolarTime, parseCoordinateInput } from "./trueSolarTime.js";
+import {
+  calculateTrueSolarTime,
+  parseCoordinateInput,
+} from "./trueSolarTime.js";
 import { calculateSolarEvents } from "./solarEvents.js";
 import {
   formatUtcOffset,
   getDeviceTimeZone,
   getZonedDateTimeParts,
+  MAX_TIME_ZONE_INPUT_LENGTH,
   resolveLocalDateTimeInTimeZone,
   validateTimeZone,
 } from "./timeZone.js";
@@ -89,6 +93,7 @@ import {
 
 const AUTO_NOW_REFRESH_MS = 30_000;
 const TRUE_SOLAR_TIME_CLOCK_REFRESH_MS = 1_000;
+const TRUE_SOLAR_TIME_ZONE_SEARCH_DEBOUNCE_MS = 200;
 // 上方查詢時間維持臺灣 UTC+8；裝置／自訂來源另外以 IANA 時區解析。
 const TAIPEI_UTC_OFFSET_MINUTES = 480;
 const TRUE_SOLAR_TIME_SOURCE = Object.freeze({ QUERY: "query", DEVICE: "device", CUSTOM: "custom" });
@@ -282,6 +287,7 @@ let trueSolarTimeSource = TRUE_SOLAR_TIME_SOURCE.QUERY;
 let trueSolarTimeCustomDisambiguation = null;
 let trueSolarTimeTimeZoneSearchResults = [];
 let trueSolarTimeTimeZoneSearchActiveIndex = -1;
+let trueSolarTimeTimeZoneSearchDebounceTimerId = null;
 const trueSolarTimeTimeZoneOffsetCache = new Map();
 let chartDisplayMode = getChartDisplayModeFromLocation(window.location);
 let chartTimeState = { mode: CHART_TIME_MODE.WATCH, watchDateTimeValue: null, effectiveDateTimeValue: null, trueSolarResult: null, location: null };
@@ -325,6 +331,7 @@ elements.datetime.addEventListener("keydown", (event) => {
 window.addEventListener("pagehide", () => {
   stopAutoNowRefresh();
   stopTrueSolarTimeClockRefresh();
+  clearTrueSolarTimeTimeZoneSearchDebounce();
 });
 window.addEventListener("popstate", syncChartDisplayModeFromLocation);
 elements.jinhanDunType.addEventListener("change", () => {
@@ -352,7 +359,7 @@ for (const customControl of [
   customControl.addEventListener("change", handleTrueSolarTimeCustomInput);
 }
 elements.trueSolarTimeTimeZone.addEventListener("input", handleTrueSolarTimeTimeZoneInput);
-elements.trueSolarTimeTimeZone.addEventListener("change", handleTrueSolarTimeTimeZoneInput);
+elements.trueSolarTimeTimeZone.addEventListener("change", handleTrueSolarTimeTimeZoneChange);
 elements.trueSolarTimeTimeZone.addEventListener("keydown", handleTrueSolarTimeTimeZoneKeydown);
 elements.trueSolarTimeTimeZone.addEventListener("focus", renderTrueSolarTimeTimeZoneSearchResults);
 elements.trueSolarTimeTimeZoneCurrentDevice.addEventListener("click", useDeviceTimeZoneForCustomInput);
@@ -1896,9 +1903,17 @@ function insertQimenSection(section) {
 
 function syncTrueSolarTimeLocationFromCoordinateInput(options) {
   const { showError = true } = options ?? {};
-  const input = typeof elements.trueSolarTimeCoordinate.value === "string"
-    ? elements.trueSolarTimeCoordinate.value.trim()
+  const rawInput = typeof elements.trueSolarTimeCoordinate.value === "string"
+    ? elements.trueSolarTimeCoordinate.value
     : "";
+  if (rawInput.length > 128) {
+    trueSolarTimeLocation = null;
+    if (showError) {
+      setTrueSolarTimeStatus("座標輸入過長，請縮短後再試。", "error");
+    }
+    return null;
+  }
+  const input = rawInput.trim();
   if (!input) {
     trueSolarTimeLocation = null;
     if (showError) {
@@ -2260,6 +2275,7 @@ function createTrueSolarTimeResultContent(result, context) {
 }
 
 function handleTrueSolarTimeSourceChange(event) {
+  clearTrueSolarTimeTimeZoneSearchDebounce();
   trueSolarTimeSource = event.target.value;
   trueSolarTimeCustomDisambiguation = null;
   clearTrueSolarTimeCustomDisambiguation();
@@ -2286,12 +2302,58 @@ function handleTrueSolarTimeCustomInput() {
   }
 }
 
+function clearTrueSolarTimeTimeZoneSearchDebounce() {
+  if (trueSolarTimeTimeZoneSearchDebounceTimerId !== null) {
+    window.clearTimeout(trueSolarTimeTimeZoneSearchDebounceTimerId);
+    trueSolarTimeTimeZoneSearchDebounceTimerId = null;
+  }
+}
+
+function showTrueSolarTimeTimeZoneTooLongStatus() {
+  closeTrueSolarTimeTimeZoneSearch();
+  clearTrueSolarTimePresentation({ clearFormalChart: false });
+  setTrueSolarTimeTimeZoneStatus("時區輸入過長，請縮短後再搜尋。", "error");
+}
+
 function handleTrueSolarTimeTimeZoneInput() {
+  // Expensive validateTimeZone/resolver work is deferred to the debounced apply step.
   trueSolarTimeCustomDisambiguation = null;
   trueSolarTimeTimeZoneSearchActiveIndex = -1;
   clearTrueSolarTimeCustomDisambiguation();
+  clearTrueSolarTimeTimeZoneSearchDebounce();
+  const rawTimeZone = typeof elements.trueSolarTimeTimeZone.value === "string"
+    ? elements.trueSolarTimeTimeZone.value
+    : "";
+  if (rawTimeZone.length > MAX_TIME_ZONE_INPUT_LENGTH) {
+    showTrueSolarTimeTimeZoneTooLongStatus();
+    return;
+  }
+  clearTrueSolarTimePresentation({ clearFormalChart: false });
+  closeTrueSolarTimeTimeZoneSearch();
+  if (rawTimeZone.trim()) {
+    elements.trueSolarTimeTimeZoneSearchStatus.textContent = "請從建議中選擇正式時區。";
+  }
+  trueSolarTimeTimeZoneSearchDebounceTimerId = window.setTimeout(() => {
+    trueSolarTimeTimeZoneSearchDebounceTimerId = null;
+    applyTrueSolarTimeTimeZoneInput();
+  }, TRUE_SOLAR_TIME_ZONE_SEARCH_DEBOUNCE_MS);
+}
+
+function handleTrueSolarTimeTimeZoneChange() {
+  clearTrueSolarTimeTimeZoneSearchDebounce();
+  applyTrueSolarTimeTimeZoneInput();
+}
+
+function applyTrueSolarTimeTimeZoneInput() {
+  const rawTimeZone = typeof elements.trueSolarTimeTimeZone.value === "string"
+    ? elements.trueSolarTimeTimeZone.value
+    : "";
+  if (rawTimeZone.length > MAX_TIME_ZONE_INPUT_LENGTH) {
+    showTrueSolarTimeTimeZoneTooLongStatus();
+    return;
+  }
   renderTrueSolarTimeTimeZoneSearchResults();
-  const timeZone = elements.trueSolarTimeTimeZone.value.trim();
+  const timeZone = rawTimeZone.trim();
   if (!timeZone || !validateTimeZone(timeZone)) {
     clearTrueSolarTimePresentation({ clearFormalChart: false });
     setTrueSolarTimeTimeZoneStatus(
@@ -2308,10 +2370,15 @@ function handleTrueSolarTimeTimeZoneInput() {
 
 function handleTrueSolarTimeTimeZoneKeydown(event) {
   if (event.key === "Escape") {
+    clearTrueSolarTimeTimeZoneSearchDebounce();
     closeTrueSolarTimeTimeZoneSearch();
     return;
   }
   if (!["ArrowDown", "ArrowUp", "Enter"].includes(event.key)) return;
+  if (trueSolarTimeTimeZoneSearchDebounceTimerId !== null) {
+    clearTrueSolarTimeTimeZoneSearchDebounce();
+    applyTrueSolarTimeTimeZoneInput();
+  }
   if (trueSolarTimeTimeZoneSearchResults.length === 0) {
     renderTrueSolarTimeTimeZoneSearchResults();
   }
@@ -2329,12 +2396,14 @@ function handleTrueSolarTimeTimeZoneKeydown(event) {
 }
 
 function useDeviceTimeZoneForCustomInput() {
+  clearTrueSolarTimeTimeZoneSearchDebounce();
   const timeZone = getDeviceTimeZone() || "UTC";
   elements.trueSolarTimeTimeZone.value = timeZone;
   selectTrueSolarTimeTimeZone(timeZone);
 }
 
 function selectTrueSolarTimeTimeZone(timeZone) {
+  clearTrueSolarTimeTimeZoneSearchDebounce();
   if (!timeZone || !validateTimeZone(timeZone)) return;
   elements.trueSolarTimeTimeZone.value = timeZone;
   trueSolarTimeCustomDisambiguation = null;
@@ -2345,7 +2414,13 @@ function selectTrueSolarTimeTimeZone(timeZone) {
 
 function renderTrueSolarTimeTimeZoneSearchResults() {
   if (trueSolarTimeSource !== TRUE_SOLAR_TIME_SOURCE.CUSTOM) return;
-  const query = elements.trueSolarTimeTimeZone.value;
+  const query = typeof elements.trueSolarTimeTimeZone.value === "string"
+    ? elements.trueSolarTimeTimeZone.value
+    : "";
+  if (query.length > MAX_TIME_ZONE_INPUT_LENGTH) {
+    showTrueSolarTimeTimeZoneTooLongStatus();
+    return;
+  }
   trueSolarTimeTimeZoneSearchResults = searchTimeZones(query, { limit: 12 });
   if (trueSolarTimeTimeZoneSearchActiveIndex >= trueSolarTimeTimeZoneSearchResults.length) {
     trueSolarTimeTimeZoneSearchActiveIndex = -1;
@@ -2400,7 +2475,13 @@ function formatTrueSolarTimeTimeZoneSearchOffset(timeZone) {
       : resolved.status === "nonexistent"
         ? "指定日期時間不存在"
         : "請先輸入有效日期時間";
-  trueSolarTimeTimeZoneOffsetCache.set(cacheKey, text);
+  if (resolved.status === "resolved" || resolved.status === "ambiguous") {
+    if (!trueSolarTimeTimeZoneOffsetCache.has(cacheKey) && trueSolarTimeTimeZoneOffsetCache.size >= 128) {
+      const oldestKey = trueSolarTimeTimeZoneOffsetCache.keys().next().value;
+      if (oldestKey !== undefined) trueSolarTimeTimeZoneOffsetCache.delete(oldestKey);
+    }
+    trueSolarTimeTimeZoneOffsetCache.set(cacheKey, text);
+  }
   return text;
 }
 
@@ -2473,8 +2554,14 @@ function clearTrueSolarTimePresentation(options) {
 }
 
 function parseTrueSolarTimeCustomLocalParts(dateValue, timeValue) {
-  const dateMatch = typeof dateValue === "string" && dateValue.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  const timeMatch = typeof timeValue === "string" && timeValue.match(/^(\d{2}):(\d{2})(?::(\d{2}))?$/);
+  if (
+    typeof dateValue !== "string"
+    || typeof timeValue !== "string"
+    || dateValue.length > 32
+    || timeValue.length > 32
+  ) return null;
+  const dateMatch = dateValue.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  const timeMatch = timeValue.match(/^(\d{2}):(\d{2})(?::(\d{2}))?$/);
   if (!dateMatch || !timeMatch) return null;
   const parts = { year: Number(dateMatch[1]), month: Number(dateMatch[2]), day: Number(dateMatch[3]), hour: Number(timeMatch[1]), minute: Number(timeMatch[2]), second: Number(timeMatch[3] ?? 0) };
   const check = new Date(Date.UTC(parts.year, parts.month - 1, parts.day, parts.hour, parts.minute, parts.second));
@@ -2499,7 +2586,7 @@ function parseTopQueryDateTimeLocalParts(dateTimeValue) {
   if (dateTimeValue instanceof Date) {
     return { ...getLocalDateParts(dateTimeValue), millisecond: 0 };
   }
-  if (typeof dateTimeValue !== "string") return null;
+  if (typeof dateTimeValue !== "string" || dateTimeValue.length > 32) return null;
   const [dateValue, timeValue] = dateTimeValue.trim().split("T");
   const parts = parseTrueSolarTimeCustomLocalParts(dateValue, timeValue);
   return parts ? { ...parts, millisecond: 0 } : null;
@@ -3989,7 +4076,11 @@ function getSelectedCalendarDateFromDateTime(dateTimeValue) {
 }
 
 function parseDateTimeLocalValue(dateTimeValue) {
-  if (typeof dateTimeValue !== "string" || dateTimeValue.trim() === "") {
+  if (
+    typeof dateTimeValue !== "string"
+    || dateTimeValue.length > 32
+    || dateTimeValue.trim() === ""
+  ) {
     return null;
   }
 

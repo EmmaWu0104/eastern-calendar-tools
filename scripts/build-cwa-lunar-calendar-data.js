@@ -18,7 +18,7 @@ const EXPECTED_SHA256 = "1977895ede93d8cac33355fa5d51cd021f384c1298e46c075b81d8b
 const EXPECTED_START = "2022-01-01";
 const EXPECTED_END = "2050-12-31";
 const EXPECTED_ROWS = 10592;
-const SOURCE_URL = "https://opendata.cwa.gov.tw/fileapi/v1/opendataapi/A-A0087-001?Authorization=rdec-key-123-45678-011121314&format=CSV";
+const SOURCE_URL = "https://opendata.cwa.gov.tw/fileapi/v1/opendataapi/A-A0087-001?format=CSV";
 const RETRIEVED_AT = "2026-08-03T05:39:11.801Z";
 
 function getArgument(name, fallback = null) {

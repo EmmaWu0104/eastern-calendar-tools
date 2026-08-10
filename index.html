@@ -87,7 +87,7 @@
             <div class="true-solar-time-custom-field">
               <label for="true-solar-time-time-zone">IANA 時區</label>
               <div id="true-solar-time-time-zone-picker" class="true-solar-time-time-zone-picker">
-                <input id="true-solar-time-time-zone" type="text" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="true-solar-time-time-zone-search-results" autocomplete="off" spellcheck="false" placeholder="輸入城市、國家或 IANA 時區">
+                <input id="true-solar-time-time-zone" type="text" maxlength="128" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="true-solar-time-time-zone-search-results" autocomplete="off" spellcheck="false" placeholder="輸入城市、國家或 IANA 時區">
                 <button id="true-solar-time-time-zone-current-device" type="button">使用裝置時區</button>
                 <p id="true-solar-time-time-zone-current-device-label" class="true-solar-time-time-zone-current-device"></p>
                 <p id="true-solar-time-time-zone-search-status" class="true-solar-time-time-zone-search-status" role="status" aria-live="polite"></p>
@@ -106,7 +106,7 @@
           </div>
           <div class="true-solar-time-location">
             <label for="true-solar-time-coordinate">地點座標</label>
-            <input id="true-solar-time-coordinate" type="text" autocomplete="off" spellcheck="false" placeholder="24°58'37.1&quot;N 121°32'45.3&quot;E">
+            <input id="true-solar-time-coordinate" type="text" maxlength="128" autocomplete="off" spellcheck="false" placeholder="24°58'37.1&quot;N 121°32'45.3&quot;E">
             <div class="true-solar-time-actions"><button id="true-solar-time-calculate" type="button">依經緯度取得真太陽時</button><button id="true-solar-time-geolocate" type="button">自動取得真太陽時</button></div>
             <p id="true-solar-time-location-value" class="true-solar-time-detail"></p>
             <p class="true-solar-time-timezone">座標決定實際地點；時區只決定手錶時間制度，兩者不會自動互相轉換。</p>

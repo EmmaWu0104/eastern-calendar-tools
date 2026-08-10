@@ -4,7 +4,7 @@
   "datasetId": "157677",
   "resourceId": "A-A0087-001",
   "resourceName": "國農曆日期對照",
-  "sourceUrl": "https://opendata.cwa.gov.tw/fileapi/v1/opendataapi/A-A0087-001?Authorization=rdec-key-123-45678-011121314&format=CSV",
+  "sourceUrl": "https://opendata.cwa.gov.tw/fileapi/v1/opendataapi/A-A0087-001?format=CSV",
   "sourceFilename": "A-A0087-001.bin",
   "sourceFormat": "UTF-8 CSV",
   "sourceSha256": "1977895ede93d8cac33355fa5d51cd021f384c1298e46c075b81d8be99d576be",

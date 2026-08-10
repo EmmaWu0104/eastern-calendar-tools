@@ -78,7 +78,15 @@ const {
 } = await import("../src/jinhanYujing.js");
 const { getNaYinByPillar } = await import("../src/nayin.js");
 const { calculateSolarEvents } = await import("../src/solarEvents.js");
-const { formatUtcOffset, getDeviceTimeZone, getZonedDateTimeParts, resolveLocalDateTimeInTimeZone, validateTimeZone } = await import("../src/timeZone.js");
+const {
+  formatUtcOffset,
+  getDeviceTimeZone,
+  getZonedDateTimeParts,
+  MAX_TIME_ZONE_FORMATTER_CACHE_SIZE,
+  MAX_TIME_ZONE_INPUT_LENGTH,
+  resolveLocalDateTimeInTimeZone,
+  validateTimeZone,
+} = await import("../src/timeZone.js");
 const { getCommonTimeZones, getSupportedTimeZones, getTimeZoneSearchEntry, searchTimeZones } = await import("../src/timeZoneCatalog.js");
 const {
   buildChartDisplayModeUrl,
@@ -102,6 +110,7 @@ const {
 const {
   calculateEquationOfTime,
   calculateTrueSolarTime,
+  MAX_COORDINATE_INPUT_LENGTH,
   convertDmsToDecimal,
   parseCoordinateInput,
 } = await import("../src/trueSolarTime.js");
@@ -289,6 +298,11 @@ const [
   chartTimeContextRaw,
   baziChartTimeAdapterRaw,
   flyingStarsChartTimeAdapterRaw,
+  cwaBuildScriptRaw,
+  cwaManifestRaw,
+  thirdPartyDataRaw,
+  lunarSourceDocRaw,
+  securityDocRaw,
 ] = await Promise.all([
   readFile(new URL("../data/solar_terms_1899_2101.json", import.meta.url), "utf8"),
   readFile(new URL("./testcases.json", import.meta.url), "utf8"),
@@ -305,6 +319,11 @@ const [
   readFile(new URL("../src/chartTimeContext.js", import.meta.url), "utf8"),
   readFile(new URL("../src/baziChartTimeAdapter.js", import.meta.url), "utf8"),
   readFile(new URL("../src/flyingStarsChartTimeAdapter.js", import.meta.url), "utf8"),
+  readFile(new URL("../scripts/build-cwa-lunar-calendar-data.js", import.meta.url), "utf8"),
+  readFile(new URL("../data/cwa_lunar_calendar_manifest_2022_2050.json", import.meta.url), "utf8"),
+  readFile(new URL("../THIRD_PARTY_DATA.md", import.meta.url), "utf8"),
+  readFile(new URL("../docs/76_農曆資料來源與時間基準.md", import.meta.url), "utf8"),
+  readFile(new URL("../docs/79_前端輸入安全盤點與補強.md", import.meta.url), "utf8"),
 ]);
 
 const solarTerms = normalizeSolarTerms(JSON.parse(termsRaw));
@@ -341,6 +360,7 @@ let trueSolarBaziPriorityBugFixVerifiedCaseCount = 0;
 let calendarBrowseAutoNowBugFixVerifiedCaseCount = 0;
 let preciseChartTimeInputVerifiedCaseCount = 0;
 let preciseChartTimeZeroSecondBugFixVerifiedCaseCount = 0;
+let frontendInputSecurityVerifiedCaseCount = 0;
 let jianchuVerifiedCaseCount = 0;
 let lunarCalendarVerifiedCaseCount = 0;
 let lunarCalendarUiVerifiedCaseCount = 0;
@@ -757,6 +777,7 @@ runChartDisplayModeTests();
   runCalendarBrowseAutoNowBugFixTests();
   runPreciseChartTimeInputTests(solarTerms);
   runPreciseChartTimeZeroSecondBugFixTests(solarTerms);
+  runFrontendInputSecurityTests();
 await runSolarEventsTests();
 await runTimeZoneTests();
 runTimeZoneCatalogTests();
@@ -807,6 +828,7 @@ if (failures.length > 0) {
   console.log(`月曆瀏覽 auto-now blocking bug 修復測試通過：${calendarBrowseAutoNowBugFixVerifiedCaseCount} cases`);
   console.log(`精確排盤時間輸入 UX 測試通過：${preciseChartTimeInputVerifiedCaseCount} cases`);
   console.log(`datetime-local 00 秒 ChartTimeContext blocking bug 修復測試通過：${preciseChartTimeZeroSecondBugFixVerifiedCaseCount} cases`);
+  console.log(`前端輸入安全 regression 測試通過：${frontendInputSecurityVerifiedCaseCount} cases`);
   console.log(`真太陽四柱每日附屬資訊 8B-2C 測試通過：${trueSolarDailyInfoVerifiedCaseCount} cases`);
   console.log(`太陽事件測試通過：${solarEventsVerifiedCaseCount} cases`);
   console.log(`時區核心測試通過：${timeZoneVerifiedCaseCount} cases`);
@@ -9033,6 +9055,84 @@ function runTrueSolarTimeUiTests() {
   assertUi("true-solar-time-no-external-timezone-api", false, /fetch\([^)]*(time.?zone|timezone)|localStorage|Temporal/.test(mainModuleRaw));
 }
 
+function runFrontendInputSecurityTests() {
+  const check = (id, expected, actual) => {
+    frontendInputSecurityVerifiedCaseCount += 1;
+    assertEqual(id, "result", expected, actual);
+  };
+
+  const boundaryCoordinate = `24.976972, 121.545917${" ".repeat(MAX_COORDINATE_INPUT_LENGTH - "24.976972, 121.545917".length)}`;
+  check("frontend-security-coordinate-decimal", true, parseCoordinateInput("24.976972, 121.545917")?.sourceFormat === "decimal");
+  check("frontend-security-coordinate-dms", true, parseCoordinateInput("24°58'37.1\"N 121°32'45.3\"E")?.sourceFormat === "dms");
+  check("frontend-security-coordinate-128-boundary", true, boundaryCoordinate.length === MAX_COORDINATE_INPUT_LENGTH && Boolean(parseCoordinateInput(boundaryCoordinate)));
+  check("frontend-security-coordinate-over-128", null, parseCoordinateInput("24.976972, 121.545917" + "x".repeat(MAX_COORDINATE_INPUT_LENGTH)));
+  check("frontend-security-coordinate-over-10k-before-parser", null, parseCoordinateInput("x".repeat(10_001)));
+  check("frontend-security-coordinate-nan", null, parseCoordinateInput("NaN, 121.5"));
+  check("frontend-security-coordinate-infinity", null, parseCoordinateInput("Infinity, 121.5"));
+  check("frontend-security-coordinate-rtl-zero-width", null, parseCoordinateInput("\u202e24.9,\u200b121.5"));
+
+  check("frontend-security-timezone-taipei", true, validateTimeZone("Asia/Taipei"));
+  check("frontend-security-timezone-los-angeles", true, validateTimeZone("America/Los_Angeles"));
+  const boundaryTimeZone = `Asia/Taipei${" ".repeat(MAX_TIME_ZONE_INPUT_LENGTH - "Asia/Taipei".length)}`;
+  check("frontend-security-timezone-128-boundary", true, boundaryTimeZone.length === MAX_TIME_ZONE_INPUT_LENGTH && validateTimeZone(boundaryTimeZone));
+  const hugeTimeZone = "A".repeat(MAX_TIME_ZONE_INPUT_LENGTH + 1);
+  check("frontend-security-timezone-over-128", false, validateTimeZone(hugeTimeZone));
+
+  const originalDateTimeFormat = Intl.DateTimeFormat;
+  let formatterConstructionCount = 0;
+  Intl.DateTimeFormat = function SecurityDateTimeFormat(...args) {
+    formatterConstructionCount += 1;
+    return new originalDateTimeFormat(...args);
+  };
+  try {
+    validateTimeZone(hugeTimeZone);
+    check("frontend-security-timezone-huge-no-formatter", 0, formatterConstructionCount);
+    validateTimeZone("America/Definitely_Invalid");
+    validateTimeZone("America/Definitely_Invalid");
+    check("frontend-security-timezone-invalid-not-cached", 2, formatterConstructionCount);
+  } finally {
+    Intl.DateTimeFormat = originalDateTimeFormat;
+  }
+  check("frontend-security-timezone-cache-bounded", true, MAX_TIME_ZONE_FORMATTER_CACHE_SIZE === 128 && mainModuleRaw.includes("size >= 128"));
+  check("frontend-security-timezone-search-bounded", true, searchTimeZones("America", { limit: 12 }).length <= 12);
+  check("frontend-security-timezone-keyboard-preserved", true, ["ArrowDown", "ArrowUp", "Enter", "Escape"].every((key) => extractNamedFunctionSource(mainModuleRaw, "handleTrueSolarTimeTimeZoneKeydown").includes(key)));
+  check("frontend-security-timezone-debounce", true, mainModuleRaw.includes("TRUE_SOLAR_TIME_ZONE_SEARCH_DEBOUNCE_MS = 200") && extractNamedFunctionSource(mainModuleRaw, "handleTrueSolarTimeTimeZoneInput").includes("window.setTimeout") && extractNamedFunctionSource(mainModuleRaw, "clearTrueSolarTimeTimeZoneSearchDebounce").includes("window.clearTimeout"));
+
+  const normalDateTime = queryPickerHelpers.parseDateTimeLocalValue("2024-02-04T16:27");
+  const secondsDateTime = queryPickerHelpers.parseDateTimeLocalValue("2024-02-04T16:27:42");
+  check("frontend-security-datetime-hh-mm", true, normalDateTime instanceof Date && normalDateTime.getSeconds() === 0);
+  check("frontend-security-datetime-hh-mm-ss", true, secondsDateTime instanceof Date && secondsDateTime.getSeconds() === 42);
+  check("frontend-security-datetime-over-32", null, queryPickerHelpers.parseDateTimeLocalValue("2024-02-04T16:27:42" + "x".repeat(32)));
+  check("frontend-security-datetime-canonical-zero", "2024-02-04T16:27:00", queryPickerHelpers.toLocalDatetimeValue(normalDateTime));
+  const boundaryDateTimeValue = `2024-02-04T16:27:00${" ".repeat(32 - "2024-02-04T16:27:00".length)}`;
+  check("frontend-security-datetime-32-boundary", true, boundaryDateTimeValue.length === 32 && queryPickerHelpers.parseDateTimeLocalValue(boundaryDateTimeValue) instanceof Date);
+
+  check("frontend-security-url-unknown-mode", "watch", getChartDisplayModeFromLocation("https://example.test/?timeMode=unknown"));
+  check("frontend-security-url-script-mode", "watch", getChartDisplayModeFromLocation("https://example.test/?timeMode=%3Cscript%3Ealert(1)%3C%2Fscript%3E"));
+
+  check("frontend-security-no-inner-html", false, mainModuleRaw.includes("innerHTML"));
+  check("frontend-security-no-insert-adjacent-html", false, mainModuleRaw.includes("insertAdjacentHTML"));
+  check("frontend-security-no-document-write", false, mainModuleRaw.includes("document.write"));
+  check("frontend-security-no-runtime-eval", false, /\beval\s*\(/.test(mainModuleRaw));
+  check("frontend-security-no-runtime-function", false, /\bFunction\s*\(/.test(mainModuleRaw));
+  check("frontend-security-text-sinks", true, mainModuleRaw.includes("textContent") && mainModuleRaw.includes("replaceChildren"));
+
+  check("frontend-security-no-user-input-external-fetch", false, /fetch\([^)]*(?:value|query|coordinate|timeZone|input)/i.test(mainModuleRaw));
+  check("frontend-security-no-send-beacon", false, mainModuleRaw.includes("sendBeacon"));
+  check("frontend-security-no-websocket", false, /\bWebSocket\b/.test(mainModuleRaw));
+  check("frontend-security-no-local-storage", false, mainModuleRaw.includes("localStorage"));
+  check("frontend-security-no-session-storage", false, mainModuleRaw.includes("sessionStorage"));
+  check("frontend-security-no-cookie-persistence", false, /document\.cookie/.test(mainModuleRaw));
+  check("frontend-security-geolocation-local-only", true, mainModuleRaw.includes("navigator.geolocation.getCurrentPosition") && !/fetch\(|sendBeacon|WebSocket/.test(mainModuleRaw));
+
+  const tokenMetadataSources = [thirdPartyDataRaw, lunarSourceDocRaw, cwaBuildScriptRaw, cwaManifestRaw];
+  const tokenLikeMarker = "rdec" + "-key-";
+  check("frontend-security-token-metadata-removed", false, tokenMetadataSources.some((source) => source.includes(tokenLikeMarker)));
+  check("frontend-security-build-no-network-fetch", true, cwaBuildScriptRaw.includes("readFile") && !cwaBuildScriptRaw.includes("fetch("));
+  check("frontend-security-manifest-keeps-source-identification", true, cwaManifestRaw.includes('"datasetId": "157677"') && cwaManifestRaw.includes('"resourceId": "A-A0087-001"') && cwaManifestRaw.includes('"sourceUrl":'));
+  check("frontend-security-docs-record-classification", true, securityDocRaw.includes("cannot determine") && securityDocRaw.includes("沒有重寫 Git history"));
+}
+
 function runChartTimeContextTests() {
   const check = (id, expected, actual) => {
     chartTimeContextVerifiedCaseCount += 1;
@@ -10886,7 +10986,7 @@ async function runTimeZoneFormatterCacheTest(check) {
     freshTimeZoneModule.validateTimeZone("  America/Los_Angeles  ");
     freshTimeZoneModule.validateTimeZone("America/Invalid");
     freshTimeZoneModule.validateTimeZone("  America/Invalid  ");
-    check("time-zone-formatter-cache-constructions", 2, formatterConstructionCount);
+    check("time-zone-formatter-cache-constructions", 3, formatterConstructionCount);
   } finally {
     Intl.DateTimeFormat = originalDateTimeFormat;
   }
