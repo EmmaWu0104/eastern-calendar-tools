@@ -63,9 +63,27 @@ const {
   getJianchuSequence,
 } = await import("../src/jianchu.js");
 const {
+  calculateGuiDengForDate,
   calculateGuiDengHourBranches,
+  getChineseHourBoundaryLocalParts,
+  calculateGuiDengWithSunTimesForLocalDate,
   calculateGuiDengWithSunTimes,
+  getMonthGeneralBySolarTermName,
 } = await import("../src/guideng.js");
+const {
+  calculateGuiDengFromChartTimeContext,
+  createGuiDengCalculationInput,
+  formatGuiDengChartTimeDebug,
+  getGuiDengClockLocalParts,
+  getGuiDengDayPillar,
+  getGuiDengDayStem,
+  getGuiDengMonthGeneral,
+  getGuiDengSolarEventDateKey,
+  GUIDENG_CHART_TIME_STATUS,
+  resolveTrueSolarLocalDateTimeToInstant,
+  resolveGuiDengSolarEventPhase,
+  validateGuiDengChartTimeInput,
+} = await import("../src/guidengChartTimeAdapter.js");
 const {
   getJinhanDunType,
   createJinhanBoundarySwitch,
@@ -442,6 +460,7 @@ let baziCurrentHouVerifiedCaseCount = 0;
 let baziJianchuVerifiedCaseCount = 0;
 let baziDailyInfoVerifiedCaseCount = 0;
 let guiDengVerifiedCaseCount = 0;
+let guiDengChartTimeAdapterVerifiedCaseCount = 0;
 let annualAfflictionsVerifiedCaseCount = 0;
 let sanShaVerifiedCaseCount = 0;
 let dongGongVerifiedCaseCount = 0;
@@ -729,6 +748,7 @@ runJinhanYujingLookupTests();
 runJinhanDunTypeV1Tests();
 runJinhanChartTimeAdapterTests(solarTerms);
 runJinhanChartTimeRuntimeTests(solarTerms);
+await runGuiDengChartTimeAdapterTests(solarTerms);
 runQimenHelperTests();
 runQimenFuTouScanTests();
 runQimenTermAssignmentTests();
@@ -917,6 +937,7 @@ if (failures.length > 0) {
   console.log(`干支曆每日資訊整合測試通過：${baziDailyInfoVerifiedCaseCount} cases`);
   console.log(`七十二候測試通過：${seventyTwoHouVerifiedCaseCount} cases`);
   console.log(`貴人登天門測試通過：${guiDengVerifiedCaseCount} cases`);
+  console.log(`登貴 ChartTimeContext adapter 測試通過：${guiDengChartTimeAdapterVerifiedCaseCount} cases`);
   console.log(`九宮飛星四柱三煞測試通過：${sanShaVerifiedCaseCount} cases`);
   console.log(`流年方位煞測試通過：${annualAfflictionsVerifiedCaseCount} cases`);
   console.log(`董公擇日測試通過：${dongGongVerifiedCaseCount} cases`);
@@ -13584,6 +13605,460 @@ function runGuiDengTests() {
   });
   guiDengVerifiedCaseCount += 1;
   assertEqual("guideng-yin-fully-day-hidden", "yin.isAvailable", false, renHai?.yin?.isAvailable);
+}
+
+async function runGuiDengChartTimeAdapterTests(solarTerms) {
+  const check = (id, expected, actual) => {
+    guiDengChartTimeAdapterVerifiedCaseCount += 1;
+    assertEqual(id, "result", expected, actual);
+  };
+  const parts = (year, month, day, hour, minute, second = 0, millisecond = 0) => ({
+    year,
+    month,
+    day,
+    hour,
+    minute,
+    second,
+    millisecond,
+  });
+  const instantFor = (localParts, offsetMinutes) => Date.UTC(
+    localParts.year,
+    localParts.month - 1,
+    localParts.day,
+    localParts.hour,
+    localParts.minute,
+    localParts.second,
+    localParts.millisecond ?? 0,
+  ) - offsetMinutes * 60_000;
+  const carrier = (localParts) => new Date(Date.UTC(
+    localParts.year,
+    localParts.month - 1,
+    localParts.day,
+    localParts.hour,
+    localParts.minute,
+    localParts.second,
+    localParts.millisecond ?? 0,
+  ));
+  const makeContext = ({
+    mode = CHART_CONTEXT_MODE_WATCH,
+    timeZone = "Asia/Taipei",
+    utcOffsetMinutes = 480,
+    civilParts,
+    trueSolarParts = civilParts,
+    location = null,
+    correctionSeconds = 0,
+  }) => {
+    const civil = {
+      localParts: civilParts,
+      timeZone,
+      utcOffsetMinutes,
+      abbreviation: "",
+      instantMs: instantFor(civilParts, utcOffsetMinutes),
+      disambiguation: null,
+    };
+    if (mode === CHART_CONTEXT_MODE_WATCH) {
+      return createWatchChartTimeContext({ source: "query", civil, location, createdAtInstantMs: 0 });
+    }
+    return createTrueSolarChartTimeContext({
+      source: "query",
+      civil,
+      location,
+      trueSolarResult: {
+        trueSolarParts,
+        totalCorrectionSeconds: correctionSeconds,
+        longitudeCorrectionSeconds: correctionSeconds,
+        equationOfTimeSeconds: 0,
+      },
+      createdAtInstantMs: 0,
+    });
+  };
+  const makeRealTrueSolarContext = ({ timeZone, utcOffsetMinutes, civilParts, location }) => {
+    const trueSolarResult = calculateTrueSolarTime({
+      date: carrier(civilParts),
+      latitude: location.latitude,
+      longitude: location.longitude,
+      utcOffsetMinutes,
+      useUtcComponents: true,
+    });
+    return {
+      context: createTrueSolarChartTimeContext({
+        source: "query",
+        civil: {
+          localParts: civilParts,
+          timeZone,
+          utcOffsetMinutes,
+          abbreviation: "",
+          instantMs: instantFor(civilParts, utcOffsetMinutes),
+          disambiguation: null,
+        },
+        location,
+        trueSolarResult,
+        createdAtInstantMs: 0,
+      }),
+      trueSolarResult,
+    };
+  };
+  const makeEventCalculator = (eventsByCivilDate) => async ({ date }) => {
+    const dateKey = `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}-${String(date.getUTCDate()).padStart(2, "0")}`;
+    const event = eventsByCivilDate[dateKey];
+    if (!event) return { daylightStatus: "unavailable", dateKey };
+    return {
+      daylightStatus: "normal",
+      dateKey,
+      sunrise: new Date(event.sunriseInstantMs),
+      sunset: new Date(event.sunsetInstantMs),
+    };
+  };
+  const wallMs = (localParts) => Date.UTC(
+    localParts.year,
+    localParts.month - 1,
+    localParts.day,
+    localParts.hour,
+    localParts.minute,
+    localParts.second,
+    localParts.millisecond ?? 0,
+  );
+  const recomputeTrueSolarResultFromInstant = (instantMs, context) => {
+    const instant = new Date(instantMs);
+    const zoned = getZonedDateTimeParts(instant, context.civil.timeZone);
+    const civilParts = {
+      ...zoned.localParts,
+      millisecond: instant.getUTCMilliseconds(),
+    };
+    return calculateTrueSolarTime({
+      date: new Date(wallMs(civilParts)),
+      latitude: context.location.latitude,
+      longitude: context.location.longitude,
+      utcOffsetMinutes: zoned.utcOffsetMinutes,
+      useUtcComponents: true,
+    });
+  };
+  const recomputeTrueSolarPartsFromInstant = (instantMs, context) => {
+    return recomputeTrueSolarResultFromInstant(instantMs, context).trueSolarParts;
+  };
+  const assertTrueSolarHourRange = (id, context, result, type = "yang") => {
+    const entry = result.guiDeng?.[type];
+    const boundaries = getChineseHourBoundaryLocalParts(context.trueSolar?.localParts, entry?.hourBranch);
+    check(`${id}-${type}-range-present`, true, Boolean(entry?.hourRange?.start && entry?.hourRange?.end && boundaries));
+    if (!entry?.hourRange?.start || !entry?.hourRange?.end || !boundaries) return null;
+
+    for (const side of ["start", "end"]) {
+      const recomputed = recomputeTrueSolarPartsFromInstant(entry.hourRange[side].getTime(), context);
+      check(
+        `${id}-${type}-${side}-reverse-clock`,
+        true,
+        Math.abs(wallMs(recomputed) - wallMs(boundaries[side])) <= 1_000,
+      );
+    }
+    return { entry, boundaries };
+  };
+  const fixedEvents = {
+    "2026-01-09": {
+      sunriseInstantMs: Date.parse("2026-01-09T06:00:00+08:00"),
+      sunsetInstantMs: Date.parse("2026-01-09T18:00:00+08:00"),
+    },
+    "2026-01-10": {
+      sunriseInstantMs: Date.parse("2026-01-10T06:00:00+08:00"),
+      sunsetInstantMs: Date.parse("2026-01-10T18:00:00+08:00"),
+    },
+  };
+
+  const adapterRaw = await readFile(new URL("../src/guidengChartTimeAdapter.js", import.meta.url), "utf8");
+  const guidengRaw = await readFile(new URL("../src/guideng.js", import.meta.url), "utf8");
+  const solarEventsRaw = await readFile(new URL("../src/solarEvents.js", import.meta.url), "utf8");
+  check("guideng-adapter-static-no-main", false, /main\.js|from\s+["']\.\/main/.test(adapterRaw));
+  check("guideng-adapter-static-no-dom", false, /\bdocument\b|\bwindow\b|navigator|localStorage|sessionStorage/.test(adapterRaw));
+  check("guideng-adapter-static-no-network", false, /fetch\(|node_modules|npm:|process\.env/.test(adapterRaw));
+  check("guideng-adapter-static-no-solar-formula", false, /SUNRISE_ZENITH|solarGeometry|NOAA|Meeus|equationMinutes/.test(adapterRaw));
+  check("guideng-adapter-static-no-bazi-formula", false, /DAY_PILLAR_BASE|civilDateToEpochMs|firstHourStemIndex/.test(adapterRaw));
+  check("guideng-adapter-static-no-true-solar-instant", false, /trueSolar[^\n]*new Date|new Date\([^\n]*trueSolar/.test(adapterRaw));
+  check("guideng-adapter-static-uses-solar-events", true, adapterRaw.includes('from "./solarEvents.js"') && adapterRaw.includes("solarEventCalculator"));
+  check("guideng-adapter-static-uses-true-solar-core", true, adapterRaw.includes('from "./trueSolarTime.js"') && adapterRaw.includes("calculateTrueSolarTime") && adapterRaw.includes("resolveTrueSolarLocalDateTimeToInstant"));
+  check("guideng-adapter-static-no-eot-formula-copy", false, /equationMinutes|meanLongitude|calculateEquationOfTime|NOAA|Meeus/.test(adapterRaw));
+  check("guideng-adapter-static-no-true-solar-direct-iana-answer", false, /localParts:\s*targetTrueSolarLocalParts/.test(adapterRaw));
+  check("guideng-adapter-static-uses-civil-event-key", true, adapterRaw.includes("context.astronomy.solarEventCivilDateKey"));
+  check("guideng-adapter-static-reuses-guideng-mapping", true, adapterRaw.includes("calculateGuiDengHourBranches") && adapterRaw.includes("calculateGuiDengWithSunTimesForHourRanges") && adapterRaw.includes("getMonthGeneralBySolarTermName"));
+  check("guideng-adapter-static-watch-path-retained", true, adapterRaw.includes("calculateGuiDengWithSunTimesForLocalDate") && adapterRaw.includes("input.mode === CHART_CONTEXT_MODE_TRUE_SOLAR"));
+  check("guideng-adapter-static-guideng-mapping-retained", true, guidengRaw.includes("NOBLE_BRANCHES_BY_DAY_STEM") && guidengRaw.includes("MONTH_GENERAL_BY_CURRENT_TERM"));
+  check("guideng-adapter-static-solar-events-unchanged-contract", true, solarEventsRaw.includes("export async function calculateSolarEvents") && solarEventsRaw.includes("SUNRISE_ZENITH_DEGREES"));
+
+  const taipeiCivil = parts(2026, 1, 9, 22, 59, 59);
+  const taipeiLocation = { latitude: 25.033, longitude: 121.5654, accuracy: null };
+  const watchContext = makeContext({ civilParts: taipeiCivil, location: taipeiLocation });
+  const watchBazi = calculateBaziFromChartTimeContext(watchContext, solarTerms);
+  const validation = validateGuiDengChartTimeInput({ context: watchContext, baziResult: watchBazi });
+  check("guideng-adapter-watch-validation", true, validation.valid);
+  const input = createGuiDengCalculationInput({ context: watchContext, baziResult: watchBazi });
+  check("guideng-adapter-input-frozen", true, Object.isFrozen(input) && Object.isFrozen(input.clockLocalParts));
+  check("guideng-adapter-watch-clock-civil", JSON.stringify(taipeiCivil), JSON.stringify(getGuiDengClockLocalParts(watchContext)));
+  check("guideng-adapter-day-pillar-from-bazi", watchBazi.dayPillar, getGuiDengDayPillar(watchBazi));
+  check("guideng-adapter-day-stem-from-bazi", watchBazi.dayPillar[0], getGuiDengDayStem(watchBazi));
+  check("guideng-adapter-month-general-from-current-term", getMonthGeneralBySolarTermName(watchBazi.currentTerm.name), getGuiDengMonthGeneral(watchBazi));
+  check("guideng-adapter-event-date-civil", "2026-01-09", getGuiDengSolarEventDateKey(watchContext));
+  check("guideng-adapter-effective-day-before-2300", "2026-01-09", createGuiDengCalculationInput({ context: watchContext, baziResult: watchBazi }).effectiveDayDateKey);
+
+  const watchResult = await calculateGuiDengFromChartTimeContext({ context: watchContext, baziResult: watchBazi });
+  check("guideng-adapter-watch-resolved", GUIDENG_CHART_TIME_STATUS.RESOLVED, watchResult.status);
+  check("guideng-adapter-watch-day-stem", watchBazi.dayPillar[0], watchResult.dayStem);
+  check("guideng-adapter-watch-event-date", "2026-01-09", watchResult.solarEventCivilDateKey);
+  check("guideng-adapter-watch-phase", "after-sunset", watchResult.phase);
+  check("guideng-adapter-watch-active-yin", "陰貴", watchResult.activeGuiRen);
+  check("guideng-adapter-watch-events-finite", true, Object.values(watchResult.solarEvents).every((value) => typeof value === "string" || Number.isFinite(value)));
+  check("guideng-adapter-watch-branches-from-entries", JSON.stringify(watchResult.guiDeng.entries.map((entry) => entry.hourBranch)), JSON.stringify(watchResult.dengGuiBranches));
+  check("guideng-adapter-watch-debug-iso", true, watchResult.debug.queryInstant.endsWith("Z") && watchResult.debug.sunriseInstant.endsWith("Z"));
+  check("guideng-adapter-debug-no-locale-string", false, /GMT|Taipei Standard|\(China Standard Time\)/.test(JSON.stringify(watchResult.debug)));
+
+  const legacyWatch = await calculateGuiDengForDate({
+    date: new Date(watchContext.civil.instantMs),
+    dayStem: watchBazi.dayPillar[0],
+    monthGeneral: getMonthGeneralBySolarTermName(watchBazi.currentTerm.name),
+    latitude: taipeiLocation.latitude,
+    longitude: taipeiLocation.longitude,
+    timezone: "Asia/Taipei",
+  });
+  check("guideng-adapter-taiwan-legacy-sunrise", legacyWatch.sun.sunrise.getTime(), watchResult.solarEvents.sunriseInstantMs);
+  check("guideng-adapter-taiwan-legacy-sunset", legacyWatch.sun.sunset.getTime(), watchResult.solarEvents.sunsetInstantMs);
+  check("guideng-adapter-taiwan-legacy-next-sunrise", legacyWatch.sun.nextDaySunrise.getTime(), watchResult.solarEvents.nextSunriseInstantMs);
+  check("guideng-adapter-taiwan-legacy-day-stem", legacyWatch.dayStem, watchResult.guiDeng.dayStem);
+  check("guideng-adapter-taiwan-legacy-month-general", legacyWatch.monthGeneral, watchResult.guiDeng.monthGeneral);
+  check("guideng-adapter-taiwan-legacy-entries", JSON.stringify(legacyWatch.entries.map((entry) => ({ label: entry.label, branch: entry.hourBranch, range: entry.rangeText })),), JSON.stringify(watchResult.guiDeng.entries.map((entry) => ({ label: entry.label, branch: entry.hourBranch, range: entry.rangeText }))));
+
+  const defaultWatchContext = makeContext({ civilParts: taipeiCivil });
+  const defaultWatchBazi = calculateBaziFromChartTimeContext(defaultWatchContext, solarTerms);
+  const defaultWatchResult = await calculateGuiDengFromChartTimeContext({ context: defaultWatchContext, baziResult: defaultWatchBazi });
+  const legacyDefaultWatch = await calculateGuiDengForDate({
+    date: new Date(defaultWatchContext.civil.instantMs),
+    dayStem: defaultWatchBazi.dayPillar[0],
+    monthGeneral: getMonthGeneralBySolarTermName(defaultWatchBazi.currentTerm.name),
+  });
+  check("guideng-adapter-watch-default-location", "legacy-default", createGuiDengCalculationInput({ context: defaultWatchContext, baziResult: defaultWatchBazi }).locationSource);
+  check("guideng-adapter-watch-default-sunrise", legacyDefaultWatch.sun.sunrise.getTime(), defaultWatchResult.solarEvents.sunriseInstantMs);
+  check("guideng-adapter-watch-default-sunset", legacyDefaultWatch.sun.sunset.getTime(), defaultWatchResult.solarEvents.sunsetInstantMs);
+
+  const divergenceCivil = parts(2026, 1, 9, 22, 59, 59);
+  const divergenceTrueSolar = parts(2026, 1, 9, 23, 0, 1, 232);
+  const divergenceWatchContext = makeContext({ civilParts: divergenceCivil, location: taipeiLocation });
+  const divergenceTrueContext = makeContext({ mode: CHART_CONTEXT_MODE_TRUE_SOLAR, civilParts: divergenceCivil, trueSolarParts: divergenceTrueSolar, location: taipeiLocation, correctionSeconds: 2.232 });
+  const divergenceWatchBazi = calculateBaziFromChartTimeContext(divergenceWatchContext, solarTerms);
+  const divergenceTrueBazi = calculateBaziFromChartTimeContext(divergenceTrueContext, solarTerms);
+  const divergenceWatchResult = await calculateGuiDengFromChartTimeContext({ context: divergenceWatchContext, baziResult: divergenceWatchBazi });
+  const divergenceTrueResult = await calculateGuiDengFromChartTimeContext({ context: divergenceTrueContext, baziResult: divergenceTrueBazi });
+  check("guideng-adapter-divergence-day-pillar", false, divergenceWatchResult.dayPillar === divergenceTrueResult.dayPillar);
+  check("guideng-adapter-divergence-day-stem", false, divergenceWatchResult.dayStem === divergenceTrueResult.dayStem);
+  check("guideng-adapter-divergence-effective-day", false, divergenceWatchResult.effectiveDayDateKey === divergenceTrueResult.effectiveDayDateKey);
+  check("guideng-adapter-divergence-event-date-same", divergenceWatchResult.solarEventCivilDateKey, divergenceTrueResult.solarEventCivilDateKey);
+  check("guideng-adapter-divergence-query-instant-same", divergenceWatchResult.queryInstantMs, divergenceTrueResult.queryInstantMs);
+  check("guideng-adapter-divergence-events-same", JSON.stringify(divergenceWatchResult.solarEvents), JSON.stringify(divergenceTrueResult.solarEvents));
+  check("guideng-adapter-divergence-phase-same", divergenceWatchResult.phase, divergenceTrueResult.phase);
+  check("guideng-adapter-divergence-true-clock", JSON.stringify(divergenceTrueSolar), JSON.stringify(getGuiDengClockLocalParts(divergenceTrueContext)));
+  check("guideng-adapter-divergence-new-active-stem", divergenceTrueBazi.dayPillar[0], divergenceTrueResult.dayStem);
+  const trueSolarChildBoundaries = getChineseHourBoundaryLocalParts(divergenceTrueSolar, "子");
+  const trueSolarChildStart = resolveTrueSolarLocalDateTimeToInstant({
+    targetTrueSolarLocalParts: trueSolarChildBoundaries.start,
+    context: divergenceTrueContext,
+  });
+  check("guideng-adapter-divergence-true-solar-zi-resolved", GUIDENG_CHART_TIME_STATUS.RESOLVED, trueSolarChildStart.status);
+  check(
+    "guideng-adapter-divergence-true-solar-zi-reverse",
+    true,
+    trueSolarChildStart.status === GUIDENG_CHART_TIME_STATUS.RESOLVED
+      && Math.abs(wallMs(recomputeTrueSolarPartsFromInstant(trueSolarChildStart.instantMs, divergenceTrueContext)) - wallMs(trueSolarChildBoundaries.start)) <= 1_000,
+  );
+  const trueSolarOneBoundaries = getChineseHourBoundaryLocalParts(parts(2026, 1, 9, 1, 0, 0), "丑");
+  const trueSolarOneStart = resolveTrueSolarLocalDateTimeToInstant({
+    targetTrueSolarLocalParts: trueSolarOneBoundaries.start,
+    context: divergenceTrueContext,
+  });
+  check("guideng-adapter-true-solar-0100-resolved", GUIDENG_CHART_TIME_STATUS.RESOLVED, trueSolarOneStart.status);
+  check(
+    "guideng-adapter-true-solar-0100-reverse",
+    true,
+    trueSolarOneStart.status === GUIDENG_CHART_TIME_STATUS.RESOLVED
+      && Math.abs(wallMs(recomputeTrueSolarPartsFromInstant(trueSolarOneStart.instantMs, divergenceTrueContext)) - wallMs(trueSolarOneBoundaries.start)) <= 1_000,
+  );
+
+  const exactEvents = makeEventCalculator(fixedEvents);
+  const oldDayContext = makeContext({ civilParts: parts(2026, 1, 9, 22, 59, 59), location: taipeiLocation });
+  const newDayContext = makeContext({ civilParts: parts(2026, 1, 9, 23, 0, 0), location: taipeiLocation });
+  const afterNewDayContext = makeContext({ civilParts: parts(2026, 1, 9, 23, 0, 1), location: taipeiLocation });
+  const oldDayResult = await calculateGuiDengFromChartTimeContext({ context: oldDayContext, baziResult: calculateBaziFromChartTimeContext(oldDayContext, solarTerms), solarEventCalculator: exactEvents });
+  const newDayResult = await calculateGuiDengFromChartTimeContext({ context: newDayContext, baziResult: calculateBaziFromChartTimeContext(newDayContext, solarTerms), solarEventCalculator: exactEvents });
+  const afterNewDayResult = await calculateGuiDengFromChartTimeContext({ context: afterNewDayContext, baziResult: calculateBaziFromChartTimeContext(afterNewDayContext, solarTerms), solarEventCalculator: exactEvents });
+  check("guideng-adapter-225959-old-day", "2026-01-09", oldDayResult.effectiveDayDateKey);
+  check("guideng-adapter-230000-new-day", "2026-01-10", newDayResult.effectiveDayDateKey);
+  check("guideng-adapter-230001-new-day", "2026-01-10", afterNewDayResult.effectiveDayDateKey);
+  check("guideng-adapter-2300-day-stem-changes", false, oldDayResult.dayStem === newDayResult.dayStem);
+  check("guideng-adapter-2300-event-date-unchanged", oldDayResult.solarEventCivilDateKey, newDayResult.solarEventCivilDateKey);
+  check("guideng-adapter-2300-event-instants-unchanged", JSON.stringify(oldDayResult.solarEvents), JSON.stringify(newDayResult.solarEvents));
+
+  const civilMidnightContext = makeContext({ civilParts: parts(2026, 1, 10, 0, 0, 0), location: taipeiLocation });
+  const civilMidnightEvents = makeEventCalculator({ ...fixedEvents, "2026-01-11": { sunriseInstantMs: Date.parse("2026-01-11T06:00:00+08:00"), sunsetInstantMs: Date.parse("2026-01-11T18:00:00+08:00") } });
+  const midnightResult = await calculateGuiDengFromChartTimeContext({ context: civilMidnightContext, baziResult: calculateBaziFromChartTimeContext(civilMidnightContext, solarTerms), solarEventCalculator: civilMidnightEvents });
+  check("guideng-adapter-civil-midnight-event-date-changes", "2026-01-10", midnightResult.solarEventCivilDateKey);
+  check("guideng-adapter-civil-midnight-effective-day", "2026-01-10", midnightResult.effectiveDayDateKey);
+  check("guideng-adapter-23-not-civil-midnight", oldDayResult.solarEventCivilDateKey, newDayResult.solarEventCivilDateKey);
+
+  const negativeCorrectionContext = makeContext({ mode: CHART_CONTEXT_MODE_TRUE_SOLAR, civilParts: parts(2026, 1, 10, 0, 1, 0), trueSolarParts: parts(2026, 1, 9, 23, 55, 0), location: taipeiLocation, correctionSeconds: -360 });
+  const negativeEvents = makeEventCalculator({
+    ...fixedEvents,
+    "2026-01-11": {
+      sunriseInstantMs: Date.parse("2026-01-11T06:00:00+08:00"),
+      sunsetInstantMs: Date.parse("2026-01-11T18:00:00+08:00"),
+    },
+  });
+  const negativeResult = await calculateGuiDengFromChartTimeContext({ context: negativeCorrectionContext, baziResult: calculateBaziFromChartTimeContext(negativeCorrectionContext, solarTerms), solarEventCalculator: negativeEvents });
+  check("guideng-adapter-negative-true-solar-clock", "2026-01-09T23:55:00", negativeResult.debug.trueSolarLocal);
+  check("guideng-adapter-negative-true-solar-effective-day", "2026-01-10", negativeResult.effectiveDayDateKey);
+  check("guideng-adapter-negative-keeps-civil-event-date", "2026-01-10", negativeResult.solarEventCivilDateKey);
+  const negativeYangRange = assertTrueSolarHourRange("guideng-adapter-negative", negativeCorrectionContext, negativeResult, "yang");
+  const negativeYangBoundaries = negativeYangRange?.boundaries;
+  const negativeNaiveStart = resolveLocalDateTimeInTimeZone({
+    localParts: negativeYangBoundaries?.start,
+    timeZone: negativeCorrectionContext.civil.timeZone,
+    disambiguation: "earlier",
+  }).instant.getTime();
+  check(
+    "guideng-adapter-negative-hour-range-not-naive-iana",
+    false,
+    negativeNaiveStart === negativeYangRange?.entry.hourRange.start.getTime(),
+  );
+  const realNegativeLocation = { latitude: 25, longitude: 115, accuracy: null };
+  const { context: realNegativeContext, trueSolarResult: realNegativeSolar } = makeRealTrueSolarContext({
+    timeZone: "Asia/Taipei",
+    utcOffsetMinutes: 480,
+    civilParts: parts(2026, 1, 10, 0, 1, 0),
+    location: realNegativeLocation,
+  });
+  const realNegativeBazi = calculateBaziFromChartTimeContext(realNegativeContext, solarTerms);
+  const realNegativeResult = await calculateGuiDengFromChartTimeContext({ context: realNegativeContext, baziResult: realNegativeBazi });
+  check("guideng-adapter-real-negative-resolved", GUIDENG_CHART_TIME_STATUS.RESOLVED, realNegativeResult.status);
+  check("guideng-adapter-real-negative-correction", true, realNegativeSolar.totalCorrectionSeconds < -300);
+  check("guideng-adapter-real-negative-crosses-previous-date", true, realNegativeResult.clockLocalParts.day === 9);
+  assertTrueSolarHourRange("guideng-adapter-real-negative", realNegativeContext, realNegativeResult, "yang");
+
+  const phaseEvents = { sunriseInstantMs: 1_000_000, sunsetInstantMs: 2_000_000, nextSunriseInstantMs: 3_000_000 };
+  for (const [id, instantMs, expected] of [
+    ["before-sunrise", 999_999, "before-sunrise"],
+    ["sunrise-minus-one", 999_999, "before-sunrise"],
+    ["sunrise-exact", 1_000_000, "daytime"],
+    ["sunrise-plus-one", 1_000_001, "daytime"],
+    ["daytime", 1_500_000, "daytime"],
+    ["sunset-minus-one", 1_999_999, "daytime"],
+    ["sunset-exact", 2_000_000, "after-sunset"],
+    ["sunset-plus-one", 2_000_001, "after-sunset"],
+    ["before-next-sunrise", 2_999_999, "after-sunset"],
+  ]) {
+    check(`guideng-adapter-phase-${id}`, expected, resolveGuiDengSolarEventPhase({ queryInstantMs: instantMs, solarEvents: phaseEvents }));
+  }
+
+  const solarEventUnavailable = await calculateGuiDengFromChartTimeContext({ context: watchContext, baziResult: watchBazi, solarEventCalculator: async () => ({ daylightStatus: "unavailable" }) });
+  check("guideng-adapter-polar-unavailable-status", GUIDENG_CHART_TIME_STATUS.UNSUPPORTED, solarEventUnavailable.status);
+  check("guideng-adapter-polar-no-fake-events", null, solarEventUnavailable.solarEvents);
+  check("guideng-adapter-polar-no-fake-gui-deng", null, solarEventUnavailable.guiDeng);
+
+  check("guideng-adapter-invalid-context", false, validateGuiDengChartTimeInput({ context: null, baziResult: watchBazi }).valid);
+  check("guideng-adapter-missing-bazi", false, validateGuiDengChartTimeInput({ context: watchContext }).valid);
+  check("guideng-adapter-invalid-day-pillar", false, validateGuiDengChartTimeInput({ context: watchContext, baziResult: { ...watchBazi, dayPillar: "無效" } }).valid);
+  check("guideng-adapter-invalid-term", false, validateGuiDengChartTimeInput({ context: watchContext, baziResult: { ...watchBazi, currentTerm: { name: "不存在", timeMs: 1 } } }).valid);
+  check("guideng-adapter-invalid-location", false, validateGuiDengChartTimeInput({ context: { ...watchContext, location: { latitude: 99, longitude: 121 } }, baziResult: watchBazi }).valid);
+
+  const trueContext = makeContext({ mode: CHART_CONTEXT_MODE_TRUE_SOLAR, civilParts: taipeiCivil, trueSolarParts: taipeiCivil, location: taipeiLocation });
+  const trueBazi = calculateBaziFromChartTimeContext(trueContext, solarTerms);
+  const trueResult = await calculateGuiDengFromChartTimeContext({ context: trueContext, baziResult: trueBazi, solarEventCalculator: exactEvents });
+  check("guideng-adapter-true-solar-resolved", GUIDENG_CHART_TIME_STATUS.RESOLVED, trueResult.status);
+  check("guideng-adapter-true-solar-clock-source", JSON.stringify(taipeiCivil), JSON.stringify(trueResult.clockLocalParts));
+  check("guideng-adapter-true-solar-effective-day", getEffectiveDateKeyFromLocalParts(taipeiCivil), trueResult.effectiveDayDateKey);
+  check("guideng-adapter-true-solar-event-date-civil", "2026-01-09", trueResult.solarEventCivilDateKey);
+  assertTrueSolarHourRange("guideng-adapter-taiwan-true", trueContext, trueResult, "yang");
+
+  const zeroCivil = parts(2026, 4, 15, 23, 0, 0);
+  const zeroEquationOfTimeSeconds = calculateEquationOfTime({
+    date: carrier(zeroCivil),
+    utcOffsetMinutes: 480,
+    useUtcComponents: true,
+  });
+  const zeroLocation = {
+    latitude: 25,
+    longitude: 120 - zeroEquationOfTimeSeconds / 240,
+    accuracy: null,
+  };
+  const { context: zeroContext, trueSolarResult: zeroTrueSolarResult } = makeRealTrueSolarContext({
+    timeZone: "Asia/Taipei",
+    utcOffsetMinutes: 480,
+    civilParts: zeroCivil,
+    location: zeroLocation,
+  });
+  const zeroBazi = calculateBaziFromChartTimeContext(zeroContext, solarTerms);
+  const zeroResult = await calculateGuiDengFromChartTimeContext({ context: zeroContext, baziResult: zeroBazi });
+  check("guideng-adapter-zero-correction-resolved", GUIDENG_CHART_TIME_STATUS.RESOLVED, zeroResult.status);
+  check("guideng-adapter-zero-correction-near-zero", true, Math.abs(zeroTrueSolarResult.totalCorrectionSeconds) <= 0.001);
+  assertTrueSolarHourRange("guideng-adapter-zero-correction", zeroContext, zeroResult, "yang");
+  const zeroInversion = resolveTrueSolarLocalDateTimeToInstant({
+    targetTrueSolarLocalParts: zeroCivil,
+    context: zeroContext,
+  });
+  const zeroNaiveStart = resolveLocalDateTimeInTimeZone({
+    localParts: zeroCivil,
+    timeZone: zeroContext.civil.timeZone,
+    disambiguation: "earlier",
+  }).instant.getTime();
+  check("guideng-adapter-zero-correction-naive-equivalent", true, zeroInversion.status === GUIDENG_CHART_TIME_STATUS.RESOLVED && Math.abs(zeroInversion.instantMs - zeroNaiveStart) <= 1_000);
+
+  const overseasCases = [
+    ["tokyo", "Asia/Tokyo", 540, parts(2026, 8, 10, 12, 0), { latitude: 35.68, longitude: 139.65, accuracy: null }],
+    ["la-summer", "America/Los_Angeles", -420, parts(2026, 8, 10, 12, 0), { latitude: 34.0522, longitude: -118.2437, accuracy: null }],
+    ["la-winter", "America/Los_Angeles", -480, parts(2026, 12, 10, 12, 0), { latitude: 34.0522, longitude: -118.2437, accuracy: null }],
+    ["kathmandu", "Asia/Kathmandu", 345, parts(2026, 8, 10, 12, 0), { latitude: 27.7172, longitude: 85.324, accuracy: null }],
+    ["lord-howe", "Australia/Lord_Howe", 630, parts(2027, 4, 10, 12, 0), { latitude: -31.55, longitude: 159.08, accuracy: null }],
+  ];
+  for (const [id, timeZone, utcOffsetMinutes, localParts, location] of overseasCases) {
+    const { context } = makeRealTrueSolarContext({ timeZone, utcOffsetMinutes, civilParts: localParts, location });
+    const bazi = calculateBaziFromChartTimeContext(context, solarTerms);
+    const result = await calculateGuiDengFromChartTimeContext({ context, baziResult: bazi });
+    check(`guideng-adapter-overseas-${id}-resolved`, GUIDENG_CHART_TIME_STATUS.RESOLVED, result.status);
+    check(`guideng-adapter-overseas-${id}-timezone-date`, context.civil.localParts.year, Number(result.solarEventCivilDateKey.slice(0, 4)));
+    check(`guideng-adapter-overseas-${id}-finite-events`, true, Object.values(result.solarEvents).filter((value) => typeof value === "number").every(Number.isFinite));
+    check(`guideng-adapter-overseas-${id}-phase`, true, ["before-sunrise", "daytime", "after-sunset"].includes(result.phase));
+    const overseasRange = assertTrueSolarHourRange(`guideng-adapter-overseas-${id}`, context, result, "yang");
+    if (id === "tokyo" && overseasRange) {
+      const naiveStart = resolveLocalDateTimeInTimeZone({
+        localParts: overseasRange.boundaries.start,
+        timeZone,
+        disambiguation: "earlier",
+      }).instant.getTime();
+      const actualStart = overseasRange.entry.hourRange.start.getTime();
+      check(`guideng-adapter-overseas-${id}-positive-correction-not-naive`, false, actualStart === naiveStart);
+      const boundaryCorrection = recomputeTrueSolarResultFromInstant(actualStart, context).totalCorrectionSeconds;
+      check(
+        `guideng-adapter-overseas-${id}-positive-correction-close`,
+        true,
+        Math.abs((naiveStart - actualStart) - boundaryCorrection * 1_000) <= 1_000,
+      );
+    }
+  }
+
+  const dstTransitionContext = makeRealTrueSolarContext({ timeZone: "America/Los_Angeles", utcOffsetMinutes: -480, civilParts: parts(2026, 3, 8, 12, 0), location: { latitude: 34.0522, longitude: -118.2437, accuracy: null } }).context;
+  const dstTransitionResult = await calculateGuiDengFromChartTimeContext({ context: dstTransitionContext, baziResult: calculateBaziFromChartTimeContext(dstTransitionContext, solarTerms) });
+  check("guideng-adapter-dst-transition-explicit-unsupported", GUIDENG_CHART_TIME_STATUS.UNSUPPORTED, dstTransitionResult.status);
+  check("guideng-adapter-dst-transition-no-fake-events", null, dstTransitionResult.solarEvents);
+
+  const probeContext = makeRealTrueSolarContext({ timeZone: "Asia/Taipei", utcOffsetMinutes: 480, civilParts: parts(2026, 1, 9, 22, 59, 59), location: taipeiLocation }).context;
+  const probeBazi = calculateBaziFromChartTimeContext(probeContext, solarTerms);
+  const probeInput = JSON.stringify({ context: probeContext, baziResult: probeBazi });
+  const runProbe = (timeZone) => execFileSync(process.execPath, ["tests/guideng-chart-time-adapter-probe.mjs", probeInput], { cwd: process.cwd(), env: { ...process.env, TZ: timeZone }, encoding: "utf8" }).trim();
+  const probeTaipei = runProbe("Asia/Taipei");
+  check("guideng-adapter-process-tz-utc", probeTaipei, runProbe("UTC"));
+  check("guideng-adapter-process-tz-los-angeles", probeTaipei, runProbe("America/Los_Angeles"));
+
+  check("guideng-adapter-no-runtime-import", false, mainModuleRaw.includes("guidengChartTimeAdapter.js"));
+  check("guideng-adapter-no-ui-change", false, /guidengChartTimeAdapter|calculateGuiDengFromChartTimeContext/.test(mainModuleRaw));
+  check("guideng-adapter-no-storage", false, /localStorage|sessionStorage/.test(adapterRaw));
+  check("guideng-adapter-no-dependency", false, /node_modules|npm:/.test(adapterRaw));
+  check("guideng-adapter-no-guideng-formula-copy", false, /NOBLE_BRANCHES_BY_DAY_STEM|MONTH_GENERAL_BY_CURRENT_TERM|SUNRISE_ZENITH/.test(adapterRaw));
+  check("guideng-adapter-debug-formatter-pure", true, adapterRaw.includes("toISOString()") && !adapterRaw.includes("toString()"));
+  check("guideng-adapter-query-instant-is-civil", true, adapterRaw.includes("context.civil.instantMs") && !adapterRaw.includes("trueSolar.instantMs"));
+  check("guideng-adapter-event-date-is-civil", true, adapterRaw.includes("solarEventCivilDateKey") && adapterRaw.includes("createUtcDateCarrier(dateKey)") && !adapterRaw.includes("effectiveDayDateKey)"));
+  check("guideng-adapter-hour-rule-shared", true, guidengRaw.includes("getChineseHourRangeForLocalDate") && adapterRaw.includes("calculateGuiDengWithSunTimesForLocalDate"));
 }
 
 function runAnnualAfflictionsTests() {

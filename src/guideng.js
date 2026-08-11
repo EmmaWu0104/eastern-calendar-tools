@@ -1,5 +1,6 @@
 import { EARTHLY_BRANCHES } from "./ganzhi.js";
 import { calculateSolarEvents } from "./solarEvents.js";
+import { resolveLocalDateTimeInTimeZone } from "./timeZone.js";
 
 export const DEFAULT_GUIDENG_LOCATION = Object.freeze({
   latitude: 25.0330,
@@ -144,11 +145,112 @@ export function calculateGuiDengWithSunTimes({
     return null;
   }
 
+  return createGuiDengResult({
+    targetDate,
+    dayStem,
+    monthGeneral,
+    sun,
+    timezone,
+  });
+}
+
+/**
+ * Builds the same legacy GuiDeng result from an explicit civil-date wall
+ * clock.  The legacy Date-based API above intentionally remains unchanged;
+ * this narrow helper lets ChartTimeContext adapters avoid host-process TZ
+ * getters while reusing the existing mapping and interval rules.
+ */
+export function calculateGuiDengWithSunTimesForLocalDate({
+  dateLocalParts,
+  dayStem,
+  monthGeneral,
+  sunrise,
+  sunset,
+  nextDaySunrise,
+  timezone = DEFAULT_GUIDENG_LOCATION.timezone,
+} = {}) {
+  const targetLocalParts = normalizeLocalPartsDate(dateLocalParts);
+  const hourBranches = calculateGuiDengHourBranches(dayStem, monthGeneral);
+  const sun = {
+    sunrise: normalizeDate(sunrise),
+    sunset: normalizeDate(sunset),
+    nextDaySunrise: normalizeDate(nextDaySunrise),
+  };
+
+  if (!targetLocalParts || !hourBranches || !sun.sunrise || !sun.sunset || !sun.nextDaySunrise) {
+    return null;
+  }
+
+  return createGuiDengResult({
+    targetLocalParts,
+    dayStem,
+    monthGeneral,
+    sun,
+    timezone,
+  });
+}
+
+/**
+ * Builds a GuiDeng result from already-resolved actual hour-boundary instants.
+ * Time conversion belongs to the caller; this function only retains the
+ * existing mapping and sunrise/sunset intersection rules.
+ */
+export function calculateGuiDengWithSunTimesForHourRanges({
+  dayStem,
+  monthGeneral,
+  sunrise,
+  sunset,
+  nextDaySunrise,
+  yangHourRange,
+  yinHourRange,
+  timezone = DEFAULT_GUIDENG_LOCATION.timezone,
+} = {}) {
+  const hourBranches = calculateGuiDengHourBranches(dayStem, monthGeneral);
+  const sun = {
+    sunrise: normalizeDate(sunrise),
+    sunset: normalizeDate(sunset),
+    nextDaySunrise: normalizeDate(nextDaySunrise),
+  };
+  const hourRanges = {
+    yang: normalizeDateRange(yangHourRange),
+    yin: normalizeDateRange(yinHourRange),
+  };
+
+  if (!hourBranches || !sun.sunrise || !sun.sunset || !sun.nextDaySunrise
+    || !hourRanges.yang || !hourRanges.yin) {
+    return null;
+  }
+
+  return createGuiDengResult({
+    dayStem,
+    monthGeneral,
+    sun,
+    timezone,
+    hourRanges,
+  });
+}
+
+function createGuiDengResult({
+  targetDate = null,
+  targetLocalParts = null,
+  dayStem,
+  monthGeneral,
+  sun,
+  timezone,
+  hourRanges = null,
+}) {
+  const hourBranches = calculateGuiDengHourBranches(dayStem, monthGeneral);
+  if (!hourBranches || !sun?.sunrise || !sun?.sunset || !sun?.nextDaySunrise) {
+    return null;
+  }
+
   const yang = createGuiDengEntry({
     type: "yang",
     label: "陽貴",
     hourBranch: hourBranches.yang.hourBranch,
     date: targetDate,
+    dateLocalParts: targetLocalParts,
+    providedHourRange: hourRanges?.yang ?? null,
     usableRange: { start: sun.sunrise, end: sun.sunset },
     timezone,
   });
@@ -157,6 +259,8 @@ export function calculateGuiDengWithSunTimes({
     label: "陰貴",
     hourBranch: hourBranches.yin.hourBranch,
     date: targetDate,
+    dateLocalParts: targetLocalParts,
+    providedHourRange: hourRanges?.yin ?? null,
     usableRange: { start: sun.sunset, end: sun.nextDaySunrise },
     timezone,
   });
@@ -194,8 +298,12 @@ function calculateGuiDengHourBranch(nobleBranch, monthGeneral) {
   return EARTHLY_BRANCHES[hourIndex];
 }
 
-function createGuiDengEntry({ type, label, hourBranch, date, usableRange, timezone }) {
-  const hourRange = getChineseHourRange(date, hourBranch);
+function createGuiDengEntry({ type, label, hourBranch, date, dateLocalParts, providedHourRange, usableRange, timezone }) {
+  const hourRange = providedHourRange
+    ? normalizeDateRange(providedHourRange)
+    : dateLocalParts
+    ? getChineseHourRangeForLocalDate(dateLocalParts, hourBranch, timezone)
+    : getChineseHourRange(date, hourBranch);
   const availableRange = intersectRanges(hourRange, usableRange);
   const isAvailable = availableRange !== null;
 
@@ -223,6 +331,54 @@ function getChineseHourRange(date, branch) {
   return { start, end };
 }
 
+/** Resolves a Chinese-hour interval from an explicit local civil date. */
+export function getChineseHourRangeForLocalDate(dateLocalParts, branch, timezone = DEFAULT_GUIDENG_LOCATION.timezone) {
+  const boundaries = getChineseHourBoundaryLocalParts(dateLocalParts, branch);
+  if (!boundaries || typeof timezone !== "string" || timezone.trim() === "") {
+    return null;
+  }
+
+  const startResolution = resolveLocalDateTimeInTimeZone({
+    localParts: boundaries.start,
+    timeZone: timezone,
+    disambiguation: "earlier",
+  });
+  const endResolution = resolveLocalDateTimeInTimeZone({
+    localParts: boundaries.end,
+    timeZone: timezone,
+    disambiguation: "later",
+  });
+  if (startResolution.status !== "resolved" || endResolution.status !== "resolved") {
+    return null;
+  }
+
+  return {
+    start: new Date(startResolution.instant.getTime()),
+    end: new Date(endResolution.instant.getTime()),
+  };
+}
+
+/** Returns Chinese-hour wall-clock boundaries without resolving an instant. */
+export function getChineseHourBoundaryLocalParts(dateLocalParts, branch) {
+  const normalizedDate = normalizeLocalPartsDate(dateLocalParts);
+  const startHour = HOUR_START_BY_BRANCH[branch];
+  if (!normalizedDate || !Number.isInteger(startHour)) {
+    return null;
+  }
+
+  const start = {
+    ...normalizedDate,
+    hour: startHour,
+    minute: 0,
+    second: 0,
+    millisecond: 0,
+  };
+  return {
+    start,
+    end: addLocalHours(start, 2),
+  };
+}
+
 function intersectRanges(left, right) {
   if (!left || !right) {
     return null;
@@ -239,6 +395,15 @@ function intersectRanges(left, right) {
     start: new Date(startMs),
     end: new Date(endMs),
   };
+}
+
+function normalizeDateRange(value) {
+  const start = normalizeDate(value?.start);
+  const end = normalizeDate(value?.end);
+  if (!start || !end || start.getTime() >= end.getTime()) {
+    return null;
+  }
+  return { start, end };
 }
 
 function formatRange(range, timezone) {
@@ -267,6 +432,44 @@ function normalizeDate(value) {
   }
 
   return null;
+}
+
+function normalizeLocalPartsDate(value) {
+  if (!value || !Number.isInteger(value.year) || !Number.isInteger(value.month) || !Number.isInteger(value.day)) {
+    return null;
+  }
+
+  const date = new Date(Date.UTC(value.year, value.month - 1, value.day));
+  if (
+    date.getUTCFullYear() !== value.year
+    || date.getUTCMonth() !== value.month - 1
+    || date.getUTCDate() !== value.day
+  ) {
+    return null;
+  }
+
+  return { year: value.year, month: value.month, day: value.day };
+}
+
+function addLocalHours(localParts, hours) {
+  const date = new Date(Date.UTC(
+    localParts.year,
+    localParts.month - 1,
+    localParts.day,
+    localParts.hour,
+    localParts.minute,
+    localParts.second,
+  ));
+  date.setUTCHours(date.getUTCHours() + hours);
+  return {
+    year: date.getUTCFullYear(),
+    month: date.getUTCMonth() + 1,
+    day: date.getUTCDate(),
+    hour: date.getUTCHours(),
+    minute: date.getUTCMinutes(),
+    second: date.getUTCSeconds(),
+    millisecond: 0,
+  };
 }
 
 function addDays(date, dayOffset) {
