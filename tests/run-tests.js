@@ -68,6 +68,7 @@ const {
   getChineseHourBoundaryLocalParts,
   calculateGuiDengWithSunTimesForLocalDate,
   calculateGuiDengWithSunTimes,
+  DEFAULT_GUIDENG_LOCATION,
   getMonthGeneralBySolarTermName,
 } = await import("../src/guideng.js");
 const {
@@ -84,6 +85,11 @@ const {
   resolveGuiDengSolarEventPhase,
   validateGuiDengChartTimeInput,
 } = await import("../src/guidengChartTimeAdapter.js");
+const {
+  createGuiDengDisplayModel,
+  formatInstantForChartMode,
+  formatRangeForChartMode,
+} = await import("../src/chartClockDisplay.js");
 const {
   getJinhanDunType,
   createJinhanBoundarySwitch,
@@ -461,6 +467,8 @@ let baziJianchuVerifiedCaseCount = 0;
 let baziDailyInfoVerifiedCaseCount = 0;
 let guiDengVerifiedCaseCount = 0;
 let guiDengChartTimeAdapterVerifiedCaseCount = 0;
+let guiDengChartTimeRuntimeVerifiedCaseCount = 0;
+let guiDengChartTimeRuntimeRealAstronomyVerifiedCaseCount = 0;
 let annualAfflictionsVerifiedCaseCount = 0;
 let sanShaVerifiedCaseCount = 0;
 let dongGongVerifiedCaseCount = 0;
@@ -749,6 +757,8 @@ runJinhanDunTypeV1Tests();
 runJinhanChartTimeAdapterTests(solarTerms);
 runJinhanChartTimeRuntimeTests(solarTerms);
 await runGuiDengChartTimeAdapterTests(solarTerms);
+await runGuiDengChartTimeRuntimeTests(solarTerms);
+await runGuiDengChartTimeRuntimeRealAstronomyTests(solarTerms);
 runQimenHelperTests();
 runQimenFuTouScanTests();
 runQimenTermAssignmentTests();
@@ -938,6 +948,8 @@ if (failures.length > 0) {
   console.log(`七十二候測試通過：${seventyTwoHouVerifiedCaseCount} cases`);
   console.log(`貴人登天門測試通過：${guiDengVerifiedCaseCount} cases`);
   console.log(`登貴 ChartTimeContext adapter 測試通過：${guiDengChartTimeAdapterVerifiedCaseCount} cases`);
+  console.log(`登貴 ChartTimeContext runtime 測試通過：${guiDengChartTimeRuntimeVerifiedCaseCount} cases`);
+  console.log(`登貴 ChartTimeContext runtime real astronomy 測試通過：${guiDengChartTimeRuntimeRealAstronomyVerifiedCaseCount} cases`);
   console.log(`九宮飛星四柱三煞測試通過：${sanShaVerifiedCaseCount} cases`);
   console.log(`流年方位煞測試通過：${annualAfflictionsVerifiedCaseCount} cases`);
   console.log(`董公擇日測試通過：${dongGongVerifiedCaseCount} cases`);
@@ -2302,6 +2314,9 @@ function runJinhanChartTimeRuntimeTests(solarTerms) {
   ];
 
   const helperSource = extractNamedFunctionSource(mainModuleRaw, "refreshJinhanForCurrentChartTime");
+  const coreRenderSource = extractNamedFunctionSource(mainModuleRaw, "renderJinhanCoreSnapshot");
+  const guiDengRuntimeSource = extractNamedFunctionSource(mainModuleRaw, "refreshGuiDengForCurrentChartTime");
+  const guiDengDecorationsSource = extractNamedFunctionSource(mainModuleRaw, "renderGuiDengDecorations");
   const rendererSource = extractNamedFunctionSource(mainModuleRaw, "renderJinhanYujing");
   const modeSource = extractNamedFunctionSource(mainModuleRaw, "renderChartDisplayMode");
   const prioritySource = extractNamedFunctionSource(mainModuleRaw, "refreshBaziForCurrentChartTime");
@@ -2326,11 +2341,11 @@ function runJinhanChartTimeRuntimeTests(solarTerms) {
   check("jinhan-runtime-true-no-current-calendar-authority", false, trueBranch.includes("currentCalendarResult"));
   check("jinhan-runtime-no-legacy-dun-authority", false, mainModuleRaw.includes("getJinhanDunType(") || helperSource.includes("getJinhanDunType"));
   check("jinhan-runtime-no-raw-datetime-day", false, helperSource.includes("parseDateTimeLocalValue") || helperSource.includes("new Date(local"));
-  check("jinhan-runtime-result-pan", true, helperSource.includes("renderSnapshot.pan"));
-  check("jinhan-runtime-result-deities", true, helperSource.includes("renderSnapshot.deitiesByPalace"));
-  check("jinhan-runtime-result-hours", true, helperSource.includes("renderSnapshot.blackYellowHours"));
-  check("jinhan-runtime-result-current-hour", true, helperSource.includes("renderSnapshot.currentHourIndex"));
-  check("jinhan-runtime-guideng-legacy-snapshot", true, helperSource.includes("legacyWatchResult") && helperSource.includes("legacyWatchDateTime"));
+  check("jinhan-runtime-result-pan", true, coreRenderSource.includes("renderSnapshot.pan"));
+  check("jinhan-runtime-result-deities", true, coreRenderSource.includes("renderSnapshot.deitiesByPalace"));
+  check("jinhan-runtime-result-hours", true, coreRenderSource.includes("renderSnapshot.blackYellowHours"));
+  check("jinhan-runtime-result-current-hour", true, coreRenderSource.includes("renderSnapshot.currentHourIndex"));
+  check("jinhan-runtime-guideng-formal-helper", true, guiDengRuntimeSource.includes("calculateGuiDengFromChartTimeContext({"));
   check("jinhan-runtime-guideng-no-true-bazi", false, guiDengSource.includes("currentTrueSolarBaziResult"));
   check("jinhan-runtime-renderer-wrapper-only", true, rendererSource.includes("refreshJinhanForCurrentChartTime") && !rendererSource.includes("getJinhanDunType"));
   check("jinhan-runtime-manual-selector-listener", true, mainModuleRaw.includes("isJinhanDunTypeManuallyOverridden = true"));
@@ -2344,7 +2359,7 @@ function runJinhanChartTimeRuntimeTests(solarTerms) {
   check("jinhan-runtime-full-keeps-single-entry", true, fullSource.includes("await renderJinhanYujing(result, effectiveDateTimeValue, requestId)"));
   check("jinhan-runtime-no-new-timer", 2, (mainModuleRaw.match(/setInterval\(/g) ?? []).length);
   check("jinhan-runtime-stale-guard-before-calculation", true, helperSource.indexOf("!isLatestBaziRenderRequest(requestId)") >= 0);
-  check("jinhan-runtime-stale-guard-after-guideng", true, helperSource.lastIndexOf("!isLatestBaziRenderRequest(requestId)") > helperSource.indexOf("await getGuiDengForCalendarResult("));
+  check("jinhan-runtime-stale-guard-after-guideng", true, guiDengRuntimeSource.lastIndexOf("!isLatestBaziRenderRequest(requestId)") > guiDengRuntimeSource.indexOf("await calculateGuiDengFromChartTimeContext("));
   check("jinhan-runtime-unavailable-clears", true, helperSource.includes("clearJinhanYujing") && helperSource.includes("真太陽時金函玉鏡尚未就緒"));
   check("jinhan-runtime-true-no-watch-fallback", true, helperSource.includes("if (!currentSolarTerms || !context || !baziResult)") && !trueBranch.includes("currentWatchBaziResult"));
   check("jinhan-runtime-coordinate-input-generation", true, coordinateInputSource.includes("++latestBaziRenderRequestId") && coordinateInputSource.includes("refreshJinhanForCurrentChartTime(requestId)"));
@@ -2419,9 +2434,9 @@ function runJinhanChartTimeRuntimeTests(solarTerms) {
   check("jinhan-runtime-manual-override-deities-from-pan", JSON.stringify(getJinhanDeitiesByPalace(manualPan.meta)), JSON.stringify(getJinhanDeitiesByPalace(manualPan.meta)));
   check("jinhan-runtime-calendar-click-refreshes", true, calendarSource.includes("requestRenderDateTime") && !calendarSource.includes("renderJinhanYujing"));
   check("jinhan-runtime-hour-click-refreshes", true, hourShortcutSource.includes("requestRenderDateTime") && !hourShortcutSource.includes("renderJinhanYujing"));
-  check("jinhan-runtime-true-mode-copy", true, mainModuleRaw.includes("四柱、九宮飛星與金函玉鏡日盤已使用真太陽時；登貴與奇門仍維持手錶時間。"));
-  check("jinhan-runtime-guideng-legacy-date", true, helperSource.includes("legacyWatchDateTime") && guiDengSource.includes("parseDateTimeLocalValue(dateTimeValue)"));
-  check("jinhan-runtime-no-guideng-modification-path", true, !helperSource.includes("calculateGuiDengWithSunTimes") && !helperSource.includes("solarEvents"));
+  check("jinhan-runtime-true-mode-copy", true, mainModuleRaw.includes("四柱、九宮飛星、金函玉鏡與登貴已使用真太陽時；奇門仍維持手錶時間。"));
+  check("jinhan-runtime-guideng-legacy-date", true, guiDengSource.includes("parseDateTimeLocalValue(dateTimeValue)") && !guiDengRuntimeSource.includes("getGuiDengForCalendarResult"));
+  check("jinhan-runtime-no-guideng-modification-path", true, !helperSource.includes("calculateGuiDengWithSunTimes") && !guiDengRuntimeSource.includes("calculateGuiDengWithSunTimes"));
   check("jinhan-runtime-formal-source-a-only", true, helperSource.includes("currentTrueSolarChartContext") && !sourceChangeSource.includes("currentTrueSolarChartContextInput"));
   check("jinhan-runtime-no-query-term-fetch", false, helperSource.includes("loadSolarTerms") || helperSource.includes("fetch("));
 }
@@ -11254,7 +11269,8 @@ function runTrueSolarBaziPriorityBugFixTests(solarTerms) {
   const renderSource = extractNamedFunctionSource(mainModuleRaw, "renderTrueSolarBaziResult");
 
   check("bazi-priority-diagnosis-full-awaits-jinhan", true, fullSource.includes("await renderJinhanYujing(") && fullSource.indexOf("renderResult(result, effectiveDateTimeValue)") < fullSource.indexOf("await renderJinhanYujing("));
-  check("bazi-priority-diagnosis-jinhan-awaits-gui-deng", true, jinhanRuntimeSource.includes("await getGuiDengForCalendarResult("));
+  const guiDengRuntimeSource = extractNamedFunctionSource(mainModuleRaw, "refreshGuiDengForCurrentChartTime");
+  check("bazi-priority-diagnosis-jinhan-fire-and-guard", true, guiDengRuntimeSource.includes("await calculateGuiDengFromChartTimeContext(") && guiDengRuntimeSource.includes("isLatestBaziRenderRequest(requestId)"));
   check("bazi-priority-lightweight-no-await", false, /\bawait\b/.test(prioritySource));
   check("bazi-priority-lightweight-no-downstream", false, /renderFlyingStars|renderJinhanYujing|renderQimenSection/.test(prioritySource));
   check("bazi-priority-lightweight-watch-renders-bazi", true, prioritySource.includes("renderResult(result, effectiveDateTimeValue)"));
@@ -11457,7 +11473,7 @@ function runChartDisplayModeTests() {
   check("chart-display-mode-predicate", true, isTrueSolarDisplayMode("true-solar"));
   check("chart-display-mode-dom-banner", true, ["chart-time-mode-banner", "chart-time-mode-title", "chart-time-mode-description", "chart-time-mode-switch-link"].every((id) => indexHtmlRaw.includes(`id="${id}"`)));
   check("chart-display-mode-dom-data", true, indexHtmlRaw.includes('data-time-mode="watch"') && mainModuleRaw.includes("document.body.dataset.chartTimeMode = chartDisplayMode"));
-  check("chart-display-mode-dom-copy", true, indexHtmlRaw.includes("⌚ 手錶時間排盤") && mainModuleRaw.includes("四柱、九宮飛星與金函玉鏡日盤已使用真太陽時；登貴與奇門仍維持手錶時間。"));
+  check("chart-display-mode-dom-copy", true, indexHtmlRaw.includes("⌚ 手錶時間排盤") && mainModuleRaw.includes("四柱、九宮飛星、金函玉鏡與登貴已使用真太陽時；奇門仍維持手錶時間。"));
   check("chart-display-mode-link-accessibility", true, /id="chart-time-mode-switch-link" href="\?timeMode=true-solar"/.test(indexHtmlRaw) && mainModuleRaw.includes("切換至真太陽時排盤") && mainModuleRaw.includes("返回手錶時間排盤"));
   check("chart-display-mode-single-switch-entry", true, !indexHtmlRaw.includes("true-solar-time-mode-switch-link") && !indexHtmlRaw.includes("true-solar-time-mode-intro") && (mainModuleRaw.match(/chartTimeModeSwitchLink\.addEventListener/g) ?? []).length === 1);
   check("chart-display-mode-panel-keeps-query-controls", true, ["true-solar-time-source-query", "true-solar-time-coordinate", "true-solar-time-time-zone-search-results", "true-solar-time-disambiguation", "true-solar-time-result", "true-solar-time-solar-events"].every((id) => indexHtmlRaw.includes(`id="${id}"`)));
@@ -14050,8 +14066,8 @@ async function runGuiDengChartTimeAdapterTests(solarTerms) {
   check("guideng-adapter-process-tz-utc", probeTaipei, runProbe("UTC"));
   check("guideng-adapter-process-tz-los-angeles", probeTaipei, runProbe("America/Los_Angeles"));
 
-  check("guideng-adapter-no-runtime-import", false, mainModuleRaw.includes("guidengChartTimeAdapter.js"));
-  check("guideng-adapter-no-ui-change", false, /guidengChartTimeAdapter|calculateGuiDengFromChartTimeContext/.test(mainModuleRaw));
+  check("guideng-adapter-runtime-import", true, mainModuleRaw.includes('from "./guidengChartTimeAdapter.js"'));
+  check("guideng-adapter-formal-runtime-wiring", true, /calculateGuiDengFromChartTimeContext/.test(mainModuleRaw));
   check("guideng-adapter-no-storage", false, /localStorage|sessionStorage/.test(adapterRaw));
   check("guideng-adapter-no-dependency", false, /node_modules|npm:/.test(adapterRaw));
   check("guideng-adapter-no-guideng-formula-copy", false, /NOBLE_BRANCHES_BY_DAY_STEM|MONTH_GENERAL_BY_CURRENT_TERM|SUNRISE_ZENITH/.test(adapterRaw));
@@ -14059,6 +14075,560 @@ async function runGuiDengChartTimeAdapterTests(solarTerms) {
   check("guideng-adapter-query-instant-is-civil", true, adapterRaw.includes("context.civil.instantMs") && !adapterRaw.includes("trueSolar.instantMs"));
   check("guideng-adapter-event-date-is-civil", true, adapterRaw.includes("solarEventCivilDateKey") && adapterRaw.includes("createUtcDateCarrier(dateKey)") && !adapterRaw.includes("effectiveDayDateKey)"));
   check("guideng-adapter-hour-rule-shared", true, guidengRaw.includes("getChineseHourRangeForLocalDate") && adapterRaw.includes("calculateGuiDengWithSunTimesForLocalDate"));
+}
+
+async function runGuiDengChartTimeRuntimeTests(solarTerms) {
+  const check = (id, expected, actual) => {
+    guiDengChartTimeRuntimeVerifiedCaseCount += 1;
+    assertEqual(id, "result", expected, actual);
+  };
+  const parts = (year, month, day, hour, minute, second = 0, millisecond = 0) => ({
+    year,
+    month,
+    day,
+    hour,
+    minute,
+    second,
+    millisecond,
+  });
+  const instantFor = (localParts, offsetMinutes = 480) => Date.UTC(
+    localParts.year,
+    localParts.month - 1,
+    localParts.day,
+    localParts.hour,
+    localParts.minute,
+    localParts.second,
+    localParts.millisecond ?? 0,
+  ) - offsetMinutes * 60_000;
+  const carrier = (localParts) => new Date(Date.UTC(
+    localParts.year,
+    localParts.month - 1,
+    localParts.day,
+    localParts.hour,
+    localParts.minute,
+    localParts.second,
+    localParts.millisecond ?? 0,
+  ));
+  const makeWatchContext = (civilParts, timeZone = "Asia/Taipei", utcOffsetMinutes = 480) =>
+    createWatchChartTimeContext({
+      source: "query",
+      civil: {
+        localParts: civilParts,
+        timeZone,
+        utcOffsetMinutes,
+        abbreviation: "",
+        instantMs: instantFor(civilParts, utcOffsetMinutes),
+        disambiguation: null,
+      },
+      createdAtInstantMs: 0,
+    });
+  const makeTrueSolarContext = ({ civilParts, timeZone = "Asia/Taipei", utcOffsetMinutes = 480, location }) => {
+    const trueSolarResult = calculateTrueSolarTime({
+      date: carrier(civilParts),
+      latitude: location.latitude,
+      longitude: location.longitude,
+      utcOffsetMinutes,
+      useUtcComponents: true,
+    });
+    return createTrueSolarChartTimeContext({
+      source: "query",
+      civil: {
+        localParts: civilParts,
+        timeZone,
+        utcOffsetMinutes,
+        abbreviation: "",
+        instantMs: instantFor(civilParts, utcOffsetMinutes),
+        disambiguation: null,
+      },
+      location,
+      trueSolarResult,
+      createdAtInstantMs: 0,
+    });
+  };
+  const makeEventCalculator = (eventsByCivilDate) => async ({ date }) => {
+    const dateKey = `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}-${String(date.getUTCDate()).padStart(2, "0")}`;
+    const event = eventsByCivilDate[dateKey];
+    if (!event) return { daylightStatus: "unavailable", dateKey };
+    return {
+      daylightStatus: "normal",
+      dateKey,
+      sunrise: new Date(event.sunriseInstantMs),
+      sunset: new Date(event.sunsetInstantMs),
+    };
+  };
+  const taipeiLocation = { latitude: 25.033964, longitude: 121.564468, accuracy: null };
+  const tokyoLocation = { latitude: 35.68, longitude: 139.65, accuracy: null };
+  const negativeLocation = { latitude: 25, longitude: 115, accuracy: null };
+  const taipeiCivil = parts(2026, 8, 10, 12, 0);
+  const commonEvents = makeEventCalculator({
+    "2026-08-10": {
+      sunriseInstantMs: Date.parse("2026-08-10T06:00:00+08:00"),
+      sunsetInstantMs: Date.parse("2026-08-10T18:00:00+08:00"),
+    },
+    "2026-08-11": {
+      sunriseInstantMs: Date.parse("2026-08-11T06:00:00+08:00"),
+      sunsetInstantMs: Date.parse("2026-08-11T18:00:00+08:00"),
+    },
+  });
+  const tokyoEvents = makeEventCalculator({
+    "2026-08-10": {
+      sunriseInstantMs: Date.parse("2026-08-10T05:00:00+09:00"),
+      sunsetInstantMs: Date.parse("2026-08-10T18:30:00+09:00"),
+    },
+    "2026-08-11": {
+      sunriseInstantMs: Date.parse("2026-08-11T05:00:00+09:00"),
+      sunsetInstantMs: Date.parse("2026-08-11T18:30:00+09:00"),
+    },
+  });
+
+  const displayRaw = await readFile(new URL("../src/chartClockDisplay.js", import.meta.url), "utf8");
+  const helperSource = extractNamedFunctionSource(mainModuleRaw, "refreshGuiDengForCurrentChartTime");
+  const coreSource = extractNamedFunctionSource(mainModuleRaw, "renderJinhanCoreSnapshot");
+  const decorationsSource = extractNamedFunctionSource(mainModuleRaw, "renderGuiDengDecorations");
+  const jinhanSource = extractNamedFunctionSource(mainModuleRaw, "refreshJinhanForCurrentChartTime");
+  const lightweightSource = extractNamedFunctionSource(mainModuleRaw, "refreshBaziForCurrentChartTime");
+  const fullSource = extractNamedFunctionSource(mainModuleRaw, "renderByDateTime");
+  const modeSource = extractNamedFunctionSource(mainModuleRaw, "renderChartDisplayMode");
+  const coordinateInputSource = extractNamedFunctionSource(mainModuleRaw, "handleTrueSolarTimeCoordinateInput");
+  const coordinateChangeSource = extractNamedFunctionSource(mainModuleRaw, "handleTrueSolarTimeCoordinateChange");
+  const deviceSource = extractNamedFunctionSource(mainModuleRaw, "renderTrueSolarTimeForDeviceNow");
+  const customSource = extractNamedFunctionSource(mainModuleRaw, "renderTrueSolarTimeForCustomInput");
+  const sourceChangeSource = extractNamedFunctionSource(mainModuleRaw, "handleTrueSolarTimeSourceChange");
+
+  check("guideng-runtime-adapter-import", true, mainModuleRaw.includes('from "./guidengChartTimeAdapter.js"'));
+  check("guideng-runtime-display-import", true, mainModuleRaw.includes('from "./chartClockDisplay.js"'));
+  check("guideng-runtime-formal-helper", true, helperSource.includes("calculateGuiDengFromChartTimeContext({"));
+  check("guideng-runtime-watch-authority", true, helperSource.includes("createCurrentWatchChartTimeContext(") && helperSource.includes("currentWatchBaziResult ?? currentCalendarResult"));
+  check("guideng-runtime-true-authority", true, helperSource.includes("currentTrueSolarChartContext") && helperSource.includes("currentTrueSolarBaziResult"));
+  const trueBranch = helperSource.slice(helperSource.indexOf("const context"), helperSource.indexOf("const baziResult"));
+  check("guideng-runtime-true-no-calendar-authority", false, trueBranch.includes("currentCalendarResult"));
+  check("guideng-runtime-no-legacy-formal-call", false, helperSource.includes("getGuiDengForCalendarResult") || jinhanSource.includes("getGuiDengForCalendarResult"));
+  check("guideng-runtime-core-before-async", true, jinhanSource.indexOf("renderJinhanCoreSnapshot") < jinhanSource.indexOf("refreshGuiDengForCurrentChartTime"));
+  check("guideng-runtime-async-fire-and-guard", true, jinhanSource.includes("void refreshGuiDengForCurrentChartTime(requestId, {") && helperSource.includes("await calculateGuiDengFromChartTimeContext("));
+  check("guideng-runtime-stale-before-await", true, helperSource.indexOf("!isLatestBaziRenderRequest(requestId)") < helperSource.indexOf("await calculateGuiDengFromChartTimeContext("));
+  check("guideng-runtime-stale-after-await", true, helperSource.lastIndexOf("!isLatestBaziRenderRequest(requestId)") > helperSource.indexOf("await calculateGuiDengFromChartTimeContext("));
+  check("guideng-runtime-stale-before-dom", true, helperSource.lastIndexOf("!isLatestBaziRenderRequest(requestId)") < helperSource.lastIndexOf("renderGuiDengDecorations"));
+  check("guideng-runtime-no-watch-fallback", true, helperSource.includes("currentTrueSolarChartContext") && !trueBranch.includes("currentWatchBaziResult"));
+  check("guideng-runtime-unavailable-keeps-core", true, helperSource.includes("renderGuiDengDecorations(renderSnapshot, null") && !helperSource.includes("clearJinhanYujing"));
+  check("guideng-runtime-renderer-single", 1, (mainModuleRaw.match(/function renderGuiDengDecorations\(/g) ?? []).length);
+  check("guideng-runtime-no-second-gui-renderer", 1, (mainModuleRaw.match(/function refreshGuiDengForCurrentChartTime\(/g) ?? []).length);
+  check("guideng-runtime-summary-reuses-jinhan", true, decorationsSource.includes("createJinhanSummaryItems") && decorationsSource.includes("createJinhanHourRow"));
+  check("guideng-runtime-core-grid-reuses-jinhan", true, coreSource.includes("createJinhanGridCells") && coreSource.includes("createJinhanSummaryItems"));
+  check("guideng-runtime-full-same-entry", true, fullSource.includes("await renderJinhanYujing(result, effectiveDateTimeValue, requestId)"));
+  check("guideng-runtime-lightweight-no-await", false, /\bawait\b/.test(lightweightSource));
+  check("guideng-runtime-lightweight-schedules", true, lightweightSource.includes("refreshJinhanForCurrentChartTime(requestId)"));
+  check("guideng-runtime-mode-refreshes", true, modeSource.includes("refreshJinhanForCurrentChartTime(requestId)"));
+  check("guideng-runtime-mode-no-auto-toggle", false, /startAutoNowMode|pauseAutoNowMode/.test(modeSource));
+  check("guideng-runtime-mode-no-datetime-write", false, modeSource.includes("elements.datetime.value ="));
+  check("guideng-runtime-coordinate-input-refresh", true, coordinateInputSource.includes("refreshJinhanForCurrentChartTime(requestId)"));
+  check("guideng-runtime-coordinate-change-refresh", true, coordinateChangeSource.includes("refreshJinhanForCurrentChartTime(requestId)"));
+  check("guideng-runtime-source-b-isolation", false, deviceSource.includes("refreshGuiDengForCurrentChartTime") || deviceSource.includes("currentTrueSolarChartContext"));
+  check("guideng-runtime-source-c-isolation", false, customSource.includes("refreshGuiDengForCurrentChartTime") || customSource.includes("currentTrueSolarChartContext"));
+  check("guideng-runtime-source-change-isolation", false, sourceChangeSource.includes("refreshGuiDengForCurrentChartTime") || sourceChangeSource.includes("renderFormalTrueSolarChartTime"));
+  check("guideng-runtime-existing-timers", 2, (mainModuleRaw.match(/setInterval\(/g) ?? []).length);
+  check("guideng-runtime-cache-present", true, mainModuleRaw.includes("guiDengSolarEventCache") && mainModuleRaw.includes("calculateCachedGuiDengSolarEvents"));
+  check("guideng-runtime-no-storage", false, /localStorage|sessionStorage/.test(mainModuleRaw));
+  check("guideng-runtime-no-clock-ui", false, /canvas|<svg|createClock|clock-component/i.test(mainModuleRaw));
+  check("guideng-runtime-no-qimen-change", true, mainModuleRaw.includes('from "./qimenResolver.js"'));
+  check("guideng-display-pure", false, /\bdocument\b|\bwindow\b|localStorage|sessionStorage|fetch\(/.test(displayRaw));
+  check("guideng-display-reuses-true-solar-core", true, displayRaw.includes("calculateTrueSolarTime") && displayRaw.includes("getZonedDateTimeParts"));
+  check("guideng-display-no-query-correction", false, /context\.trueSolar\.correctionSeconds|context\.trueSolar\?\.correctionSeconds/.test(displayRaw));
+  check("guideng-display-no-fake-date", false, /trueSolarDate|new Date\([^)]*trueSolar/.test(displayRaw));
+
+  const watchContext = makeWatchContext(taipeiCivil);
+  const watchBazi = calculateBaziFromChartTimeContext(watchContext, solarTerms);
+  const watchResult = await calculateGuiDengFromChartTimeContext({
+    context: watchContext,
+    baziResult: watchBazi,
+    solarEventCalculator: commonEvents,
+  });
+  const watchDisplay = createGuiDengDisplayModel({ result: watchResult, context: watchContext });
+  check("guideng-runtime-watch-resolved", GUIDENG_CHART_TIME_STATUS.RESOLVED, watchResult.status);
+  check("guideng-runtime-watch-day-stem", watchBazi.dayPillar[0], watchResult.dayStem);
+  check("guideng-runtime-watch-month-general", getMonthGeneralBySolarTermName(watchBazi.currentTerm.name), watchResult.monthGeneral);
+  check("guideng-runtime-watch-display-status", "resolved", watchDisplay.status);
+  check("guideng-runtime-watch-sunrise-display", watchResult.guiDeng.sunriseText, watchDisplay.sunriseText);
+  check("guideng-runtime-watch-sunset-display", watchResult.guiDeng.sunsetText, watchDisplay.sunsetText);
+  check("guideng-runtime-watch-next-sunrise-display", formatInstantForChartMode({ instantMs: watchResult.solarEvents.nextSunriseInstantMs, context: watchContext }), watchDisplay.nextSunriseText);
+  check("guideng-runtime-watch-range-display", watchResult.guiDeng.entries[0]?.rangeText, watchDisplay.entries.find((entry) => entry.isAvailable)?.rangeText);
+  check("guideng-runtime-watch-branches", JSON.stringify(watchResult.dengGuiBranches), JSON.stringify(watchDisplay.dengGuiBranches));
+  check("guideng-runtime-watch-gui-text", watchDisplay.entries.filter((entry) => entry.isAvailable).map((entry) => `${entry.hourBranch}時（${entry.label}，${entry.rangeText}）`).join("；") || "無", watchDisplay.guiDengText);
+  check("guideng-runtime-watch-result-not-mutated", true, JSON.stringify(watchResult).includes("sunriseInstantMs"));
+
+  const trueContext = makeTrueSolarContext({ civilParts: taipeiCivil, location: tokyoLocation, timeZone: "Asia/Tokyo", utcOffsetMinutes: 540 });
+  const trueBazi = calculateBaziFromChartTimeContext(trueContext, solarTerms);
+  const trueResult = await calculateGuiDengFromChartTimeContext({
+    context: trueContext,
+    baziResult: trueBazi,
+    solarEventCalculator: tokyoEvents,
+  });
+  const trueSnapshotBeforeDisplay = JSON.stringify(trueResult);
+  const trueDisplay = createGuiDengDisplayModel({ result: trueResult, context: trueContext });
+  check("guideng-runtime-true-resolved", GUIDENG_CHART_TIME_STATUS.RESOLVED, trueResult.status);
+  check("guideng-runtime-true-day-stem", trueBazi.dayPillar[0], trueResult.dayStem);
+  check("guideng-runtime-true-month-general", getMonthGeneralBySolarTermName(trueBazi.currentTerm.name), trueResult.monthGeneral);
+  check("guideng-runtime-true-branches", JSON.stringify(trueResult.dengGuiBranches), JSON.stringify(trueDisplay.dengGuiBranches));
+  check("guideng-runtime-true-actual-sunrise", trueResult.solarEvents.sunriseInstantMs, Date.parse("2026-08-10T05:00:00+09:00"));
+  check("guideng-runtime-true-display-sunrise", formatInstantForChartMode({ instantMs: trueResult.solarEvents.sunriseInstantMs, context: trueContext }), trueDisplay.sunriseText);
+  check("guideng-runtime-true-display-sunset", formatInstantForChartMode({ instantMs: trueResult.solarEvents.sunsetInstantMs, context: trueContext }), trueDisplay.sunsetText);
+  check("guideng-runtime-true-display-next-sunrise", formatInstantForChartMode({ instantMs: trueResult.solarEvents.nextSunriseInstantMs, context: trueContext }), trueDisplay.nextSunriseText);
+  check("guideng-runtime-true-range-display", formatRangeForChartMode({
+    startInstantMs: trueResult.guiDeng.entries[0]?.availableRange?.start?.getTime(),
+    endInstantMs: trueResult.guiDeng.entries[0]?.availableRange?.end?.getTime(),
+    context: trueContext,
+  }), trueDisplay.entries.find((entry) => entry.isAvailable)?.rangeText);
+  check("guideng-runtime-true-no-civil-range-answer", false, trueDisplay.entries.some((entry) => entry.rangeText === trueResult.guiDeng.entries.find((source) => source.hourBranch === entry.hourBranch)?.rangeText && entry.rangeText === "05:00–06:59"));
+  check("guideng-runtime-true-result-not-mutated", trueSnapshotBeforeDisplay, JSON.stringify(trueResult));
+  check("guideng-runtime-true-display-model-immutable", true, Object.isFrozen(trueDisplay) && Object.isFrozen(trueDisplay.entries));
+
+  const negativeContext = makeTrueSolarContext({ civilParts: taipeiCivil, location: negativeLocation });
+  const negativeBazi = calculateBaziFromChartTimeContext(negativeContext, solarTerms);
+  const negativeResult = await calculateGuiDengFromChartTimeContext({
+    context: negativeContext,
+    baziResult: negativeBazi,
+    solarEventCalculator: commonEvents,
+  });
+  const negativeDisplay = createGuiDengDisplayModel({ result: negativeResult, context: negativeContext });
+  check("guideng-runtime-negative-resolved", GUIDENG_CHART_TIME_STATUS.RESOLVED, negativeResult.status);
+  check("guideng-runtime-negative-sunrise-recomputed", formatInstantForChartMode({ instantMs: negativeResult.solarEvents.sunriseInstantMs, context: negativeContext }), negativeDisplay.sunriseText);
+  check("guideng-runtime-negative-range-recomputed", true, negativeDisplay.entries.every((entry) => !entry.isAvailable || entry.rangeText === formatRangeForChartMode({
+    startInstantMs: negativeResult.guiDeng.entries.find((source) => source.hourBranch === entry.hourBranch)?.availableRange?.start?.getTime(),
+    endInstantMs: negativeResult.guiDeng.entries.find((source) => source.hourBranch === entry.hourBranch)?.availableRange?.end?.getTime(),
+    context: negativeContext,
+  })));
+  check("guideng-runtime-positive-and-negative-differ", false, trueDisplay.sunriseText === negativeDisplay.sunriseText);
+
+  const queryTrueSolar = calculateTrueSolarTime({
+    date: carrier(taipeiCivil),
+    latitude: trueContext.location.latitude,
+    longitude: trueContext.location.longitude,
+    utcOffsetMinutes: 540,
+    useUtcComponents: true,
+  });
+  const civilSunriseParts = getZonedDateTimeParts(new Date(trueResult.solarEvents.sunriseInstantMs), trueContext.civil.timeZone).localParts;
+  const queryCorrectionCarrier = carrier({ ...civilSunriseParts, millisecond: 0 });
+  const queryCorrectionDisplay = calculateTrueSolarTime({
+    date: queryCorrectionCarrier,
+    latitude: trueContext.location.latitude,
+    longitude: trueContext.location.longitude,
+    utcOffsetMinutes: trueContext.civil.utcOffsetMinutes,
+    useUtcComponents: true,
+  });
+  check("guideng-runtime-per-event-eot-sunrise", formatInstantForChartMode({ instantMs: trueResult.solarEvents.sunriseInstantMs, context: trueContext }), trueDisplay.sunriseText);
+  check("guideng-runtime-per-event-eot-sunset", formatInstantForChartMode({ instantMs: trueResult.solarEvents.sunsetInstantMs, context: trueContext }), trueDisplay.sunsetText);
+  check("guideng-runtime-no-query-correction-reuse", false, queryTrueSolar.totalCorrectionSeconds === queryCorrectionDisplay.totalCorrectionSeconds && queryCorrectionDisplay.totalCorrectionSeconds === queryTrueSolar.totalCorrectionSeconds && displayRaw.includes("queryCorrection"));
+  check("guideng-runtime-display-is-instant-based", true, displayRaw.includes("new Date(instantMs)") && displayRaw.includes("instant.getUTCMilliseconds()"));
+
+  const phaseEvents = { sunriseInstantMs: 1_000_000, sunsetInstantMs: 2_000_000, nextSunriseInstantMs: 3_000_000 };
+  for (const [label, instantMs, expected] of [
+    ["sunrise-minus-one", 999_999, "before-sunrise"],
+    ["sunrise-exact", 1_000_000, "daytime"],
+    ["sunrise-plus-one", 1_000_001, "daytime"],
+    ["sunset-minus-one", 1_999_999, "daytime"],
+    ["sunset-exact", 2_000_000, "after-sunset"],
+    ["sunset-plus-one", 2_000_001, "after-sunset"],
+  ]) {
+    check(`guideng-runtime-phase-${label}`, expected, resolveGuiDengSolarEventPhase({ queryInstantMs: instantMs, solarEvents: phaseEvents }));
+  }
+
+  const divergenceCivil = parts(2026, 1, 9, 22, 59, 59);
+  const divergenceWatchContext = makeWatchContext(divergenceCivil);
+  const divergenceTrueContext = createTrueSolarChartTimeContext({
+    source: "query",
+    civil: {
+      localParts: divergenceCivil,
+      timeZone: "Asia/Taipei",
+      utcOffsetMinutes: 480,
+      abbreviation: "",
+      instantMs: instantFor(divergenceCivil),
+      disambiguation: null,
+    },
+    location: taipeiLocation,
+    trueSolarResult: {
+      trueSolarParts: parts(2026, 1, 9, 23, 0, 1, 232),
+      totalCorrectionSeconds: 2.232,
+      longitudeCorrectionSeconds: 2.232,
+      equationOfTimeSeconds: 0,
+    },
+    createdAtInstantMs: 0,
+  });
+  const divergenceWatchBazi = calculateBaziFromChartTimeContext(divergenceWatchContext, solarTerms);
+  const divergenceTrueBazi = calculateBaziFromChartTimeContext(divergenceTrueContext, solarTerms);
+  check("guideng-runtime-23-watch-day-stem", divergenceWatchBazi.dayPillar[0], getGuiDengDayStem({ dayPillar: divergenceWatchBazi.dayPillar }));
+  check("guideng-runtime-23-watch-true-day-diverge", false, divergenceWatchBazi.dayPillar === divergenceTrueBazi.dayPillar);
+  check("guideng-runtime-23-query-instant-shared", divergenceWatchContext.civil.instantMs, divergenceTrueContext.civil.instantMs);
+  check("guideng-runtime-23-event-date-civil", divergenceWatchContext.astronomy.solarEventCivilDateKey, divergenceTrueContext.astronomy.solarEventCivilDateKey);
+
+  const unsupportedResult = await calculateGuiDengFromChartTimeContext({
+    context: trueContext,
+    baziResult: trueBazi,
+    solarEventCalculator: async () => ({ daylightStatus: "unavailable" }),
+  });
+  const unsupportedDisplay = createGuiDengDisplayModel({ result: unsupportedResult, context: trueContext });
+  check("guideng-runtime-unavailable-status", GUIDENG_CHART_TIME_STATUS.UNSUPPORTED, unsupportedResult.status);
+  check("guideng-runtime-unavailable-display", "unsupported", unsupportedDisplay.status);
+  check("guideng-runtime-unavailable-no-fallback", false, unsupportedDisplay.mode === "watch");
+  check("guideng-runtime-unavailable-no-fake-branches", 0, unsupportedDisplay.dengGuiBranches.length);
+  check("guideng-runtime-dst-contract", true, mainModuleRaw.includes("DST") || mainModuleRaw.includes("日出／日落"));
+
+  check("guideng-runtime-watch-summary-uses-display-model", true, decorationsSource.includes("resolvedDisplayModel"));
+  check("guideng-runtime-hour-mark-uses-display-branches", true, decorationsSource.includes("getDengGuiBranchSet(resolvedDisplayModel)"));
+  check("guideng-runtime-no-duplicated-solar-events", 1, (mainModuleRaw.match(/function calculateCachedGuiDengSolarEvents\(/g) ?? []).length);
+  check("guideng-runtime-no-duplicated-bazi", false, /calculateBaziFromSolarTerms|calculateBaziFromChartTimeContext/.test(helperSource));
+  check("guideng-runtime-same-generation-core-dedupe", true, jinhanSource.includes("createJinhanRenderKey") && jinhanSource.includes("currentJinhanRenderKey === renderKey"));
+  check("guideng-runtime-active-mode-guard", true, helperSource.includes("context.mode !== expectedMode") && helperSource.includes("displayModel.mode !== expectedMode"));
+  check("guideng-runtime-no-new-request-id", false, /latestGuiDeng|guiDengRequestId/.test(mainModuleRaw));
+  check("guideng-runtime-no-permanent-timer", 2, (mainModuleRaw.match(/setInterval\(/g) ?? []).length);
+  check("guideng-runtime-no-storage", false, /localStorage|sessionStorage/.test(displayRaw));
+  check("guideng-runtime-no-dependency", false, /node_modules|npm:/.test(displayRaw));
+  check("guideng-runtime-future-dual-clock-doc-only", true, true);
+}
+
+async function runGuiDengChartTimeRuntimeRealAstronomyTests(solarTerms) {
+  const check = (id, expected, actual) => {
+    guiDengChartTimeRuntimeRealAstronomyVerifiedCaseCount += 1;
+    assertEqual(id, "result", expected, actual);
+  };
+  const makeCivilParts = (value) => {
+    const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})$/.exec(value);
+    if (!match) throw new Error(`invalid real GuiDeng fixture: ${value}`);
+    return {
+      year: Number(match[1]),
+      month: Number(match[2]),
+      day: Number(match[3]),
+      hour: Number(match[4]),
+      minute: Number(match[5]),
+      second: Number(match[6]),
+      millisecond: 0,
+    };
+  };
+  const carrierFor = (parts) => new Date(Date.UTC(
+    parts.year,
+    parts.month - 1,
+    parts.day,
+    parts.hour,
+    parts.minute,
+    parts.second,
+    parts.millisecond,
+  ));
+  const instantFor = (parts, utcOffsetMinutes) => carrierFor(parts).getTime() - utcOffsetMinutes * 60_000;
+  const formatWatchMinutes = (instantMs, timeZone) => {
+    const zoned = getZonedDateTimeParts(new Date(instantMs), timeZone);
+    if (!zoned) return null;
+    return `${String(zoned.localParts.hour).padStart(2, "0")}:${String(zoned.localParts.minute).padStart(2, "0")}`;
+  };
+  const formatTrueSolarMinutesIndependently = (instantMs, context) => {
+    const instant = new Date(instantMs);
+    const zoned = getZonedDateTimeParts(instant, context.civil.timeZone);
+    const localParts = {
+      ...zoned.localParts,
+      millisecond: instant.getUTCMilliseconds(),
+    };
+    const result = calculateTrueSolarTime({
+      date: carrierFor(localParts),
+      latitude: context.location.latitude,
+      longitude: context.location.longitude,
+      utcOffsetMinutes: zoned.utcOffsetMinutes,
+      useUtcComponents: true,
+    });
+    return `${String(result.trueSolarParts.hour).padStart(2, "0")}:${String(result.trueSolarParts.minute).padStart(2, "0")}`;
+  };
+  const createFixtureContexts = ({ dateTimeValue, location }) => {
+    const civilParts = makeCivilParts(dateTimeValue);
+    const timeZone = "Asia/Taipei";
+    const utcOffsetMinutes = 480;
+    const civil = {
+      localParts: civilParts,
+      timeZone,
+      utcOffsetMinutes,
+      abbreviation: "",
+      instantMs: instantFor(civilParts, utcOffsetMinutes),
+      disambiguation: null,
+    };
+    const watchContext = createWatchChartTimeContext({
+      source: "query",
+      civil,
+      createdAtInstantMs: 0,
+    });
+    const watchLocationContext = createWatchChartTimeContext({
+      source: "query",
+      civil,
+      location,
+      createdAtInstantMs: 0,
+    });
+    const trueSolarResult = calculateTrueSolarTime({
+      date: carrierFor(civilParts),
+      latitude: location.latitude,
+      longitude: location.longitude,
+      utcOffsetMinutes,
+      useUtcComponents: true,
+    });
+    const trueSolarContext = createTrueSolarChartTimeContext({
+      source: "query",
+      civil,
+      location,
+      trueSolarResult,
+      createdAtInstantMs: 0,
+    });
+    return { watchContext, watchLocationContext, trueSolarContext };
+  };
+
+  const fixtures = [
+    {
+      id: "fixture-a-negative-correction",
+      dateTimeValue: "2026-08-10T12:00:00",
+      location: { latitude: 25, longitude: 115, accuracy: null },
+    },
+    {
+      id: "fixture-b-taipei-2300-divergence",
+      dateTimeValue: "2026-04-15T22:59:59",
+      location: { latitude: 25.033964, longitude: 121.564468, accuracy: null },
+      expectedWatchDayPillar: "己未",
+      expectedTrueDayPillar: "庚申",
+    },
+  ];
+
+  const adapterRaw = await readFile(new URL("../src/guidengChartTimeAdapter.js", import.meta.url), "utf8");
+  check("guideng-real-default-calculator", true, adapterRaw.includes("solarEventCalculator = calculateSolarEvents"));
+
+  for (const fixture of fixtures) {
+    const { watchContext, watchLocationContext, trueSolarContext } = createFixtureContexts(fixture);
+    const watchBazi = calculateBaziFromChartTimeContext(watchContext, solarTerms);
+    const watchLocationBazi = calculateBaziFromChartTimeContext(watchLocationContext, solarTerms);
+    const trueSolarBazi = calculateBaziFromChartTimeContext(trueSolarContext, solarTerms);
+    const watchResult = await calculateGuiDengFromChartTimeContext({
+      context: watchContext,
+      baziResult: watchBazi,
+    });
+    const watchLocationResult = await calculateGuiDengFromChartTimeContext({
+      context: watchLocationContext,
+      baziResult: watchLocationBazi,
+    });
+    const trueSolarResult = await calculateGuiDengFromChartTimeContext({
+      context: trueSolarContext,
+      baziResult: trueSolarBazi,
+    });
+    const watchDisplay = createGuiDengDisplayModel({ result: watchResult, context: watchContext });
+    const watchLocationDisplay = createGuiDengDisplayModel({ result: watchLocationResult, context: watchLocationContext });
+    const trueSolarDisplay = createGuiDengDisplayModel({ result: trueSolarResult, context: trueSolarContext });
+    const watchSunriseInstantMs = watchResult.solarEvents.sunriseInstantMs;
+    const watchSunsetInstantMs = watchResult.solarEvents.sunsetInstantMs;
+    const trueSolarEventsBeforeDisplay = JSON.stringify(trueSolarResult.solarEvents);
+
+    check(`${fixture.id}-watch-context-mode`, "watch", watchContext.mode);
+    check(`${fixture.id}-true-context-mode`, "true-solar", trueSolarContext.mode);
+    check(`${fixture.id}-watch-context-civil`, fixture.dateTimeValue, formatLocalPartsForTest(watchContext.civil.localParts));
+    check(`${fixture.id}-true-context-civil`, fixture.dateTimeValue, formatLocalPartsForTest(trueSolarContext.civil.localParts));
+    check(`${fixture.id}-true-context-location`, `${fixture.location.latitude},${fixture.location.longitude}`, `${trueSolarContext.location.latitude},${trueSolarContext.location.longitude}`);
+    check(`${fixture.id}-watch-location-context-location`, `${fixture.location.latitude},${fixture.location.longitude}`, `${watchLocationContext.location.latitude},${watchLocationContext.location.longitude}`);
+    check(`${fixture.id}-watch-result-resolved`, GUIDENG_CHART_TIME_STATUS.RESOLVED, watchResult.status);
+    check(`${fixture.id}-true-result-resolved`, GUIDENG_CHART_TIME_STATUS.RESOLVED, trueSolarResult.status);
+    check(`${fixture.id}-same-location-sunrise-instant`, trueSolarResult.solarEvents.sunriseInstantMs, watchLocationResult.solarEvents.sunriseInstantMs);
+    check(`${fixture.id}-same-location-sunset-instant`, trueSolarResult.solarEvents.sunsetInstantMs, watchLocationResult.solarEvents.sunsetInstantMs);
+    check(`${fixture.id}-same-location-next-sunrise-instant`, trueSolarResult.solarEvents.nextSunriseInstantMs, watchLocationResult.solarEvents.nextSunriseInstantMs);
+    check(`${fixture.id}-watch-location-display-mode`, "watch", watchLocationDisplay.mode);
+    check(`${fixture.id}-watch-sunrise-formatter-authority`, formatWatchMinutes(watchResult.solarEvents.sunriseInstantMs, watchContext.civil.timeZone), watchDisplay.sunriseText);
+    check(`${fixture.id}-watch-location-sunrise-formatter-authority`, formatWatchMinutes(watchLocationResult.solarEvents.sunriseInstantMs, watchLocationContext.civil.timeZone), watchLocationDisplay.sunriseText);
+    check(`${fixture.id}-true-sunrise-independent-authority`, formatTrueSolarMinutesIndependently(trueSolarResult.solarEvents.sunriseInstantMs, trueSolarContext), trueSolarDisplay.sunriseText);
+    check(`${fixture.id}-true-sunset-independent-authority`, formatTrueSolarMinutesIndependently(trueSolarResult.solarEvents.sunsetInstantMs, trueSolarContext), trueSolarDisplay.sunsetText);
+    check(`${fixture.id}-same-location-watch-vs-true-sunrise-display-differs`, true, watchLocationDisplay.sunriseText !== trueSolarDisplay.sunriseText);
+    check(`${fixture.id}-same-location-watch-vs-true-sunset-display-differs`, true, watchLocationDisplay.sunsetText !== trueSolarDisplay.sunsetText);
+    check(`${fixture.id}-watch-vs-true-sunrise-differs`, true, watchDisplay.sunriseText !== trueSolarDisplay.sunriseText);
+    check(`${fixture.id}-watch-vs-true-sunset-differs`, true, watchDisplay.sunsetText !== trueSolarDisplay.sunsetText);
+    check(`${fixture.id}-watch-bazi-location-invariant`, JSON.stringify(watchBazi), JSON.stringify(watchLocationBazi));
+    check(`${fixture.id}-watch-flying-location-invariant`, JSON.stringify(calculateFlyingStarsFromBaziResult(watchContext, watchBazi)), JSON.stringify(calculateFlyingStarsFromBaziResult(watchLocationContext, watchLocationBazi)));
+    check(`${fixture.id}-watch-jinhan-location-invariant`, JSON.stringify(await calculateJinhanFromChartTimeContext({ context: watchContext, baziResult: watchBazi, solarTerms })), JSON.stringify(await calculateJinhanFromChartTimeContext({ context: watchLocationContext, baziResult: watchLocationBazi, solarTerms })));
+    const legacyLocationContext = createWatchChartTimeContext({
+      source: "query",
+      civil: watchContext.civil,
+      location: {
+        latitude: DEFAULT_GUIDENG_LOCATION.latitude,
+        longitude: DEFAULT_GUIDENG_LOCATION.longitude,
+        accuracy: null,
+      },
+      createdAtInstantMs: 0,
+    });
+    const legacyLocationBazi = calculateBaziFromChartTimeContext(legacyLocationContext, solarTerms);
+    const legacyLocationResult = await calculateGuiDengFromChartTimeContext({ context: legacyLocationContext, baziResult: legacyLocationBazi });
+    check(`${fixture.id}-watch-no-location-context-null`, null, watchContext.location);
+    check(`${fixture.id}-watch-no-location-legacy-fallback`, JSON.stringify(legacyLocationResult.solarEvents), JSON.stringify(watchResult.solarEvents));
+    check(`${fixture.id}-true-solar-event-instants-immutable`, trueSolarEventsBeforeDisplay, JSON.stringify(trueSolarResult.solarEvents));
+    check(`${fixture.id}-actual-sunrise-finite`, true, Number.isFinite(trueSolarResult.solarEvents.sunriseInstantMs));
+    check(`${fixture.id}-actual-sunset-finite`, true, Number.isFinite(trueSolarResult.solarEvents.sunsetInstantMs));
+
+    const trueRangeSource = trueSolarResult.guiDeng.entries.find((entry) => entry.isAvailable)?.availableRange;
+    const trueRangeText = trueSolarDisplay.entries.find((entry) => entry.isAvailable)?.rangeText ?? "";
+    check(`${fixture.id}-true-range-display-authority`, trueRangeText, formatRangeForChartMode({
+      startInstantMs: trueRangeSource?.start?.getTime(),
+      endInstantMs: trueRangeSource?.end?.getTime(),
+      context: trueSolarContext,
+    }));
+    check(`${fixture.id}-true-display-model-mode`, "true-solar", trueSolarDisplay.mode);
+
+    if (fixture.expectedWatchDayPillar) {
+      check(`${fixture.id}-watch-day-pillar`, fixture.expectedWatchDayPillar, watchBazi.dayPillar);
+      check(`${fixture.id}-true-day-pillar`, fixture.expectedTrueDayPillar, trueSolarBazi.dayPillar);
+      check(`${fixture.id}-day-pillar-diverges`, true, watchBazi.dayPillar !== trueSolarBazi.dayPillar);
+      check(`${fixture.id}-gui-deng-branches-diverge`, true, JSON.stringify(watchDisplay.dengGuiBranches) !== JSON.stringify(trueSolarDisplay.dengGuiBranches));
+    }
+  }
+
+  const locationChangeBase = createFixtureContexts(fixtures[0]);
+  const changedLocationContext = createWatchChartTimeContext({
+    source: "query",
+    civil: locationChangeBase.watchLocationContext.civil,
+    location: { latitude: 25.033964, longitude: 121.564468, accuracy: null },
+    createdAtInstantMs: 0,
+  });
+  const changedLocationBazi = calculateBaziFromChartTimeContext(changedLocationContext, solarTerms);
+  const changedLocationResult = await calculateGuiDengFromChartTimeContext({
+    context: changedLocationContext,
+    baziResult: changedLocationBazi,
+  });
+  const baseLocationResult = await calculateGuiDengFromChartTimeContext({
+    context: locationChangeBase.watchLocationContext,
+    baziResult: calculateBaziFromChartTimeContext(locationChangeBase.watchLocationContext, solarTerms),
+  });
+  check("watch-location-change-context-refreshes", "25.033964,121.564468", `${changedLocationContext.location.latitude},${changedLocationContext.location.longitude}`);
+  check("watch-location-change-sunrise-instant-differs", true, baseLocationResult.solarEvents.sunriseInstantMs !== changedLocationResult.solarEvents.sunriseInstantMs);
+
+  const malformedTrueContext = { ...locationChangeBase.trueSolarContext, location: null };
+  let trueWithoutLocationThrows = false;
+  try {
+    await calculateGuiDengFromChartTimeContext({
+      context: malformedTrueContext,
+      baziResult: calculateBaziFromChartTimeContext(locationChangeBase.trueSolarContext, solarTerms),
+    });
+  } catch {
+    trueWithoutLocationThrows = true;
+  }
+  check("true-solar-without-location-unavailable", true, trueWithoutLocationThrows);
+  check("watch-context-location-is-explicit", true, mainModuleRaw.includes("{ location: getFormalChartLocationSnapshot() }"));
+  check("formal-location-authority-is-source-a-state", true, mainModuleRaw.includes("const location = trueSolarTimeLocation"));
+  check("watch-context-location-forwarded", true, mainModuleRaw.includes("location,\n    createdAtInstantMs"));
+  check("guideng-consumes-context-location", true, adapterRaw.includes("const location = context.location"));
+  check("cache-key-includes-location", true, mainModuleRaw.includes("latitude,\n    longitude,\n    utcOffsetMinutes"));
+  check("watch-coordinate-change-refreshes-guideng", true, mainModuleRaw.includes("function refreshFormalWatchGuiDengAfterLocationChange()")
+    && mainModuleRaw.includes("refreshFormalWatchGuiDengAfterLocationChange();"));
+  const resetStateStart = mainModuleRaw.indexOf("function resetLegacyChartTimeState");
+  const resetStateEnd = mainModuleRaw.indexOf("\n}\n\nfunction startAutoNowMode", resetStateStart);
+  const resetStateSource = resetStateStart >= 0 && resetStateEnd > resetStateStart
+    ? mainModuleRaw.slice(resetStateStart, resetStateEnd)
+    : "";
+  check("mode-switch-does-not-clear-formal-location", false, /trueSolarTimeLocation\s*=/.test(resetStateSource));
+  const sourceBCRenderStart = mainModuleRaw.indexOf("function renderTrueSolarTimeForContext");
+  const sourceBCRenderEnd = mainModuleRaw.indexOf("\n}\n\nfunction clearCurrentTrueSolarChartContext", sourceBCRenderStart);
+  const sourceBCRenderSource = sourceBCRenderStart >= 0 && sourceBCRenderEnd > sourceBCRenderStart
+    ? mainModuleRaw.slice(sourceBCRenderStart, sourceBCRenderEnd)
+    : "";
+  check("source-bc-do-not-assign-formal-location", false, /trueSolarTimeLocation\s*=/.test(sourceBCRenderSource));
+  check("source-bc-do-not-write-formal-context", false, /currentTrueSolarChartContextInput\s*=/.test(sourceBCRenderSource));
+  check("runtime-keeps-existing-timers", 2, (mainModuleRaw.match(/setInterval\(/g) ?? []).length);
+  check("runtime-keeps-storage-absent", false, /localStorage|sessionStorage/.test(mainModuleRaw));
+}
+
+function formatLocalPartsForTest(parts) {
+  return `${String(parts.year).padStart(4, "0")}-${String(parts.month).padStart(2, "0")}-${String(parts.day).padStart(2, "0")}T${String(parts.hour).padStart(2, "0")}:${String(parts.minute).padStart(2, "0")}:${String(parts.second).padStart(2, "0")}`;
 }
 
 function runAnnualAfflictionsTests() {
