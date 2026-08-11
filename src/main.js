@@ -44,7 +44,7 @@ import {
   getJinhanDeitiesByPalace,
   getJinhanYujingDayPan,
 } from "./jinhanYujing.js";
-import { getJinhanDunType } from "./jinhanDunType.js";
+import { calculateJinhanFromChartTimeContext } from "./jinhanChartTimeAdapter.js";
 import { getNaYinByPillar } from "./nayin.js";
 import {
   calculateTrueSolarTime,
@@ -414,7 +414,7 @@ function renderChartDisplayMode() {
   elements.trueSolarTimeTab.textContent = isTrueSolar ? "⌚ 手錶時間" : "☀ 真太陽時";
   elements.chartTimeModeTitle.textContent = isTrueSolar ? "☀ 真太陽時排盤" : "⌚ 手錶時間排盤";
   elements.chartTimeModeDescription.textContent = isTrueSolar
-    ? "四柱與九宮飛星已使用真太陽時；金函、登貴與奇門仍維持手錶時間。"
+    ? "四柱、九宮飛星與金函玉鏡日盤已使用真太陽時；登貴與奇門仍維持手錶時間。"
     : "目前各盤維持既有手錶時間計算。";
   elements.chartTimeModeSwitchLink.textContent = isTrueSolar ? "返回手錶時間排盤" : "切換至真太陽時排盤";
   elements.chartTimeModeSwitchLink.href = switchUrl;
@@ -429,6 +429,7 @@ function renderChartDisplayMode() {
   if (currentCalendarResult && currentSolarTerms) {
     renderBaziForActiveDisplayMode();
     refreshFlyingStarsForCurrentChartTime(requestId);
+    void refreshJinhanForCurrentChartTime(requestId);
   }
   renderChartTimeStatus();
 }
@@ -868,7 +869,10 @@ function refreshBaziForCurrentChartTime(dateTimeValue, requestId) {
 
   try {
     const effectiveDateTimeValue = resolveEffectiveChartDateTimeValue(dateTimeValue);
-    const result = calculateBaziFromSolarTerms(effectiveDateTimeValue, currentSolarTerms);
+    // Keep the legacy/watch snapshot civil even while the active display is
+    // true-solar; the formal true-solar result is rebuilt from its context
+    // below and must not leak into Guideng/Qimen watch-only consumers.
+    const result = calculateBaziFromSolarTerms(dateTimeValue, currentSolarTerms);
     if (!isLatestBaziRenderRequest(requestId)) {
       return false;
     }
@@ -885,6 +889,7 @@ function refreshBaziForCurrentChartTime(dateTimeValue, requestId) {
       renderResult(result, effectiveDateTimeValue);
     }
     refreshFlyingStarsForCurrentChartTime(requestId);
+    void refreshJinhanForCurrentChartTime(requestId);
     return true;
   } catch {
     return false;
@@ -909,7 +914,9 @@ async function renderByDateTime(dateTimeValue, requestId = latestBaziRenderReque
       return;
     }
     const effectiveDateTimeValue = resolveEffectiveChartDateTimeValue(dateTimeValue);
-    const result = calculateBaziFromSolarTerms(effectiveDateTimeValue, solarTerms);
+    // `currentCalendarResult` remains the civil/watch compatibility snapshot;
+    // true-solar Bazi is authoritative only through ChartTimeContext.
+    const result = calculateBaziFromSolarTerms(dateTimeValue, solarTerms);
     if (!isLatestBaziRenderRequest(requestId)) {
       return;
     }
@@ -1696,48 +1703,133 @@ function clearFlyingStars() {
   elements.flyingStarsMessage.textContent = "";
 }
 
-async function renderJinhanYujing(calendarResult, dateTimeValue, requestId = null) {
-  if (requestId !== null && !isLatestBaziRenderRequest(requestId)) {
-    return;
+async function refreshJinhanForCurrentChartTime(requestId = latestBaziRenderRequestId) {
+  if (!isLatestBaziRenderRequest(requestId)) {
+    return false;
   }
-  const dayPillar = calendarResult?.dayPillar;
-  if (typeof dayPillar !== "string" || dayPillar.length < 2) {
-    clearJinhanYujing("尚無日柱資料，無法顯示金函玉鏡日盤");
-    return;
+
+  const isTrueSolar = isTrueSolarDisplayMode(chartDisplayMode);
+  const context = isTrueSolar
+    ? currentTrueSolarChartContext
+    : createCurrentWatchChartTimeContext(
+      chartTimeState.watchDateTimeValue
+        ?? currentDateTimeValue
+        ?? elements.datetime.value
+    );
+  const baziResult = isTrueSolar
+    ? currentTrueSolarBaziResult
+    : currentWatchBaziResult ?? currentCalendarResult;
+
+  if (!currentSolarTerms || !context || !baziResult) {
+    clearJinhanYujing(isTrueSolar
+      ? "真太陽時金函玉鏡尚未就緒。"
+      : "尚無日柱資料，無法顯示金函玉鏡日盤");
+    return false;
+  }
+
+  let adapterResult;
+  try {
+    adapterResult = calculateJinhanFromChartTimeContext({
+      context,
+      baziResult,
+      solarTerms: currentSolarTerms,
+    });
+  } catch (error) {
+    console.error("金函玉鏡 ChartTimeContext 計算失敗", error);
+    clearJinhanYujing(isTrueSolar
+      ? "真太陽時金函玉鏡資料無效。"
+      : "金函玉鏡日盤計算失敗");
+    return false;
+  }
+
+  if (!isLatestBaziRenderRequest(requestId)) {
+    return false;
+  }
+
+  const selectedDunType = resolveJinhanSelectedDunType(adapterResult.dunTypeResult);
+  const allowManualRecovery = isJinhanDunTypeManuallyOverridden
+    && selectedDunType.source === "manual";
+  if (adapterResult.status !== "resolved" && !allowManualRecovery) {
+    clearJinhanYujing(isTrueSolar
+      ? "真太陽時金函玉鏡尚未取得完整節氣資料。"
+      : "尚未取得完整節氣資料，無法自動判斷金函玉鏡陰陽遁。");
+    return false;
+  }
+
+  const renderSnapshot = createJinhanRenderSnapshot(adapterResult, selectedDunType);
+  if (!renderSnapshot?.pan) {
+    clearJinhanYujing("查無金函玉鏡日盤資料");
+    return false;
   }
 
   try {
-    const dunTypeStatus = getJinhanDunType(dateTimeValue, calendarResult, currentSolarTerms);
-    const selectedDunType = resolveJinhanSelectedDunType(dunTypeStatus);
-    const pan = getJinhanYujingDayPan(dayPillar, selectedDunType.dunType);
-
-    if (!pan) {
-      clearJinhanYujing("查無金函玉鏡日盤資料");
-      return;
-    }
-
-    const deitiesByPalace = getJinhanDeitiesByPalace(pan.meta);
-    const blackYellowHours = getJinhanBlackYellowHours(dayPillar);
-    const currentHourInfo = getCurrentChineseHourInfo(dateTimeValue);
-    const currentHourIndex = currentHourInfo?.index ?? null;
-    const guiDeng = await getGuiDengForCalendarResult(calendarResult, dateTimeValue);
-    if (requestId !== null && !isLatestBaziRenderRequest(requestId)) {
-      return;
+    // Guideng is intentionally isolated on the legacy/watch snapshot while
+    // the Jinhan snapshot above follows the active ChartTimeContext mode.
+    const legacyWatchResult = currentWatchBaziResult ?? currentCalendarResult;
+    const legacyWatchDateTime = chartTimeState.watchDateTimeValue
+      ?? elements.datetime.value
+      ?? currentDateTimeValue;
+    const guiDeng = await getGuiDengForCalendarResult(legacyWatchResult, legacyWatchDateTime);
+    if (!isLatestBaziRenderRequest(requestId)) {
+      return false;
     }
     const dengGuiBranches = getDengGuiBranchSet(guiDeng);
     elements.jinhanMessage.textContent = "";
-    updateJinhanCurrentHourLabel(currentHourInfo);
-    elements.jinhanSummary.replaceChildren(...createJinhanSummaryItems(dayPillar, pan, guiDeng));
-    elements.jinhanGrid.replaceChildren(...createJinhanGridCells(pan, deitiesByPalace));
+    updateJinhanCurrentHourLabel(renderSnapshot.chineseHour);
+    elements.jinhanSummary.replaceChildren(
+      ...createJinhanSummaryItems(renderSnapshot.dayPillar, renderSnapshot.pan, guiDeng)
+    );
+    elements.jinhanGrid.replaceChildren(
+      ...createJinhanGridCells(renderSnapshot.pan, renderSnapshot.deitiesByPalace)
+    );
     elements.jinhanHoursBody.replaceChildren(
-      ...blackYellowHours.map((hour, index) =>
-        createJinhanHourRow(hour, currentHourIndex, index + 1, dengGuiBranches)
+      ...renderSnapshot.blackYellowHours.map((hour, index) =>
+        createJinhanHourRow(hour, renderSnapshot.currentHourIndex, index + 1, dengGuiBranches)
       )
     );
+    return true;
   } catch (error) {
+    if (!isLatestBaziRenderRequest(requestId)) {
+      return false;
+    }
     console.error("金函玉鏡日盤顯示失敗", error);
     clearJinhanYujing("金函玉鏡日盤顯示失敗");
+    return false;
   }
+}
+
+// Keep the existing renderer entry point as the single DOM writer. Its
+// arguments remain for the established render chain, but time authority now
+// comes exclusively from the active ChartTimeContext snapshot above.
+async function renderJinhanYujing(calendarResult, dateTimeValue, requestId = null) {
+  void calendarResult;
+  void dateTimeValue;
+  return refreshJinhanForCurrentChartTime(
+    requestId === null ? latestBaziRenderRequestId : requestId
+  );
+}
+
+function createJinhanRenderSnapshot(adapterResult, selectedDunType) {
+  const selectedDun = selectedDunType?.dunType;
+  const isAutoPan = selectedDun === adapterResult.dunTypeResult?.dunType;
+  const pan = isAutoPan
+    ? adapterResult.pan
+    : getJinhanYujingDayPan(adapterResult.dayPillar, selectedDun);
+  if (!pan) {
+    return null;
+  }
+
+  return {
+    ...adapterResult,
+    effectiveDunType: selectedDun,
+    pan,
+    deitiesByPalace: isAutoPan
+      ? adapterResult.deitiesByPalace
+      : getJinhanDeitiesByPalace(pan.meta),
+    blackYellowHours: adapterResult.blackYellowHours?.length > 0
+      ? adapterResult.blackYellowHours
+      : getJinhanBlackYellowHours(adapterResult.dayPillar),
+  };
 }
 
 async function getGuiDengForCalendarResult(calendarResult, dateTimeValue) {
@@ -1949,7 +2041,10 @@ function handleTrueSolarTimeCoordinateInput() {
   trueSolarTimeLocation = null;
   clearTrueSolarTimePresentation();
   if (isTrueSolarDisplayMode(chartDisplayMode)) {
+    const requestId = ++latestBaziRenderRequestId;
     renderBaziForActiveDisplayMode();
+    refreshFlyingStarsForCurrentChartTime(requestId);
+    void refreshJinhanForCurrentChartTime(requestId);
     renderChartTimeStatus();
   }
 }
@@ -1959,13 +2054,19 @@ function handleTrueSolarTimeCoordinateChange() {
   if (!location) {
     clearTrueSolarTimePresentation();
     if (isTrueSolarDisplayMode(chartDisplayMode)) {
+      const requestId = ++latestBaziRenderRequestId;
       renderBaziForActiveDisplayMode();
+      refreshFlyingStarsForCurrentChartTime(requestId);
+      void refreshJinhanForCurrentChartTime(requestId);
       renderChartTimeStatus();
     }
     return;
   }
   if (isTrueSolarDisplayMode(chartDisplayMode)) {
+    const requestId = ++latestBaziRenderRequestId;
     renderFormalTrueSolarChartTime();
+    refreshFlyingStarsForCurrentChartTime(requestId);
+    void refreshJinhanForCurrentChartTime(requestId);
   }
   renderActiveTrueSolarTime();
 }
@@ -1974,7 +2075,10 @@ function calculateTrueSolarTimeFromCoordinateInput() {
   const location = syncTrueSolarTimeLocationFromCoordinateInput({ showError: true });
   if (!location) return;
   if (isTrueSolarDisplayMode(chartDisplayMode)) {
+    const requestId = ++latestBaziRenderRequestId;
     renderFormalTrueSolarChartTime();
+    refreshFlyingStarsForCurrentChartTime(requestId);
+    void refreshJinhanForCurrentChartTime(requestId);
   }
   renderActiveTrueSolarTime();
 }
@@ -1992,7 +2096,10 @@ function requestTrueSolarTimeGeolocation() {
       trueSolarTimeLocation = { latitude, longitude, normalizedText: `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`, sourceFormat: "geolocation", accuracy };
       elements.trueSolarTimeCoordinate.value = trueSolarTimeLocation.normalizedText;
       if (isTrueSolarDisplayMode(chartDisplayMode)) {
+        const requestId = ++latestBaziRenderRequestId;
         renderFormalTrueSolarChartTime();
+        refreshFlyingStarsForCurrentChartTime(requestId);
+        void refreshJinhanForCurrentChartTime(requestId);
       }
       renderActiveTrueSolarTime();
       setTrueSolarTimeStatus(`定位精確度：約 ${Math.round(accuracy)} 公尺`, "");

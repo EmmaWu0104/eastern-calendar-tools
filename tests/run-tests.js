@@ -384,6 +384,7 @@ let jinhanBlackYellowHourCount = 0;
 let jinhanLookupVerifiedCaseCount = 0;
 let jinhanDunTypeVerifiedCaseCount = 0;
 let jinhanChartTimeAdapterVerifiedCaseCount = 0;
+let jinhanChartTimeRuntimeVerifiedCaseCount = 0;
 let qimenYuanJuTermCount = 0;
 let qimenPlateFileCount = 0;
 let qimenPlateNullCount = 0;
@@ -727,6 +728,7 @@ qimenPlateObjectCount = qimenStats.plateObjects;
 runJinhanYujingLookupTests();
 runJinhanDunTypeV1Tests();
 runJinhanChartTimeAdapterTests(solarTerms);
+runJinhanChartTimeRuntimeTests(solarTerms);
 runQimenHelperTests();
 runQimenFuTouScanTests();
 runQimenTermAssignmentTests();
@@ -858,6 +860,7 @@ if (failures.length > 0) {
   console.log(`金函玉鏡查表測試通過：${jinhanLookupVerifiedCaseCount} cases`);
   console.log(`金函玉鏡超神接氣 v1 測試通過：${jinhanDunTypeVerifiedCaseCount} cases`);
   console.log(`金函玉鏡 ChartTimeContext adapter 測試通過：${jinhanChartTimeAdapterVerifiedCaseCount} cases`);
+  console.log(`金函玉鏡 ChartTimeContext runtime 測試通過：${jinhanChartTimeRuntimeVerifiedCaseCount} cases`);
   console.log(
     `奇門遁甲資料檢查通過：${qimenYuanJuTermCount} terms, ${qimenPlateFileCount} plate files, ${qimenPlateObjectCount} plate objects, ${qimenPlateNullCount} null plates`
   );
@@ -2206,6 +2209,200 @@ function runJinhanChartTimeAdapterTests(solarTerms) {
   check("jinhan-adapter-static-no-bazi-formula", false, /DAY_PILLAR_BASE|civilDateToEpochMs|firstHourStemIndex/.test(jinhanChartTimeAdapterRaw));
   check("jinhan-adapter-static-no-network-or-dependency", false, /fetch\(|node_modules|npm:|process\.env/.test(jinhanChartTimeAdapterRaw));
   check("jinhan-adapter-static-uses-bazi-clock-helper", true, jinhanChartTimeAdapterRaw.includes("getBaziClockLocalParts"));
+}
+
+function runJinhanChartTimeRuntimeTests(solarTerms) {
+  const check = (id, expected, actual) => {
+    jinhanChartTimeRuntimeVerifiedCaseCount += 1;
+    assertEqual(id, "result", expected, actual);
+  };
+  const parts = (year, month, day, hour, minute, second = 0) => ({
+    year,
+    month,
+    day,
+    hour,
+    minute,
+    second,
+    millisecond: 0,
+  });
+  const instantFor = (localParts, offsetMinutes = 480) => Date.UTC(
+    localParts.year,
+    localParts.month - 1,
+    localParts.day,
+    localParts.hour,
+    localParts.minute,
+    localParts.second
+  ) - offsetMinutes * 60_000;
+  const carrier = (localParts) => new Date(Date.UTC(
+    localParts.year,
+    localParts.month - 1,
+    localParts.day,
+    localParts.hour,
+    localParts.minute,
+    localParts.second
+  ));
+  const makeContext = ({ mode = "watch", civilParts, trueSolarParts = civilParts, location = { latitude: 25, longitude: 121.8, accuracy: null } }) => {
+    const instantMs = instantFor(civilParts);
+    const civil = {
+      localParts: civilParts,
+      timeZone: "Asia/Taipei",
+      utcOffsetMinutes: 480,
+      abbreviation: "GMT+8",
+      instantMs,
+      disambiguation: null,
+    };
+    if (mode === "watch") {
+      return createWatchChartTimeContext({ source: "query", civil, createdAtInstantMs: 0 });
+    }
+    return createTrueSolarChartTimeContext({
+      source: "query",
+      civil,
+      location,
+      trueSolarResult: {
+        trueSolarParts,
+        totalCorrectionSeconds: 0,
+        longitudeCorrectionSeconds: 0,
+        equationOfTimeSeconds: 0,
+      },
+      createdAtInstantMs: 0,
+    });
+  };
+  const makeTerm = (year, name, localDateTime) => ({
+    year_taipei: year,
+    name,
+    timeMs: Date.parse(`${localDateTime}+08:00`),
+  });
+  const runtimeTerms = [
+    makeTerm(2024, "冬至", "2024-12-21T12:00:00"),
+    makeTerm(2025, "夏至", "2025-06-21T12:00:00"),
+    makeTerm(2025, "冬至", "2025-12-21T12:00:00"),
+    makeTerm(2026, "夏至", "2026-06-21T12:00:00"),
+    makeTerm(2026, "冬至", "2026-01-09T12:00:00"),
+  ];
+
+  const helperSource = extractNamedFunctionSource(mainModuleRaw, "refreshJinhanForCurrentChartTime");
+  const rendererSource = extractNamedFunctionSource(mainModuleRaw, "renderJinhanYujing");
+  const modeSource = extractNamedFunctionSource(mainModuleRaw, "renderChartDisplayMode");
+  const prioritySource = extractNamedFunctionSource(mainModuleRaw, "refreshBaziForCurrentChartTime");
+  const fullSource = extractNamedFunctionSource(mainModuleRaw, "renderByDateTime");
+  const coordinateInputSource = extractNamedFunctionSource(mainModuleRaw, "handleTrueSolarTimeCoordinateInput");
+  const coordinateChangeSource = extractNamedFunctionSource(mainModuleRaw, "handleTrueSolarTimeCoordinateChange");
+  const sourceChangeSource = extractNamedFunctionSource(mainModuleRaw, "handleTrueSolarTimeSourceChange");
+  const deviceSource = extractNamedFunctionSource(mainModuleRaw, "renderTrueSolarTimeForDeviceNow");
+  const customSource = extractNamedFunctionSource(mainModuleRaw, "renderTrueSolarTimeForCustomInput");
+  const manualSource = extractNamedFunctionSource(mainModuleRaw, "handleManualDateTimeChange");
+  const calendarSource = extractNamedFunctionSource(mainModuleRaw, "selectQueryCalendarDate");
+  const hourShortcutSource = extractNamedFunctionSource(mainModuleRaw, "selectChineseHour");
+  const guiDengSource = extractNamedFunctionSource(mainModuleRaw, "getGuiDengForCalendarResult");
+
+  check("jinhan-runtime-adapter-import", true, mainModuleRaw.includes('from "./jinhanChartTimeAdapter.js"'));
+  check("jinhan-runtime-single-helper", 1, (mainModuleRaw.match(/function refreshJinhanForCurrentChartTime\(/g) ?? []).length);
+  check("jinhan-runtime-single-renderer", 1, (mainModuleRaw.match(/function renderJinhanYujing\(/g) ?? []).length);
+  check("jinhan-runtime-helper-calls-adapter", true, helperSource.includes("calculateJinhanFromChartTimeContext({"));
+  check("jinhan-runtime-watch-context", true, helperSource.includes("createCurrentWatchChartTimeContext(") && helperSource.includes("currentWatchBaziResult ?? currentCalendarResult"));
+  check("jinhan-runtime-true-context", true, helperSource.includes("currentTrueSolarChartContext") && helperSource.includes("currentTrueSolarBaziResult"));
+  const trueBranch = helperSource.slice(0, helperSource.indexOf("const baziResult"));
+  check("jinhan-runtime-true-no-current-calendar-authority", false, trueBranch.includes("currentCalendarResult"));
+  check("jinhan-runtime-no-legacy-dun-authority", false, mainModuleRaw.includes("getJinhanDunType(") || helperSource.includes("getJinhanDunType"));
+  check("jinhan-runtime-no-raw-datetime-day", false, helperSource.includes("parseDateTimeLocalValue") || helperSource.includes("new Date(local"));
+  check("jinhan-runtime-result-pan", true, helperSource.includes("renderSnapshot.pan"));
+  check("jinhan-runtime-result-deities", true, helperSource.includes("renderSnapshot.deitiesByPalace"));
+  check("jinhan-runtime-result-hours", true, helperSource.includes("renderSnapshot.blackYellowHours"));
+  check("jinhan-runtime-result-current-hour", true, helperSource.includes("renderSnapshot.currentHourIndex"));
+  check("jinhan-runtime-guideng-legacy-snapshot", true, helperSource.includes("legacyWatchResult") && helperSource.includes("legacyWatchDateTime"));
+  check("jinhan-runtime-guideng-no-true-bazi", false, guiDengSource.includes("currentTrueSolarBaziResult"));
+  check("jinhan-runtime-renderer-wrapper-only", true, rendererSource.includes("refreshJinhanForCurrentChartTime") && !rendererSource.includes("getJinhanDunType"));
+  check("jinhan-runtime-manual-selector-listener", true, mainModuleRaw.includes("isJinhanDunTypeManuallyOverridden = true"));
+  check("jinhan-runtime-auto-selector-no-dispatch", false, helperSource.includes("dispatchEvent") || mainModuleRaw.includes("jinhanDunType.dispatchEvent"));
+  check("jinhan-runtime-auto-selector-sync", true, mainModuleRaw.includes("elements.jinhanDunType.value = dunTypeStatus.dunType"));
+  check("jinhan-runtime-mode-refreshes-jinhan", true, modeSource.includes("refreshJinhanForCurrentChartTime(requestId)"));
+  check("jinhan-runtime-mode-no-datetime-write", false, modeSource.includes("elements.datetime.value ="));
+  check("jinhan-runtime-mode-no-auto-toggle", false, /startAutoNowMode|pauseAutoNowMode/.test(modeSource));
+  check("jinhan-runtime-lightweight-refreshes-jinhan", true, prioritySource.includes("refreshJinhanForCurrentChartTime(requestId)"));
+  check("jinhan-runtime-lightweight-no-await", false, /\bawait\b/.test(prioritySource));
+  check("jinhan-runtime-full-keeps-single-entry", true, fullSource.includes("await renderJinhanYujing(result, effectiveDateTimeValue, requestId)"));
+  check("jinhan-runtime-no-new-timer", 2, (mainModuleRaw.match(/setInterval\(/g) ?? []).length);
+  check("jinhan-runtime-stale-guard-before-calculation", true, helperSource.indexOf("!isLatestBaziRenderRequest(requestId)") >= 0);
+  check("jinhan-runtime-stale-guard-after-guideng", true, helperSource.lastIndexOf("!isLatestBaziRenderRequest(requestId)") > helperSource.indexOf("await getGuiDengForCalendarResult("));
+  check("jinhan-runtime-unavailable-clears", true, helperSource.includes("clearJinhanYujing") && helperSource.includes("真太陽時金函玉鏡尚未就緒"));
+  check("jinhan-runtime-true-no-watch-fallback", true, helperSource.includes("if (!currentSolarTerms || !context || !baziResult)") && !trueBranch.includes("currentWatchBaziResult"));
+  check("jinhan-runtime-coordinate-input-generation", true, coordinateInputSource.includes("++latestBaziRenderRequestId") && coordinateInputSource.includes("refreshJinhanForCurrentChartTime(requestId)"));
+  check("jinhan-runtime-coordinate-change-generation", true, coordinateChangeSource.includes("++latestBaziRenderRequestId") && coordinateChangeSource.includes("refreshJinhanForCurrentChartTime(requestId)"));
+  check("jinhan-runtime-source-b-isolation", false, deviceSource.includes("refreshJinhanForCurrentChartTime") || deviceSource.includes("currentTrueSolarBaziResult"));
+  check("jinhan-runtime-source-c-isolation", false, customSource.includes("refreshJinhanForCurrentChartTime") || customSource.includes("currentTrueSolarBaziResult"));
+  check("jinhan-runtime-source-switch-isolation", false, sourceChangeSource.includes("refreshJinhanForCurrentChartTime") || sourceChangeSource.includes("renderFormalTrueSolarChartTime"));
+  check("jinhan-runtime-calendar-uses-formal-request", true, calendarSource.includes("requestRenderDateTime(dateTimeValue)"));
+  check("jinhan-runtime-hour-uses-formal-request", true, hourShortcutSource.includes("requestRenderDateTime(dateTimeValue)"));
+  check("jinhan-runtime-precise-input-reuses-request", true, manualSource.includes("requestRenderDateTime(elements.datetime.value)"));
+  check("jinhan-runtime-no-guideng-feed-from-true", false, helperSource.includes("getGuiDengForCalendarResult(currentTrueSolarBaziResult") || helperSource.includes("getGuiDengForCalendarResult(currentTrueSolarChartContext"));
+  check("jinhan-runtime-no-second-view-model", 2, (mainModuleRaw.match(/createJinhanRenderSnapshot\(/g) ?? []).length);
+  check("jinhan-runtime-no-storage", false, /localStorage|sessionStorage/.test(mainModuleRaw));
+  check("jinhan-runtime-no-duplicate-eot", false, /calculateEquationOfTime|NOAA|Meeus/.test(helperSource));
+  check("jinhan-runtime-no-duplicate-bazi", false, /getDayPillar|SEXAGENARY_CYCLE|DAY_PILLAR_BASE/.test(helperSource));
+  check("jinhan-runtime-guideng-import-retained", true, mainModuleRaw.includes('from "./guideng.js"'));
+  check("jinhan-runtime-solar-events-import-retained", true, mainModuleRaw.includes('from "./solarEvents.js"'));
+
+  const watchBefore = makeContext({ mode: "watch", civilParts: parts(2026, 1, 9, 22, 59, 59) });
+  const watchAt = makeContext({ mode: "watch", civilParts: parts(2026, 1, 9, 23, 0, 0) });
+  const trueAt = makeContext({
+    mode: "true-solar",
+    civilParts: parts(2026, 1, 9, 22, 59, 59),
+    trueSolarParts: parts(2026, 1, 9, 23, 0, 1),
+  });
+  const watchBeforeBazi = calculateBaziFromChartTimeContext(watchBefore, solarTerms);
+  const watchAtBazi = calculateBaziFromChartTimeContext(watchAt, solarTerms);
+  const trueAtBazi = calculateBaziFromChartTimeContext(trueAt, solarTerms);
+  const watchBeforeResult = calculateJinhanFromChartTimeContext({ context: watchBefore, baziResult: watchBeforeBazi, solarTerms: runtimeTerms });
+  const watchAtResult = calculateJinhanFromChartTimeContext({ context: watchAt, baziResult: watchAtBazi, solarTerms: runtimeTerms });
+  const trueAtResult = calculateJinhanFromChartTimeContext({ context: trueAt, baziResult: trueAtBazi, solarTerms: runtimeTerms });
+  check("jinhan-runtime-watch-normal-resolved", JINHAN_DUN_TYPE_STATUS.RESOLVED, calculateJinhanFromChartTimeContext({ context: makeContext({ mode: "watch", civilParts: parts(2026, 8, 10, 12, 0) }), baziResult: calculateBaziFromChartTimeContext(makeContext({ mode: "watch", civilParts: parts(2026, 8, 10, 12, 0) }), solarTerms), solarTerms: runtimeTerms }).status);
+  check("jinhan-runtime-watch-225959-hour", "亥", watchBeforeResult.chineseHour.branch);
+  check("jinhan-runtime-watch-230000-hour", "子", watchAtResult.chineseHour.branch);
+  check("jinhan-runtime-watch-230000-day-changes", false, watchBeforeResult.dayPillar === watchAtResult.dayPillar);
+  check("jinhan-runtime-watch-230000-pan-changes", false, watchBeforeResult.pan.meta.label === watchAtResult.pan.meta.label);
+  check("jinhan-runtime-watch-230000-hours-change", false, JSON.stringify(watchBeforeResult.blackYellowHours) === JSON.stringify(watchAtResult.blackYellowHours));
+  check("jinhan-runtime-true-230001-hour", "子", trueAtResult.chineseHour.branch);
+  check("jinhan-runtime-true-230001-day-authority", trueAtBazi.dayPillar, trueAtResult.dayPillar);
+  check("jinhan-runtime-true-230001-pan-authority", trueAtResult.dayPillar, trueAtResult.pan.meta.pillar);
+  check("jinhan-runtime-true-not-watch-fallback", false, trueAtResult.dayPillar === watchBeforeResult.dayPillar);
+  check("jinhan-runtime-watch-true-current-hour-diverges", false, watchBeforeResult.currentHourIndex === trueAtResult.currentHourIndex);
+
+  const sameDayWatch = makeContext({ mode: "watch", civilParts: parts(2026, 8, 10, 16, 59) });
+  const sameDayTrue = makeContext({ mode: "true-solar", civilParts: parts(2026, 8, 10, 16, 59), trueSolarParts: parts(2026, 8, 10, 17, 0) });
+  const sameDayWatchBazi = calculateBaziFromChartTimeContext(sameDayWatch, solarTerms);
+  const sameDayTrueBazi = calculateBaziFromChartTimeContext(sameDayTrue, solarTerms);
+  const sameDayWatchResult = calculateJinhanFromChartTimeContext({ context: sameDayWatch, baziResult: sameDayWatchBazi, solarTerms });
+  const sameDayTrueResult = calculateJinhanFromChartTimeContext({ context: sameDayTrue, baziResult: sameDayTrueBazi, solarTerms });
+  check("jinhan-runtime-cross-hour-same-day", sameDayWatchResult.dayPillar, sameDayTrueResult.dayPillar);
+  check("jinhan-runtime-cross-hour-pan-same", sameDayWatchResult.pan.meta.label, sameDayTrueResult.pan.meta.label);
+  check("jinhan-runtime-cross-hour-dun-same", sameDayWatchResult.dunTypeResult.dunType, sameDayTrueResult.dunTypeResult.dunType);
+  check("jinhan-runtime-cross-hour-deities-same", JSON.stringify(sameDayWatchResult.deitiesByPalace), JSON.stringify(sameDayTrueResult.deitiesByPalace));
+  check("jinhan-runtime-cross-hour-table-same", JSON.stringify(sameDayWatchResult.blackYellowHours), JSON.stringify(sameDayTrueResult.blackYellowHours));
+  check("jinhan-runtime-cross-hour-highlight-watch", "申", sameDayWatchResult.chineseHour.branch);
+  check("jinhan-runtime-cross-hour-highlight-true", "酉", sameDayTrueResult.chineseHour.branch);
+
+  const exactTermQuery = makeContext({ mode: "watch", civilParts: parts(2026, 1, 9, 13, 0) });
+  const exactTermBazi = calculateBaziFromChartTimeContext(exactTermQuery, solarTerms);
+  const exactTermResult = calculateJinhanFromChartTimeContext({ context: exactTermQuery, baziResult: exactTermBazi, solarTerms: runtimeTerms });
+  check("jinhan-runtime-term-exact-not-direct-switch", JINHAN_DUN_TYPE_MODE.CHAO_SHEN, exactTermResult.dunTypeResult.mode);
+  check("jinhan-runtime-term-exact-old-dun", "陰遁", exactTermResult.dunTypeResult.dunType);
+  const switchResult = calculateJinhanFromChartTimeContext({ context: watchAt, baziResult: watchAtBazi, solarTerms: runtimeTerms });
+  check("jinhan-runtime-switch-exact-new-dun", "陽遁", switchResult.dunTypeResult.dunType);
+  check("jinhan-runtime-switch-selector-source-contract", true, helperSource.includes("resolveJinhanSelectedDunType(adapterResult.dunTypeResult)"));
+  check("jinhan-runtime-switch-pan-follows-dun", switchResult.dunTypeResult.dunType, switchResult.pan.meta.dunType);
+  check("jinhan-runtime-switch-table-follows-day", JSON.stringify(getJinhanBlackYellowHours(switchResult.dayPillar)), JSON.stringify(switchResult.blackYellowHours));
+
+  const manualPan = getJinhanYujingDayPan(watchAtResult.dayPillar, "陰遁");
+  check("jinhan-runtime-manual-override-pan", true, Boolean(manualPan));
+  check("jinhan-runtime-manual-override-does-not-change-auto", "陽遁", watchAtResult.dunTypeResult.dunType);
+  check("jinhan-runtime-manual-override-deities-from-pan", JSON.stringify(getJinhanDeitiesByPalace(manualPan.meta)), JSON.stringify(getJinhanDeitiesByPalace(manualPan.meta)));
+  check("jinhan-runtime-calendar-click-refreshes", true, calendarSource.includes("requestRenderDateTime") && !calendarSource.includes("renderJinhanYujing"));
+  check("jinhan-runtime-hour-click-refreshes", true, hourShortcutSource.includes("requestRenderDateTime") && !hourShortcutSource.includes("renderJinhanYujing"));
+  check("jinhan-runtime-true-mode-copy", true, mainModuleRaw.includes("四柱、九宮飛星與金函玉鏡日盤已使用真太陽時；登貴與奇門仍維持手錶時間。"));
+  check("jinhan-runtime-guideng-legacy-date", true, helperSource.includes("legacyWatchDateTime") && guiDengSource.includes("parseDateTimeLocalValue(dateTimeValue)"));
+  check("jinhan-runtime-no-guideng-modification-path", true, !helperSource.includes("calculateGuiDengWithSunTimes") && !helperSource.includes("solarEvents"));
+  check("jinhan-runtime-formal-source-a-only", true, helperSource.includes("currentTrueSolarChartContext") && !sourceChangeSource.includes("currentTrueSolarChartContextInput"));
+  check("jinhan-runtime-no-query-term-fetch", false, helperSource.includes("loadSolarTerms") || helperSource.includes("fetch("));
 }
 
 function assertJinhanDunTypeResult(id, actual, expected) {
@@ -11032,11 +11229,11 @@ function runTrueSolarBaziPriorityBugFixTests(solarTerms) {
   const requestSource = extractNamedFunctionSource(mainModuleRaw, "requestRenderDateTime");
   const autoClockSource = extractNamedFunctionSource(mainModuleRaw, "refreshQueryTimeFromAutoNowClock");
   const manualChangeSource = extractNamedFunctionSource(mainModuleRaw, "handleManualDateTimeChange");
-  const jinhanSource = extractNamedFunctionSource(mainModuleRaw, "renderJinhanYujing");
+  const jinhanRuntimeSource = extractNamedFunctionSource(mainModuleRaw, "refreshJinhanForCurrentChartTime");
   const renderSource = extractNamedFunctionSource(mainModuleRaw, "renderTrueSolarBaziResult");
 
   check("bazi-priority-diagnosis-full-awaits-jinhan", true, fullSource.includes("await renderJinhanYujing(") && fullSource.indexOf("renderResult(result, effectiveDateTimeValue)") < fullSource.indexOf("await renderJinhanYujing("));
-  check("bazi-priority-diagnosis-jinhan-awaits-gui-deng", true, jinhanSource.includes("await getGuiDengForCalendarResult("));
+  check("bazi-priority-diagnosis-jinhan-awaits-gui-deng", true, jinhanRuntimeSource.includes("await getGuiDengForCalendarResult("));
   check("bazi-priority-lightweight-no-await", false, /\bawait\b/.test(prioritySource));
   check("bazi-priority-lightweight-no-downstream", false, /renderFlyingStars|renderJinhanYujing|renderQimenSection/.test(prioritySource));
   check("bazi-priority-lightweight-watch-renders-bazi", true, prioritySource.includes("renderResult(result, effectiveDateTimeValue)"));
@@ -11050,7 +11247,7 @@ function runTrueSolarBaziPriorityBugFixTests(solarTerms) {
   const afterJinhanGuard = fullSource.indexOf("if (!isLatestBaziRenderRequest(requestId))", fullSource.indexOf("await renderJinhanYujing("));
   check("bazi-priority-stale-guard-before-write", true, firstAwaitGuard >= 0 && fullSource.indexOf("currentCalendarResult = result") > firstAwaitGuard);
   check("bazi-priority-stale-guard-after-downstream-await", true, afterJinhanGuard > fullSource.indexOf("await renderJinhanYujing("));
-  check("bazi-priority-jinhan-stale-guard", true, jinhanSource.includes("requestId !== null && !isLatestBaziRenderRequest(requestId)"));
+  check("bazi-priority-jinhan-stale-guard", true, jinhanRuntimeSource.includes("!isLatestBaziRenderRequest(requestId)"));
   check("bazi-priority-current-input-committed-before-dom", true, prioritySource.indexOf("chartTimeState.watchDateTimeValue = dateTimeValue") < prioritySource.indexOf("renderResult(result, effectiveDateTimeValue)"));
   check("bazi-priority-true-solar-same-snapshot", true, renderSource.includes("context.trueSolar?.localParts") && prioritySource.includes("renderFormalTrueSolarChartTime()"));
   check("bazi-priority-daily-panel-not-cleared", false, prioritySource.includes("clearPillarExtraPanel()") || renderSource.includes("clearPillarExtraPanel()"));
@@ -11239,7 +11436,7 @@ function runChartDisplayModeTests() {
   check("chart-display-mode-predicate", true, isTrueSolarDisplayMode("true-solar"));
   check("chart-display-mode-dom-banner", true, ["chart-time-mode-banner", "chart-time-mode-title", "chart-time-mode-description", "chart-time-mode-switch-link"].every((id) => indexHtmlRaw.includes(`id="${id}"`)));
   check("chart-display-mode-dom-data", true, indexHtmlRaw.includes('data-time-mode="watch"') && mainModuleRaw.includes("document.body.dataset.chartTimeMode = chartDisplayMode"));
-  check("chart-display-mode-dom-copy", true, indexHtmlRaw.includes("⌚ 手錶時間排盤") && mainModuleRaw.includes("四柱與九宮飛星已使用真太陽時；金函、登貴與奇門仍維持手錶時間。"));
+  check("chart-display-mode-dom-copy", true, indexHtmlRaw.includes("⌚ 手錶時間排盤") && mainModuleRaw.includes("四柱、九宮飛星與金函玉鏡日盤已使用真太陽時；登貴與奇門仍維持手錶時間。"));
   check("chart-display-mode-link-accessibility", true, /id="chart-time-mode-switch-link" href="\?timeMode=true-solar"/.test(indexHtmlRaw) && mainModuleRaw.includes("切換至真太陽時排盤") && mainModuleRaw.includes("返回手錶時間排盤"));
   check("chart-display-mode-single-switch-entry", true, !indexHtmlRaw.includes("true-solar-time-mode-switch-link") && !indexHtmlRaw.includes("true-solar-time-mode-intro") && (mainModuleRaw.match(/chartTimeModeSwitchLink\.addEventListener/g) ?? []).length === 1);
   check("chart-display-mode-panel-keeps-query-controls", true, ["true-solar-time-source-query", "true-solar-time-coordinate", "true-solar-time-time-zone-search-results", "true-solar-time-disambiguation", "true-solar-time-result", "true-solar-time-solar-events"].every((id) => indexHtmlRaw.includes(`id="${id}"`)));
