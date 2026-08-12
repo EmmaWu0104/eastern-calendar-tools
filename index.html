@@ -26,7 +26,7 @@
           <p id="precise-chart-time-note" class="precise-chart-time-note">供交節、換日與時辰邊界精確查詢</p>
         </div>
         <div class="query-picker">
-          <section class="query-calendar" aria-label="日期月曆">
+          <section class="query-calendar" aria-label="日期月曆" aria-describedby="query-calendar-lunar-note">
             <div class="query-calendar-header">
               <button id="calendar-previous" class="query-picker-icon-button" type="button" aria-label="上一月">‹</button>
               <div class="query-calendar-title">
@@ -35,6 +35,7 @@
               </div>
               <button id="calendar-next" class="query-picker-icon-button" type="button" aria-label="下一月">›</button>
             </div>
+            <p id="query-calendar-lunar-note" class="query-calendar-note">農曆（手錶日期）</p>
             <div class="query-calendar-weekdays" aria-hidden="true">
               <span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span><span>日</span>
             </div>
@@ -119,7 +120,7 @@
               <p id="true-solar-time-solar-events-location" class="true-solar-events-location-line"></p>
               <p id="true-solar-time-solar-events-time-zone" class="true-solar-events-time-zone-line"></p>
             </div>
-            <div class="true-solar-time-solar-events-grid"><div><span>日出</span><strong id="true-solar-time-sunrise">--</strong></div><div><span>中天</span><strong id="true-solar-time-solar-noon">--</strong></div><div><span>日落</span><strong id="true-solar-time-sunset">--</strong></div></div>
+            <div class="true-solar-time-solar-events-grid"><div><span aria-label="日出（手錶時間）">日出（手錶時間）</span><strong id="true-solar-time-sunrise">--</strong></div><div><span aria-label="中天（手錶時間）">中天（手錶時間）</span><strong id="true-solar-time-solar-noon">--</strong></div><div><span aria-label="日落（手錶時間）">日落（手錶時間）</span><strong id="true-solar-time-sunset">--</strong></div></div>
             <p id="true-solar-time-solar-events-message" role="status" aria-live="polite"></p>
           </section>
           <div id="true-solar-time-apply-actions" class="true-solar-time-apply-actions" hidden><button id="true-solar-time-apply" type="button" hidden>套用真太陽時至全部排盤</button></div>

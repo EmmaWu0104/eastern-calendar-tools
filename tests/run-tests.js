@@ -379,6 +379,7 @@ let dailyInfoVerifiedCaseCount = 0;
 let naYinVerifiedCaseCount = 0;
 let trueSolarTimeVerifiedCaseCount = 0;
 let trueSolarTimeUiVerifiedCaseCount = 0;
+let trueSolarPresentationLabelVerifiedCaseCount = 0;
 let solarEventsVerifiedCaseCount = 0;
 let timeZoneVerifiedCaseCount = 0;
 let timeZoneCatalogVerifiedCaseCount = 0;
@@ -811,6 +812,7 @@ runQimenResolverTests();
 runDailyInfoTests();
 runTrueSolarTimeTests();
 runTrueSolarTimeUiTests();
+await runTrueSolarPresentationLabelTests();
 runChartDisplayModeTests();
   runChartTimeContextTests();
   runBaziChartTimeAdapterTests();
@@ -861,6 +863,7 @@ if (failures.length > 0) {
   console.log(`納音測試通過：${naYinVerifiedCaseCount} cases`);
   console.log(`真太陽時核心測試通過：${trueSolarTimeVerifiedCaseCount} cases`);
   console.log(`真太陽時 UI 測試通過：${trueSolarTimeUiVerifiedCaseCount} cases`);
+  console.log(`真太陽時 presentation label 測試通過：${trueSolarPresentationLabelVerifiedCaseCount} cases`);
   console.log(`排盤顯示模式測試通過：${chartDisplayModeVerifiedCaseCount} cases`);
   console.log(`ChartTimeContext 核心測試通過：${chartTimeContextVerifiedCaseCount} cases`);
   console.log(`四柱 ChartTimeContext adapter 測試通過：${baziChartTimeAdapterVerifiedCaseCount} cases`);
@@ -9690,6 +9693,185 @@ function runTrueSolarTimeUiTests() {
   assertUi("true-solar-time-no-external-timezone-api", false, /fetch\([^)]*(time.?zone|timezone)|localStorage|Temporal/.test(mainModuleRaw));
 }
 
+async function runTrueSolarPresentationLabelTests() {
+  const check = (id, expected, actual) => {
+    trueSolarPresentationLabelVerifiedCaseCount += 1;
+    assertEqual(id, "result", expected, actual);
+  };
+
+  const effectiveDayLabel = loadEffectiveDayLabelForTest(mainModuleRaw);
+  const trueSolarRenderSource = extractNamedFunctionSource(mainModuleRaw, "renderTrueSolarBaziResult");
+  const effectiveDayUpdaterSource = extractNamedFunctionSource(mainModuleRaw, "updateWeekdayLabelForEffectiveDay");
+  const watchDayUpdaterSource = extractNamedFunctionSource(mainModuleRaw, "updateWeekdayLabel");
+  const weekdayRendererSource = extractNamedFunctionSource(mainModuleRaw, "renderWeekdayLabel");
+
+  check(
+    "true-solar-presentation-effective-day-visible",
+    true,
+    effectiveDayUpdaterSource.includes("formatEffectiveDayLabel(dateKey)")
+      && weekdayRendererSource.includes('createBlockSpan(effectiveDayLabel, "effective-day-label")')
+      && weekdayRendererSource.includes('effectiveDayLine.setAttribute("aria-label", effectiveDayLabel)')
+  );
+  check(
+    "true-solar-presentation-watch-no-effective-day-label",
+    true,
+    !watchDayUpdaterSource.includes("formatEffectiveDayLabel")
+      && weekdayRendererSource.includes('effectiveDayLabel = ""')
+  );
+  check(
+    "true-solar-presentation-effective-day-helper",
+    true,
+    trueSolarRenderSource.includes("getEffectiveDateKeyFromLocalParts(context.trueSolar?.localParts)")
+      && effectiveDayUpdaterSource.includes("formatEffectiveDayLabel(dateKey)")
+  );
+  check(
+    "true-solar-presentation-225959",
+    "2026-04-15",
+    getEffectiveDateKeyFromLocalParts({ year: 2026, month: 4, day: 15, hour: 22, minute: 59, second: 59, millisecond: 0 })
+  );
+  check(
+    "true-solar-presentation-230000",
+    "2026-04-16",
+    getEffectiveDateKeyFromLocalParts({ year: 2026, month: 4, day: 15, hour: 23, minute: 0, second: 0, millisecond: 0 })
+  );
+  check(
+    "true-solar-presentation-crossing-day-fixture",
+    "真太陽有效日：2026/04/16",
+    effectiveDayLabel(getEffectiveDateKeyFromLocalParts(calculateTrueSolarTime({
+      date: new Date(Date.UTC(2026, 3, 15, 22, 59, 59)),
+      latitude: 25.033964,
+      longitude: 121.564468,
+      utcOffsetMinutes: 480,
+      useUtcComponents: true,
+    }).trueSolarParts))
+  );
+
+  const queryCalendarDayDetail = loadQueryCalendarDayDetailForTest(mainModuleRaw);
+  const lunarInput = { year: 2026, month: 7, day: 4 };
+  const lunarInputBefore = JSON.stringify(lunarInput);
+  const lunarDetail = queryCalendarDayDetail(lunarInput.year, lunarInput.month, lunarInput.day, []);
+  check("true-solar-presentation-lunar-input-unchanged", lunarInputBefore, JSON.stringify(lunarInput));
+  check("true-solar-presentation-lunar-output-unchanged", "廿二", lunarDetail.lunarLabel);
+  check(
+    "true-solar-presentation-lunar-civil-label",
+    true,
+    indexHtmlRaw.includes('id="query-calendar-lunar-note"')
+      && indexHtmlRaw.includes("農曆（手錶日期）")
+      && indexHtmlRaw.includes('aria-describedby="query-calendar-lunar-note"')
+  );
+
+  check("true-solar-presentation-sunrise-label", true, indexHtmlRaw.includes("日出（手錶時間）"));
+  check("true-solar-presentation-noon-label", true, indexHtmlRaw.includes("中天（手錶時間）"));
+  check("true-solar-presentation-sunset-label", true, indexHtmlRaw.includes("日落（手錶時間）"));
+
+  const eventInputDate = new Date(Date.UTC(2026, 7, 10));
+  const eventInputDateMs = eventInputDate.getTime();
+  const eventInput = {
+    date: eventInputDate,
+    latitude: 25,
+    longitude: 115,
+    utcOffsetMinutes: 480,
+    useUtcComponents: true,
+  };
+  const eventsBeforeLabels = await calculateSolarEvents(eventInput);
+  const eventsAfterLabels = await calculateSolarEvents({ ...eventInput, date: new Date(eventInputDateMs) });
+  const eventInstantSnapshot = (events) => JSON.stringify([
+    events.sunrise.getTime(),
+    events.solarNoon.getTime(),
+    events.sunset.getTime(),
+  ]);
+  check("true-solar-presentation-event-actual-instant-unchanged", eventInstantSnapshot(eventsBeforeLabels), eventInstantSnapshot(eventsAfterLabels));
+  check("true-solar-presentation-event-date-input-unchanged", eventInputDateMs, eventInput.date.getTime());
+
+  const eventRendererSource = extractNamedFunctionSource(mainModuleRaw, "renderTrueSolarTimeSolarEvents");
+  check(
+    "true-solar-presentation-event-display-formatter-unchanged",
+    true,
+    eventRendererSource.includes("formatTimeParts(events.sunriseParts)")
+      && eventRendererSource.includes("formatTimeParts(events.solarNoonParts)")
+      && eventRendererSource.includes("formatTimeParts(events.sunsetParts)")
+      && !eventRendererSource.includes("calculateTrueSolarTime")
+  );
+  check(
+    "true-solar-presentation-event-timezone-offset-retained",
+    true,
+    eventRendererSource.includes("trueSolarTimeSolarEventsTimeZone.textContent")
+      && eventRendererSource.includes("formatUtcOffset(utcOffsetMinutes)")
+  );
+
+  check(
+    "true-solar-presentation-source-a-unchanged",
+    true,
+    indexHtmlRaw.includes('id="true-solar-time-source-query"')
+      && indexHtmlRaw.includes("正式排盤來源")
+      && mainModuleRaw.includes("renderTrueSolarTimeForWatchDate")
+  );
+  check(
+    "true-solar-presentation-source-b-unchanged",
+    true,
+    indexHtmlRaw.includes('id="true-solar-time-source-device"')
+      && indexHtmlRaw.includes('id="true-solar-time-device-local-time"')
+      && mainModuleRaw.includes("renderTrueSolarTimeForDeviceNow")
+  );
+  check(
+    "true-solar-presentation-source-c-unchanged",
+    true,
+    indexHtmlRaw.includes('id="true-solar-time-source-custom"')
+      && indexHtmlRaw.includes('id="true-solar-time-local-date"')
+      && indexHtmlRaw.includes('id="true-solar-time-time-zone"')
+      && mainModuleRaw.includes("renderTrueSolarTimeForCustomInput")
+  );
+
+  check(
+    "true-solar-presentation-term-formatter-unchanged",
+    true,
+    mainModuleRaw.includes("formatTermDateTime(currentTerm, timeZone)")
+      && mainModuleRaw.includes("formatTermDateTime(nextTerm, timeZone)")
+  );
+  check(
+    "true-solar-presentation-hou-formatter-unchanged",
+    true,
+    mainModuleRaw.includes("formatHouRangeDateTime(currentHou.start, timeZone)")
+      && mainModuleRaw.includes("formatSeasonHouVariantLine(nextHou, \"zh\")")
+  );
+  check(
+    "true-solar-presentation-solar-term-day-panel-unchanged",
+    true,
+    mainModuleRaw.includes("formatSolarTermDateTime(term)")
+      && mainModuleRaw.includes("renderSolarTermDayPanel(getSelectedSolarTermDay())")
+  );
+  check(
+    "true-solar-presentation-picker-click-unchanged",
+    true,
+    extractNamedFunctionSource(mainModuleRaw, "selectChineseHour").includes("buildDateTimeValueFromDateAndChineseHour")
+      && extractNamedFunctionSource(mainModuleRaw, "selectQueryCalendarDate").includes("buildDateTimeValueFromDateAndChineseHour")
+  );
+  check(
+    "true-solar-presentation-chart-time-context-schema-unchanged",
+    false,
+    chartTimeContextRaw.includes("effective-day-label")
+  );
+  check(
+    "true-solar-presentation-no-new-timer",
+    2,
+    (mainModuleRaw.match(/setInterval\(/g) ?? []).length
+  );
+  check("true-solar-presentation-no-storage", false, /localStorage|sessionStorage/.test(mainModuleRaw));
+  const packageJson = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
+  check(
+    "true-solar-presentation-no-dependency-change",
+    true,
+    packageJson.dependencies?.suncalc === "^1.9.0"
+      && packageJson.devDependencies?.["http-server"] === "^14.1.1"
+  );
+  check(
+    "true-solar-presentation-qimen-unchanged",
+    true,
+    mainModuleRaw.includes("奇門仍維持手錶時間")
+      && !extractNamedFunctionSource(mainModuleRaw, "renderQimenSection").includes("effective-day-label")
+  );
+}
+
 function runFrontendInputSecurityTests() {
   const check = (id, expected, actual) => {
     frontendInputSecurityVerifiedCaseCount += 1;
@@ -15234,6 +15416,11 @@ function loadQueryCalendarDayDetailForTest(mainModuleRaw) {
     formatLunarCalendarLabel,
     formatLunarCalendarAccessibleLabel
   );
+}
+
+function loadEffectiveDayLabelForTest(mainModuleRaw) {
+  const definition = extractNamedFunctionSource(mainModuleRaw, "formatEffectiveDayLabel");
+  return Function(`${definition}\nreturn formatEffectiveDayLabel;`)();
 }
 
 function loadChartTimeStatusDateTimeForTest(mainModuleRaw) {
