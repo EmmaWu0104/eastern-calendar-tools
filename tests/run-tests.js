@@ -466,6 +466,7 @@ let qimenOpenCloseVerifiedCaseCount = 0;
 let qimenSolarTermVirtuePunishmentVerifiedCaseCount = 0;
 let qimenQiResponseVerifiedCaseCount = 0;
 let qimenTimeSpecialConditionsVerifiedCaseCount = 0;
+let qimenResponsiveOverflowVerifiedCaseCount = 0;
 let qimen1080MarkdownParserVerifiedCaseCount = 0;
 let qimen1080SequenceDiagnosticsVerifiedCaseCount = 0;
 let qimen1080ConverterDryRunVerifiedCaseCount = 0;
@@ -811,6 +812,7 @@ runQimenOpenCloseTests();
 runQimenSolarTermVirtuePunishmentTests();
 runQimenQiResponseTests();
 runQimenTimeSpecialConditionsTests();
+runQimenResponsiveOverflowTests();
 runHexagramTests();
 await runQimenPlateValidationTests();
 runQimen1080MarkdownParserTests();
@@ -956,6 +958,7 @@ if (failures.length > 0) {
   console.log(`奇門節氣德刑測試通過：${qimenSolarTermVirtuePunishmentVerifiedCaseCount} cases`);
   console.log(`奇門氣應測試通過：${qimenQiResponseVerifiedCaseCount} cases`);
   console.log(`奇門特殊時辰條件測試通過：${qimenTimeSpecialConditionsVerifiedCaseCount} cases`);
+  console.log(`奇門 split-screen RWD 測試通過：${qimenResponsiveOverflowVerifiedCaseCount} cases`);
   console.log(`奇門1080盤面schema validation測試通過：${qimenPlateValidationVerifiedCaseCount} cases`);
   console.log(`奇門1080.md parser diagnostics測試通過：${qimen1080MarkdownParserVerifiedCaseCount} cases`);
   console.log(`奇門1080.md 排盤序列 diagnostics測試通過：${qimen1080SequenceDiagnosticsVerifiedCaseCount} cases`);
@@ -2510,6 +2513,85 @@ function createJinhanDunTypeMockTerm(year, name, localDateTime) {
     asia_taipei: `${localDateTime}+08:00`,
     timeMs: new Date(localDateTime).getTime(),
   };
+}
+
+function runQimenResponsiveOverflowTests() {
+  const capMediaStart = mainCssRaw.indexOf("@media (min-width: 390px) and (max-width: 760px)");
+  const max560Start = mainCssRaw.indexOf("@media (max-width: 560px)", capMediaStart);
+  const compactBadgeStart = mainCssRaw.indexOf("@media (min-width: 390px) and (max-width: 560px)");
+  const max680Start = mainCssRaw.indexOf("@media (max-width: 680px)", compactBadgeStart);
+  const max760Start = mainCssRaw.indexOf("@media (max-width: 760px)");
+  const max420Start = mainCssRaw.indexOf("@media (max-width: 420px)");
+  const specialStart = mainCssRaw.indexOf("@media (min-width: 390px) and (max-width: 430px)");
+  const capMediaCss = mainCssRaw.slice(capMediaStart, max560Start);
+  const max760Css = mainCssRaw.slice(max760Start, capMediaStart);
+  const max560Css = mainCssRaw.slice(max560Start, compactBadgeStart);
+  const compactBadgeCss = mainCssRaw.slice(compactBadgeStart, max680Start);
+  const max420Css = mainCssRaw.slice(max420Start, specialStart);
+  const specialCss = mainCssRaw.slice(specialStart, mainCssRaw.indexOf("ul {", specialStart));
+  const check = (id, expected, actual) => {
+    qimenResponsiveOverflowVerifiedCaseCount += 1;
+    assertEqual(id, "responsiveCss", expected, actual);
+  };
+
+  check("qimen-rwd-fluid-cap-media-present", true, capMediaStart >= 0 && max560Start > capMediaStart);
+  check("qimen-rwd-fluid-cap-rule", true, /\.qimen-plate-grid\s*\{\s*min-width:\s*min\(var\(--qimen-grid-min-width\),\s*100%\);\s*\}/.test(capMediaCss));
+  check("qimen-rwd-desktop-grid-columns-preserved", true, /\.qimen-plate-grid\s*\{[\s\S]*?grid-template-columns:\s*repeat\(3,\s*minmax\(0,\s*1fr\)\);/.test(mainCssRaw));
+  check("qimen-rwd-wrapper-scroll-safety-preserved", true, /\.qimen-plate-grid-wrap\s*\{[\s\S]*?overflow-x:\s*auto;/.test(mainCssRaw));
+  check("qimen-rwd-panel-shrink-preserved", true, /\.qimen-plate-panel\s*\{[\s\S]*?min-width:\s*0;/.test(mainCssRaw));
+  check("qimen-rwd-palace-shrink-preserved", true, /\.qimen-palace-cell\s*\{[\s\S]*?min-width:\s*0;/.test(mainCssRaw));
+  check("qimen-rwd-520-nominal-preserved", true, /--qimen-grid-min-width:\s*520px;/.test(max760Css));
+  check("qimen-rwd-440-nominal-preserved", true, /--qimen-grid-min-width:\s*440px;/.test(max560Css));
+  check("qimen-rwd-400-nominal-preserved", true, /--qimen-grid-min-width:\s*400px;/.test(max420Css));
+  check("qimen-rwd-390-430-fluid-rule-preserved", true, /--qimen-grid-min-width:\s*100%;/.test(specialCss));
+  check("qimen-rwd-compact-left-badge-contained", true, /left:\s*-5px;/.test(compactBadgeCss));
+  check("qimen-rwd-compact-right-badge-contained", true, /right:\s*-5px;/.test(compactBadgeCss));
+  check("qimen-rwd-special-left-badge-contained", true, /left:\s*-1px;/.test(specialCss));
+  check("qimen-rwd-special-right-badge-contained", true, /right:\s*-1px;/.test(specialCss));
+  check("qimen-rwd-no-global-overflow-mask", false, /body\s*\{[^}]*overflow-x:\s*hidden;/.test(mainCssRaw));
+  check("qimen-rwd-no-scale-workaround", false, /\.qimen-(?:plate|palace)[^{]*\{[^}]*transform:\s*scale\(/.test(mainCssRaw));
+  check("qimen-rwd-no-zoom-workaround", false, /\.qimen-(?:plate|palace)[^{]*\{[^}]*\bzoom\s*:/.test(mainCssRaw));
+  check("qimen-rwd-palace-content-not-hidden", false, /\.qimen-palace-(?:cell|content)[^{]*\{[^}]*display:\s*none;/.test(mainCssRaw));
+  check("qimen-rwd-badges-not-hidden", false, /\.qimen-(?:guxu|virtue-punishment)-badge[^{]*\{[^}]*display:\s*none;/.test(mainCssRaw));
+  check("qimen-rwd-manual-controls-wrap", true, /\.qimen-manual-control-row\s*\{[\s\S]*?flex-wrap:\s*wrap;/.test(mainCssRaw));
+
+  const viewportExpectations = [
+    [389, true],
+    [390, false],
+    [420, false],
+    [430, false],
+    [431, false],
+    [460, false],
+    [495, false],
+    [496, false],
+    [560, false],
+    [561, false],
+    [597, false],
+    [598, false],
+    [600, false],
+    [700, false],
+    [760, false],
+    [761, false],
+    [800, false],
+    [900, false],
+    [1024, false],
+  ];
+
+  for (const [viewportWidth, expectedOverflow] of viewportExpectations) {
+    const appWidth = Math.min(850, viewportWidth - 32);
+    const isSpecialWidth = viewportWidth >= 390 && viewportWidth <= 430;
+    const panelPadding = isSpecialWidth ? 3 : viewportWidth <= 760 ? 6 : 8;
+    const wrapperPadding = isSpecialWidth ? 1 : viewportWidth <= 560 ? 5 : 16;
+    const nominalGridMin = viewportWidth <= 420 ? 400 : viewportWidth <= 560 ? 440 : viewportWidth <= 760 ? 520 : 0;
+    const availableGridWidth = appWidth - (panelPadding * 2) - 2 - (wrapperPadding * 2);
+    const cappedGridMin = viewportWidth >= 390 && viewportWidth <= 760
+      ? Math.min(nominalGridMin, availableGridWidth)
+      : nominalGridMin;
+    const sideBadgeOutset = isSpecialWidth ? 1 : viewportWidth >= 390 && viewportWidth <= 560 ? 5 : 15;
+    const hasHorizontalOverflow = cappedGridMin > availableGridWidth || sideBadgeOutset > wrapperPadding;
+
+    check(`qimen-rwd-viewport-${viewportWidth}`, expectedOverflow, hasHorizontalOverflow);
+  }
 }
 
 function runQimenHelperTests() {

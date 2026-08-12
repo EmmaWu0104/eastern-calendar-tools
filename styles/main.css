@@ -2462,6 +2462,12 @@ dd {
   }
 }
 
+@media (min-width: 390px) and (max-width: 760px) {
+  .qimen-plate-grid {
+    min-width: min(var(--qimen-grid-min-width), 100%);
+  }
+}
+
 @media (max-width: 560px) {
   .qimen-plate-panel {
     --qimen-grid-min-width: 440px;
@@ -2511,6 +2517,24 @@ dd {
   .qimen-star-qi-response {
     width: 12px;
     height: 12px;
+  }
+}
+
+@media (min-width: 390px) and (max-width: 560px) {
+  .qimen-guxu-pos-gen-left,
+  .qimen-guxu-pos-zhen-left,
+  .qimen-guxu-pos-xun-left,
+  .qimen-virtue-punishment-pos-zhen-left,
+  .qimen-virtue-punishment-pos-xun-left {
+    left: -5px;
+  }
+
+  .qimen-guxu-pos-kun-right,
+  .qimen-guxu-pos-dui-right,
+  .qimen-guxu-pos-qian-right,
+  .qimen-virtue-punishment-pos-dui-right,
+  .qimen-virtue-punishment-pos-qian-right {
+    right: -5px;
   }
 }
 
@@ -2671,6 +2695,22 @@ dd {
 
   .qimen-palace-content {
     grid-template-columns: minmax(0, 1fr) minmax(25px, 0.54fr) minmax(36px, 0.68fr);
+  }
+
+  .qimen-guxu-pos-gen-left,
+  .qimen-guxu-pos-zhen-left,
+  .qimen-guxu-pos-xun-left,
+  .qimen-virtue-punishment-pos-zhen-left,
+  .qimen-virtue-punishment-pos-xun-left {
+    left: -1px;
+  }
+
+  .qimen-guxu-pos-kun-right,
+  .qimen-guxu-pos-dui-right,
+  .qimen-guxu-pos-qian-right,
+  .qimen-virtue-punishment-pos-dui-right,
+  .qimen-virtue-punishment-pos-qian-right {
+    right: -1px;
   }
 }
 
