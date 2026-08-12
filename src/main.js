@@ -43,7 +43,10 @@ import {
   calculateGuiDengFromChartTimeContext,
   GUIDENG_CHART_TIME_STATUS,
 } from "./guidengChartTimeAdapter.js";
-import { createGuiDengDisplayModel } from "./chartClockDisplay.js";
+import {
+  createGuiDengDisplayModel,
+  formatDateTimeForChartMode,
+} from "./chartClockDisplay.js";
 import {
   getJinhanBlackYellowHours,
   getJinhanDeitiesByPalace,
@@ -984,15 +987,18 @@ async function renderByDateTime(dateTimeValue, requestId = latestBaziRenderReque
 
 function renderResult(result, dateTimeValue) {
   elements.baziTimeBasis.hidden = true;
+  const displayContext = createCurrentWatchChartTimeContext(
+    chartTimeState.watchDateTimeValue ?? elements.datetime.value
+  );
   const dailyDaHuangDao = getDailyDaHuangDao(result.monthBranch, result.dayPillar?.[1]);
   renderPillar(elements.yearPillar, result.yearPillar, undefined, undefined, true);
   renderPillar(elements.monthPillar, result.monthPillar, undefined, undefined, true);
   renderPillar(elements.dayPillar, result.dayPillar, undefined, undefined, true);
   renderPillar(elements.hourPillar, result.hourPillar, undefined, undefined, true);
-  renderSolarTermDayPanel(getSelectedSolarTermDay());
+  renderSolarTermDayPanel(getSelectedSolarTermDay(), displayContext);
   renderPillarExtraPanel(result.jianchu, dailyDaHuangDao, result.dailyInfo);
   updateWeekdayLabel(dateTimeValue, result.dayPillar, result.jianchu, result.dailyInfo);
-  renderSeasonInfo(result);
+  renderSeasonInfo(result, displayContext);
   renderDongGongDaySelection(result);
   renderSpecNotes();
 }
@@ -1039,7 +1045,8 @@ function renderTrueSolarBaziResult(result, context) {
     result.jianchu,
     safeTrueSolarDailyInfo
   );
-  renderSeasonInfo(result, context.civil.timeZone);
+  renderSolarTermDayPanel(getSelectedSolarTermDay(), context);
+  renderSeasonInfo(result, context);
   elements.baziTimeBasis.hidden = false;
   elements.baziTimeBasis.textContent = "☀ 真太陽時";
   elements.baziTimeBasis.className = "bazi-time-basis is-true-solar";
@@ -1066,6 +1073,7 @@ function renderUnavailableTrueSolarBazi(error = null) {
     element.textContent = "--";
   }
   clearPillarExtraPanel();
+  clearSolarTermDayPanel();
   elements.seasonInfo.replaceChildren(createSeasonInfoLine("尚未取得完整真太陽時資料。", "season-line-unavailable"));
   elements.baziTimeBasis.hidden = false;
   elements.baziTimeBasis.textContent = error ? "☀ 真太陽時（資料無效）" : "☀ 真太陽時（尚未就緒）";
@@ -1249,26 +1257,26 @@ function renderCurrentHou(currentHou, nextHou) {
   elements.currentHou.replaceChildren(...houLines);
 }
 
-function renderSeasonInfo(result, timeZone = null) {
+function renderSeasonInfo(result, displayContext = null) {
   const currentTerm = result?.currentTerm ?? null;
   const nextTerm = result?.nextTerm ?? null;
   const currentHou = result?.currentHou ?? null;
   const nextHou = result?.nextHou ?? null;
   const lines = [
     createSeasonInfoLine(`目前節氣：${currentTerm?.name ?? "—"}`, "season-line-title"),
-    createSeasonInfoLine(currentTerm ? formatTermDateTime(currentTerm, timeZone) : "—", "season-line-time"),
+    createSeasonInfoLine(currentTerm ? formatTermDateTime(currentTerm, displayContext) : "—", "season-line-time"),
     createSeasonInfoLine("七十二候：", "season-line-title"),
     createSeasonInfoLine(formatSeasonHouVariantLine(currentHou, "zh"), "season-line-hou-current"),
     createSeasonInfoLine(formatSeasonHouVariantLine(currentHou, "jp"), "season-line-hou-current"),
     createSeasonInfoLine(
-      currentHou ? `${formatHouRangeDateTime(currentHou.start, timeZone)} ～ ${formatHouRangeDateTime(currentHou.end, timeZone)}` : "—",
+      currentHou ? `${formatHouRangeDateTime(currentHou.start, displayContext)} ～ ${formatHouRangeDateTime(currentHou.end, displayContext)}` : "—",
       "season-line-time"
     ),
     createSeasonInfoLine("下一候：", "season-line-next-title"),
     createSeasonInfoLine(formatSeasonHouVariantLine(nextHou, "zh"), "season-line-hou-next"),
     createSeasonInfoLine(formatSeasonHouVariantLine(nextHou, "jp"), "season-line-hou-next"),
     createSeasonInfoLine(`下一節氣：${nextTerm?.name ?? "—"}`, "season-line-title season-line-next-term"),
-    createSeasonInfoLine(nextTerm ? formatTermDateTime(nextTerm, timeZone) : "—", "season-line-time"),
+    createSeasonInfoLine(nextTerm ? formatTermDateTime(nextTerm, displayContext) : "—", "season-line-time"),
   ];
 
   elements.seasonInfo.replaceChildren(...lines);
@@ -1372,11 +1380,26 @@ function createSolarTermDayPanel() {
   return panel;
 }
 
-function renderSolarTermDayPanel(solarTerms) {
+function renderSolarTermDayPanel(solarTerms, displayContext = null) {
   solarTermDayPanel.replaceChildren(
-    ...solarTerms.map((term) => createBlockSpan(formatSolarTermDateTime(term), "solar-term-day-panel-line"))
+    ...solarTerms.map((term) => createBlockSpan(
+      formatSolarTermDayPanelLine(term, displayContext),
+      "solar-term-day-panel-line"
+    ))
   );
   solarTermDayPanel.hidden = solarTerms.length === 0;
+}
+
+function formatSolarTermDayPanelLine(term, displayContext = null) {
+  if (!displayContext) {
+    return formatSolarTermDateTime(term);
+  }
+  const dateTimeText = formatDateTimeForChartMode({
+    instantMs: term?.timeMs,
+    context: displayContext,
+    includeYear: false,
+  });
+  return term?.name && dateTimeText ? `🌤️ ${term.name}\n${dateTimeText}` : "—";
 }
 
 function clearSolarTermDayPanel() {
@@ -4317,29 +4340,30 @@ function getNonEmptyText(value, fallback) {
   return typeof value === "string" && value.trim() !== "" ? value : fallback;
 }
 
-function formatTermDateTime(term, timeZone = null) {
-  if (timeZone) {
-    const zoned = getZonedDateTimeParts(new Date(term.timeMs), timeZone);
-    if (zoned) {
-      const { localParts } = zoned;
-      return `${localParts.year}/${String(localParts.month).padStart(2, "0")}/${String(localParts.day).padStart(2, "0")} ${String(localParts.hour).padStart(2, "0")}:${String(localParts.minute).padStart(2, "0")}（${zoned.timeZone} · ${zoned.offsetText}）`;
-    }
+function formatTermDateTime(term, displayContext = null) {
+  if (displayContext) {
+    return formatDateTimeForChartMode({
+      instantMs: term?.timeMs,
+      context: displayContext,
+      includeYear: true,
+    }) ?? "—";
   }
   const date = new Date(term.timeMs);
   return `${date.getFullYear()}/${String(date.getMonth() + 1).padStart(2, "0")}/${String(date.getDate()).padStart(2, "0")} ${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
 }
 
-function formatHouRangeDateTime(dateTimeValue, timeZone = null) {
+function formatHouRangeDateTime(dateTimeValue, displayContext = null) {
   const date = new Date(dateTimeValue);
   if (!Number.isFinite(date.getTime())) {
     return "—";
   }
 
-  if (timeZone) {
-    const zoned = getZonedDateTimeParts(date, timeZone);
-    if (zoned) {
-      return `${String(zoned.localParts.month).padStart(2, "0")}/${String(zoned.localParts.day).padStart(2, "0")} ${String(zoned.localParts.hour).padStart(2, "0")}:${String(zoned.localParts.minute).padStart(2, "0")}`;
-    }
+  if (displayContext) {
+    return formatDateTimeForChartMode({
+      instantMs: date.getTime(),
+      context: displayContext,
+      includeYear: false,
+    }) ?? "—";
   }
 
   const month = String(date.getMonth() + 1).padStart(2, "0");

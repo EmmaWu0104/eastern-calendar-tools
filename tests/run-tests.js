@@ -87,8 +87,10 @@ const {
 } = await import("../src/guidengChartTimeAdapter.js");
 const {
   createGuiDengDisplayModel,
+  formatDateTimeForChartMode,
   formatInstantForChartMode,
   formatRangeForChartMode,
+  getChartClockLocalPartsForInstant,
 } = await import("../src/chartClockDisplay.js");
 const {
   getJinhanDunType,
@@ -380,6 +382,7 @@ let naYinVerifiedCaseCount = 0;
 let trueSolarTimeVerifiedCaseCount = 0;
 let trueSolarTimeUiVerifiedCaseCount = 0;
 let trueSolarPresentationLabelVerifiedCaseCount = 0;
+let astronomicalDisplayTimeVerifiedCaseCount = 0;
 let solarEventsVerifiedCaseCount = 0;
 let timeZoneVerifiedCaseCount = 0;
 let timeZoneCatalogVerifiedCaseCount = 0;
@@ -813,6 +816,7 @@ runDailyInfoTests();
 runTrueSolarTimeTests();
 runTrueSolarTimeUiTests();
 await runTrueSolarPresentationLabelTests();
+await runAstronomicalDisplayTimeTests(solarTerms);
 runChartDisplayModeTests();
   runChartTimeContextTests();
   runBaziChartTimeAdapterTests();
@@ -864,6 +868,7 @@ if (failures.length > 0) {
   console.log(`真太陽時核心測試通過：${trueSolarTimeVerifiedCaseCount} cases`);
   console.log(`真太陽時 UI 測試通過：${trueSolarTimeUiVerifiedCaseCount} cases`);
   console.log(`真太陽時 presentation label 測試通過：${trueSolarPresentationLabelVerifiedCaseCount} cases`);
+  console.log(`astronomical display-time mode-aware 測試通過：${astronomicalDisplayTimeVerifiedCaseCount} cases`);
   console.log(`排盤顯示模式測試通過：${chartDisplayModeVerifiedCaseCount} cases`);
   console.log(`ChartTimeContext 核心測試通過：${chartTimeContextVerifiedCaseCount} cases`);
   console.log(`四柱 ChartTimeContext adapter 測試通過：${baziChartTimeAdapterVerifiedCaseCount} cases`);
@@ -9823,22 +9828,22 @@ async function runTrueSolarPresentationLabelTests() {
   );
 
   check(
-    "true-solar-presentation-term-formatter-unchanged",
+    "true-solar-presentation-term-formatter-deferred-to-6c",
     true,
-    mainModuleRaw.includes("formatTermDateTime(currentTerm, timeZone)")
-      && mainModuleRaw.includes("formatTermDateTime(nextTerm, timeZone)")
+    mainModuleRaw.includes("formatTermDateTime(currentTerm, displayContext)")
+      && mainModuleRaw.includes("formatTermDateTime(nextTerm, displayContext)")
   );
   check(
-    "true-solar-presentation-hou-formatter-unchanged",
+    "true-solar-presentation-hou-formatter-deferred-to-6c",
     true,
-    mainModuleRaw.includes("formatHouRangeDateTime(currentHou.start, timeZone)")
+    mainModuleRaw.includes("formatHouRangeDateTime(currentHou.start, displayContext)")
       && mainModuleRaw.includes("formatSeasonHouVariantLine(nextHou, \"zh\")")
   );
   check(
-    "true-solar-presentation-solar-term-day-panel-unchanged",
+    "true-solar-presentation-solar-term-day-panel-deferred-to-6c",
     true,
-    mainModuleRaw.includes("formatSolarTermDateTime(term)")
-      && mainModuleRaw.includes("renderSolarTermDayPanel(getSelectedSolarTermDay())")
+    mainModuleRaw.includes("formatSolarTermDayPanelLine(term, displayContext)")
+      && mainModuleRaw.includes("renderSolarTermDayPanel(getSelectedSolarTermDay(), context)")
   );
   check(
     "true-solar-presentation-picker-click-unchanged",
@@ -9870,6 +9875,183 @@ async function runTrueSolarPresentationLabelTests() {
     mainModuleRaw.includes("奇門仍維持手錶時間")
       && !extractNamedFunctionSource(mainModuleRaw, "renderQimenSection").includes("effective-day-label")
   );
+}
+
+async function runAstronomicalDisplayTimeTests(solarTerms) {
+  const check = (id, expected, actual) => {
+    astronomicalDisplayTimeVerifiedCaseCount += 1;
+    assertEqual(id, "result", expected, actual);
+  };
+  const parts = (year, month, day, hour, minute, second = 0, millisecond = 0) => ({
+    year, month, day, hour, minute, second, millisecond,
+  });
+  const carrierFor = (value) => new Date(Date.UTC(
+    value.year,
+    value.month - 1,
+    value.day,
+    value.hour,
+    value.minute,
+    value.second,
+    value.millisecond,
+  ));
+  const location = { latitude: 25, longitude: 115, accuracy: null };
+  const makeContexts = ({
+    instantMs,
+    timeZone = "Asia/Taipei",
+    chartLocation = location,
+  }) => {
+    const zoned = getZonedDateTimeParts(new Date(instantMs), timeZone);
+    const localParts = { ...zoned.localParts, millisecond: new Date(instantMs).getUTCMilliseconds() };
+    const civil = {
+      localParts,
+      timeZone: zoned.timeZone,
+      utcOffsetMinutes: zoned.utcOffsetMinutes,
+      abbreviation: zoned.abbreviation,
+      instantMs,
+      disambiguation: null,
+    };
+    const watch = createWatchChartTimeContext({
+      source: "query",
+      civil,
+      location: chartLocation,
+      createdAtInstantMs: 0,
+    });
+    const trueSolarResult = calculateTrueSolarTime({
+      date: carrierFor(localParts),
+      latitude: chartLocation.latitude,
+      longitude: chartLocation.longitude,
+      utcOffsetMinutes: zoned.utcOffsetMinutes,
+      useUtcComponents: true,
+    });
+    const trueSolar = createTrueSolarChartTimeContext({
+      source: "query",
+      civil,
+      location: chartLocation,
+      trueSolarResult,
+      createdAtInstantMs: 0,
+    });
+    return { watch, trueSolar, queryTrueSolarResult: trueSolarResult };
+  };
+  const queryInstantMs = Date.UTC(2026, 7, 10, 4, 0, 0);
+  const { watch, trueSolar, queryTrueSolarResult } = makeContexts({ instantMs: queryInstantMs });
+  const watchResult = calculateBaziFromChartTimeContext(watch, solarTerms);
+  const trueResult = calculateBaziFromChartTimeContext(trueSolar, solarTerms);
+  const formatters = loadAstronomicalDisplayFormattersForTest(mainModuleRaw);
+  const watchHouRange = `${formatters.hou(watchResult.currentHou.start, watch)} ～ ${formatters.hou(watchResult.currentHou.end, watch)}`;
+  const trueHouRange = `${formatters.hou(trueResult.currentHou.start, trueSolar)} ～ ${formatters.hou(trueResult.currentHou.end, trueSolar)}`;
+
+  check("astronomical-display-watch-current-term", "2026/08/07 19:42", formatters.term(watchResult.currentTerm, watch));
+  check("astronomical-display-watch-next-term", "2026/08/23 10:18", formatters.term(watchResult.nextTerm, watch));
+  check("astronomical-display-watch-hou-range", "08/07 19:42 ～ 08/13 00:34", watchHouRange);
+  check("astronomical-display-watch-term-panel", "🌤️ 立秋\n08/07 19:42", formatters.panel(watchResult.currentTerm, watch));
+  check("astronomical-display-true-current-term", "2026/08/07 19:16", formatters.term(trueResult.currentTerm, trueSolar));
+  check("astronomical-display-true-next-term", "2026/08/23 09:56", formatters.term(trueResult.nextTerm, trueSolar));
+  check("astronomical-display-true-hou-start", "08/07 19:16", formatters.hou(trueResult.currentHou.start, trueSolar));
+  check("astronomical-display-true-hou-end", "08/13 00:09", formatters.hou(trueResult.currentHou.end, trueSolar));
+  check("astronomical-display-true-term-panel", "🌤️ 立秋\n08/07 19:16", formatters.panel(trueResult.currentTerm, trueSolar));
+
+  check("astronomical-display-term-instant-unchanged", watchResult.currentTerm.timeMs, trueResult.currentTerm.timeMs);
+  check("astronomical-display-hou-start-unchanged", watchResult.currentHou.start, trueResult.currentHou.start);
+  check("astronomical-display-hou-end-unchanged", watchResult.currentHou.end, trueResult.currentHou.end);
+
+  const smallCold = solarTerms.find((term) => term.name === "小寒" && term.year_taipei === 2026);
+  const extremeLocation = { latitude: 25, longitude: -180, accuracy: null };
+  const extremeContext = makeContexts({ instantMs: queryInstantMs, chartLocation: extremeLocation }).trueSolar;
+  const crossedTermText = formatters.term(smallCold, extremeContext);
+  check("astronomical-display-crosses-civil-midnight", true, crossedTermText.startsWith("2026/01/04 "));
+  check("astronomical-display-crossed-date-not-forced", false, crossedTermText.startsWith("2026/01/05 "));
+
+  check("astronomical-display-year-pillar-unchanged", watchResult.yearPillar, trueResult.yearPillar);
+  check("astronomical-display-month-pillar-unchanged", watchResult.monthPillar, trueResult.monthPillar);
+  const lichun = solarTerms.find((term) => term.name === "立春" && term.year_taipei === 2026);
+  const baziAt = (instantMs) => calculateBaziFromChartTimeContext(
+    makeContexts({ instantMs, chartLocation: { latitude: 25, longitude: 121.5, accuracy: null } }).watch,
+    solarTerms
+  );
+  const beforeLichun = baziAt(lichun.timeMs - 1);
+  const exactLichun = baziAt(lichun.timeMs);
+  const afterLichun = baziAt(lichun.timeMs + 1);
+  check("astronomical-display-term-exact-boundary", "丙午|庚寅", `${exactLichun.yearPillar}|${exactLichun.monthPillar}`);
+  check("astronomical-display-before-term-boundary", "乙巳|己丑", `${beforeLichun.yearPillar}|${beforeLichun.monthPillar}`);
+  check("astronomical-display-after-term-boundary", "丙午|庚寅", `${afterLichun.yearPillar}|${afterLichun.monthPillar}`);
+  check(
+    "astronomical-display-current-hou-selection-unchanged",
+    `${watchResult.currentHou.term}|${watchResult.currentHou.phase}`,
+    `${trueResult.currentHou.term}|${trueResult.currentHou.phase}`
+  );
+  check(
+    "astronomical-display-next-hou-selection-unchanged",
+    `${watchResult.nextHou.term}|${watchResult.nextHou.phase}`,
+    `${trueResult.nextHou.term}|${trueResult.nextHou.phase}`
+  );
+
+  const seasonRendererSource = extractNamedFunctionSource(mainModuleRaw, "renderSeasonInfo");
+  const watchRendererSource = extractNamedFunctionSource(mainModuleRaw, "renderResult");
+  const trueRendererSource = extractNamedFunctionSource(mainModuleRaw, "renderTrueSolarBaziResult");
+  const unavailableRendererSource = extractNamedFunctionSource(mainModuleRaw, "renderUnavailableTrueSolarBazi");
+  check("astronomical-display-no-next-hou-range", false, /nextHou\.(start|end)/.test(seasonRendererSource));
+  check("astronomical-display-true-clears-stale-panel", true, trueRendererSource.includes("renderSolarTermDayPanel(getSelectedSolarTermDay(), context)") && unavailableRendererSource.includes("clearSolarTermDayPanel()"));
+  check("astronomical-display-watch-restores-panel", true, watchRendererSource.includes("renderSolarTermDayPanel(getSelectedSolarTermDay(), displayContext)"));
+  check("astronomical-display-mode-switch-no-stale-term", true, watchRendererSource.includes("renderSeasonInfo(result, displayContext)") && trueRendererSource.includes("renderSeasonInfo(result, context)"));
+
+  const currentTermCivil = getZonedDateTimeParts(new Date(trueResult.currentTerm.timeMs), trueSolar.civil.timeZone);
+  const currentTermTrue = calculateTrueSolarTime({
+    date: carrierFor({ ...currentTermCivil.localParts, millisecond: new Date(trueResult.currentTerm.timeMs).getUTCMilliseconds() }),
+    latitude: location.latitude,
+    longitude: location.longitude,
+    utcOffsetMinutes: currentTermCivil.utcOffsetMinutes,
+    useUtcComponents: true,
+  });
+  check("astronomical-display-event-specific-eot", true, currentTermTrue.equationOfTimeSeconds !== queryTrueSolarResult.equationOfTimeSeconds);
+  check("astronomical-display-event-specific-longitude", currentTermTrue.longitudeCorrectionSeconds, -1200);
+
+  const laLocation = { latitude: 34.0522, longitude: -118.2437, accuracy: null };
+  const laContext = makeContexts({
+    instantMs: queryInstantMs,
+    timeZone: "America/Los_Angeles",
+    chartLocation: laLocation,
+  }).trueSolar;
+  const autumnTerm = solarTerms.find((term) => term.name === "立秋" && term.year_taipei === 2026);
+  const winterTerm = solarTerms.find((term) => term.name === "小寒" && term.year_taipei === 2027);
+  const laSummer = getZonedDateTimeParts(new Date(autumnTerm.timeMs), "America/Los_Angeles");
+  const laWinter = getZonedDateTimeParts(new Date(winterTerm.timeMs), "America/Los_Angeles");
+  const independentlyFormatTrue = (term, zoned) => {
+    const result = calculateTrueSolarTime({
+      date: carrierFor({ ...zoned.localParts, millisecond: new Date(term.timeMs).getUTCMilliseconds() }),
+      latitude: laLocation.latitude,
+      longitude: laLocation.longitude,
+      utcOffsetMinutes: zoned.utcOffsetMinutes,
+      useUtcComponents: true,
+    });
+    return {
+      text: `${result.trueSolarParts.year}/${String(result.trueSolarParts.month).padStart(2, "0")}/${String(result.trueSolarParts.day).padStart(2, "0")} ${String(result.trueSolarParts.hour).padStart(2, "0")}:${String(result.trueSolarParts.minute).padStart(2, "0")}`,
+      result,
+    };
+  };
+  const expectedLaSummer = independentlyFormatTrue(autumnTerm, laSummer);
+  const expectedLaWinter = independentlyFormatTrue(winterTerm, laWinter);
+  check("astronomical-display-event-specific-offset", expectedLaWinter.text, formatDateTimeForChartMode({ instantMs: winterTerm.timeMs, context: laContext }));
+  check("astronomical-display-la-summer-offset", -420, laSummer.utcOffsetMinutes);
+  check("astronomical-display-la-winter-offset", -480, laWinter.utcOffsetMinutes);
+  check("astronomical-display-la-summer-parts", expectedLaSummer.text, formatDateTimeForChartMode({ instantMs: autumnTerm.timeMs, context: laContext }));
+  check("astronomical-display-la-winter-parts", expectedLaWinter.text, formatDateTimeForChartMode({ instantMs: winterTerm.timeMs, context: laContext }));
+  check("astronomical-display-la-summer-parts-helper", JSON.stringify(expectedLaSummer.result.trueSolarParts), JSON.stringify(getChartClockLocalPartsForInstant({ instantMs: autumnTerm.timeMs, context: laContext })));
+  check("astronomical-display-la-winter-parts-helper", JSON.stringify(expectedLaWinter.result.trueSolarParts), JSON.stringify(getChartClockLocalPartsForInstant({ instantMs: winterTerm.timeMs, context: laContext })));
+
+  const sunriseMs = Date.parse("2026-08-10T05:30:00+08:00");
+  const sunsetMs = Date.parse("2026-08-10T18:30:00+08:00");
+  check("astronomical-display-guideng-sunrise-regression", "05:30", formatInstantForChartMode({ instantMs: sunriseMs, context: watch }));
+  check("astronomical-display-guideng-sunset-regression", "18:30", formatInstantForChartMode({ instantMs: sunsetMs, context: watch }));
+  check("astronomical-display-guideng-range-regression", "05:30–06:29", formatRangeForChartMode({ startInstantMs: sunriseMs, endInstantMs: Date.parse("2026-08-10T06:30:00+08:00"), context: watch }));
+  check("astronomical-display-comparison-tab-labels-unchanged", true, ["日出（手錶時間）", "中天（手錶時間）", "日落（手錶時間）"].every((label) => indexHtmlRaw.includes(label)));
+  check("astronomical-display-lunar-unchanged", true, indexHtmlRaw.includes("農曆（手錶日期）") && mainModuleRaw.includes("getLunarDateForSolarDate(year, month + 1, day)"));
+  check("astronomical-display-effective-day-label-unchanged", true, mainModuleRaw.includes("真太陽有效日：") && trueRendererSource.includes("getEffectiveDateKeyFromLocalParts"));
+  check("astronomical-display-picker-unchanged", true, extractNamedFunctionSource(mainModuleRaw, "selectChineseHour").includes("buildDateTimeValueFromDateAndChineseHour"));
+  check("astronomical-display-qimen-unchanged", true, mainModuleRaw.includes("奇門仍維持手錶時間") && !extractNamedFunctionSource(mainModuleRaw, "renderQimenSection").includes("formatDateTimeForChartMode"));
+  check("astronomical-display-timer-count", 2, (mainModuleRaw.match(/setInterval\(/g) ?? []).length);
+  check("astronomical-display-no-storage", false, /localStorage|sessionStorage/.test(mainModuleRaw));
+  const packageJson = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
+  check("astronomical-display-no-dependency", "^1.9.0|^14.1.1", `${packageJson.dependencies?.suncalc}|${packageJson.devDependencies?.["http-server"]}`);
 }
 
 function runFrontendInputSecurityTests() {
@@ -10445,7 +10627,7 @@ function runTrueSolarBaziRuntimeTests() {
   check("true-solar-runtime-orchestration-helper", true, mainModuleRaw.includes("function createCurrentTrueSolarChartContext()") && mainModuleRaw.includes("createTrueSolarChartTimeContext(currentTrueSolarChartContextInput)"));
   check("true-solar-runtime-separate-result-state", true, mainModuleRaw.includes("currentTrueSolarBaziResult") && mainModuleRaw.includes("currentCalendarResult = result"));
   check("true-solar-runtime-watch-downstream", true, ["refreshFlyingStarsForCurrentChartTime(requestId)", "renderJinhanYujing(result, effectiveDateTimeValue", "renderQimenSection(effectiveDateTimeValue)"].every((call) => extractNamedFunctionSource(mainModuleRaw, "renderByDateTime").includes(call)));
-  check("true-solar-runtime-display-only-overlay", true, extractNamedFunctionSource(mainModuleRaw, "renderTrueSolarBaziResult").includes("renderSeasonInfo(result, context.civil.timeZone)") && !extractNamedFunctionSource(mainModuleRaw, "renderTrueSolarBaziResult").includes("renderFlyingStars"));
+  check("true-solar-runtime-display-only-overlay", true, extractNamedFunctionSource(mainModuleRaw, "renderTrueSolarBaziResult").includes("renderSeasonInfo(result, context)") && !extractNamedFunctionSource(mainModuleRaw, "renderTrueSolarBaziResult").includes("renderFlyingStars"));
 
   const formatterSource = extractNamedFunctionSource(mainModuleRaw, "formatTermDateTime");
   const autumnTerm = solarTerms.find((term) => term.name === "立秋" && term.year_taipei === 2026);
@@ -10457,9 +10639,9 @@ function runTrueSolarBaziRuntimeTests() {
   check("true-solar-runtime-term-la-summer-offset", -420, laSummerTerm.utcOffsetMinutes);
   check("true-solar-runtime-term-la-winter-offset", -480, laWinterTerm.utcOffsetMinutes);
   check("true-solar-runtime-term-identity-shared", autumnTerm.timeMs, new Date(autumnTerm.utc).getTime());
-  check("true-solar-runtime-term-formatter-iana", true, formatterSource.includes("getZonedDateTimeParts(new Date(term.timeMs), timeZone)"));
+  check("true-solar-runtime-term-formatter-mode-aware", true, formatterSource.includes("formatDateTimeForChartMode") && formatterSource.includes("displayContext = null"));
   check("true-solar-runtime-term-formatter-not-query-offset", false, formatterSource.includes("civil.utcOffsetMinutes"));
-  check("true-solar-runtime-term-formatter-watch-preserved", true, formatterSource.includes("date.getFullYear()") && formatterSource.includes("timeZone = null"));
+  check("true-solar-runtime-term-formatter-watch-preserved", true, formatterSource.includes("date.getFullYear()") && formatterSource.includes("displayContext = null"));
   check("true-solar-runtime-lingering-result-cleared", true, mainModuleRaw.includes("currentTrueSolarChartContext = null") && mainModuleRaw.includes("currentTrueSolarBaziResult = null"));
 }
 
@@ -15421,6 +15603,19 @@ function loadQueryCalendarDayDetailForTest(mainModuleRaw) {
 function loadEffectiveDayLabelForTest(mainModuleRaw) {
   const definition = extractNamedFunctionSource(mainModuleRaw, "formatEffectiveDayLabel");
   return Function(`${definition}\nreturn formatEffectiveDayLabel;`)();
+}
+
+function loadAstronomicalDisplayFormattersForTest(mainModuleRaw) {
+  const definitions = [
+    "formatTermDateTime",
+    "formatHouRangeDateTime",
+    "formatSolarTermDayPanelLine",
+  ].map((name) => extractNamedFunctionSource(mainModuleRaw, name)).join("\n\n");
+  return Function(
+    "formatDateTimeForChartMode",
+    "formatSolarTermDateTime",
+    `${definitions}\nreturn { term: formatTermDateTime, hou: formatHouRangeDateTime, panel: formatSolarTermDayPanelLine };`
+  )(formatDateTimeForChartMode, formatSolarTermDateTime);
 }
 
 function loadChartTimeStatusDateTimeForTest(mainModuleRaw) {

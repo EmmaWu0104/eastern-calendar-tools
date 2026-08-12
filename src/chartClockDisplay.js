@@ -9,11 +9,11 @@ import { getZonedDateTimeParts } from "./timeZone.js";
 export const GUI_DENG_DISPLAY_END_EXCLUSIVE_OFFSET_MS = 60_000;
 
 /**
- * Formats one actual instant using the clock belonging to the supplied chart
- * mode.  The instant remains the calculation authority; this helper only
- * creates presentation text and never mutates a ChartTimeContext or result.
+ * Resolves one actual instant to the local clock parts belonging to the
+ * supplied chart mode.  For true-solar mode the event instant's own IANA
+ * offset is used, so DST and equation-of-time are recomputed per event.
  */
-export function formatInstantForChartMode({ instantMs, context, mode = context?.mode } = {}) {
+export function getChartClockLocalPartsForInstant({ instantMs, context, mode = context?.mode } = {}) {
   if (!Number.isFinite(instantMs) || !isValidContextForMode(context, mode)) {
     return null;
   }
@@ -25,7 +25,10 @@ export function formatInstantForChartMode({ instantMs, context, mode = context?.
   }
 
   if (mode === CHART_CONTEXT_MODE_WATCH) {
-    return formatWatchClock(instant, context.civil.timeZone);
+    return Object.freeze({
+      ...civil.localParts,
+      millisecond: instant.getUTCMilliseconds(),
+    });
   }
 
   const location = context.location;
@@ -36,19 +39,46 @@ export function formatInstantForChartMode({ instantMs, context, mode = context?.
     ...civil.localParts,
     millisecond: instant.getUTCMilliseconds(),
   };
-  let trueSolarResult;
   try {
-    trueSolarResult = calculateTrueSolarTime({
+    const result = calculateTrueSolarTime({
       date: createUtcCarrierFromLocalParts(civilLocalParts),
       latitude: location.latitude,
       longitude: location.longitude,
       utcOffsetMinutes: civil.utcOffsetMinutes,
       useUtcComponents: true,
     });
+    return Object.freeze({ ...result.trueSolarParts });
   } catch {
     return null;
   }
-  return formatClockParts(trueSolarResult.trueSolarParts);
+}
+
+/**
+ * Formats one actual instant using the clock belonging to the supplied chart
+ * mode.  The instant remains the calculation authority; this helper only
+ * creates presentation text and never mutates a ChartTimeContext or result.
+ */
+export function formatInstantForChartMode({ instantMs, context, mode = context?.mode } = {}) {
+  return formatClockParts(getChartClockLocalPartsForInstant({ instantMs, context, mode }));
+}
+
+/** Formats a chart-mode instant as YYYY/MM/DD HH:mm or MM/DD HH:mm. */
+export function formatDateTimeForChartMode({
+  instantMs,
+  context,
+  mode = context?.mode,
+  includeYear = true,
+} = {}) {
+  const parts = getChartClockLocalPartsForInstant({ instantMs, context, mode });
+  if (!parts) {
+    return null;
+  }
+  const dateText = [
+    includeYear ? String(parts.year).padStart(4, "0") : null,
+    String(parts.month).padStart(2, "0"),
+    String(parts.day).padStart(2, "0"),
+  ].filter(Boolean).join("/");
+  return `${dateText} ${formatClockParts(parts)}`;
 }
 
 /**
@@ -158,19 +188,6 @@ function isValidContextForMode(context, mode) {
   }
   const validation = validateChartTimeContext(context);
   return validation.valid && (mode !== CHART_CONTEXT_MODE_TRUE_SOLAR || context.location !== null);
-}
-
-function formatWatchClock(instant, timeZone) {
-  try {
-    return new Intl.DateTimeFormat("zh-TW", {
-      timeZone,
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: false,
-    }).format(instant);
-  } catch {
-    return null;
-  }
 }
 
 function formatClockParts(parts) {
