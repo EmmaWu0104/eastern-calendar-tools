@@ -406,6 +406,7 @@ let trueSolarSharedQueryRuntimeVerifiedCaseCount = 0;
 let chartQueryTimeUxVerifiedCaseCount = 0;
 let trueSolarFormalTimeSyncBugFixVerifiedCaseCount = 0;
 let trueSolarQuerySourceIsolationBugFixVerifiedCaseCount = 0;
+let trueSolarLocationOwnershipFixVerifiedCaseCount = 0;
 let trueSolarDailyInfoVerifiedCaseCount = 0;
 let trueSolarBaziPriorityBugFixVerifiedCaseCount = 0;
 let calendarBrowseAutoNowBugFixVerifiedCaseCount = 0;
@@ -837,6 +838,7 @@ runChartDisplayModeTests();
   runChartQueryTimeUxTests();
   runTrueSolarFormalTimeSyncBugFixTests();
   runTrueSolarQuerySourceIsolationBugFixTests();
+  await runTrueSolarLocationOwnershipFixTests(solarTerms);
   runTrueSolarBaziPriorityBugFixTests(solarTerms);
   runTrueSolarDailyInfoTests(solarTerms);
   runCalendarBrowseAutoNowBugFixTests();
@@ -893,6 +895,7 @@ if (failures.length > 0) {
   console.log(`排盤時間來源 UX R3 測試通過：${chartQueryTimeUxVerifiedCaseCount} cases`);
   console.log(`正式真太陽四柱時間同步 blocking bug 修復測試通過：${trueSolarFormalTimeSyncBugFixVerifiedCaseCount} cases`);
   console.log(`正式排盤／B-C 查詢來源隔離 blocking bug 修復測試通過：${trueSolarQuerySourceIsolationBugFixVerifiedCaseCount} cases`);
+  console.log(`Source A/B/C location ownership 8B-FIX-1 測試通過：${trueSolarLocationOwnershipFixVerifiedCaseCount} cases`);
   console.log(`auto-now 四柱優先更新 blocking bug 修復測試通過：${trueSolarBaziPriorityBugFixVerifiedCaseCount} cases`);
   console.log(`月曆瀏覽 auto-now blocking bug 修復測試通過：${calendarBrowseAutoNowBugFixVerifiedCaseCount} cases`);
   console.log(`精確排盤時間輸入 UX 測試通過：${preciseChartTimeInputVerifiedCaseCount} cases`);
@@ -10978,7 +10981,7 @@ function runTrueSolarBaziRuntimeBugFixTests() {
   check("true-solar-runtime-coordinate-preserves-geolocation-accuracy", 12, sameGeolocation?.accuracy);
 
   const modeSource = extractNamedFunctionSource(mainModuleRaw, "renderChartDisplayMode");
-  check("true-solar-runtime-mode-entry-syncs-existing-coordinate", true, modeSource.includes("syncTrueSolarTimeLocationFromCoordinateInput({ showError: false })"));
+  check("true-solar-runtime-mode-entry-syncs-existing-coordinate", true, modeSource.includes("syncTrueSolarTimeLocationFromCoordinateInput({") && modeSource.includes("source: TRUE_SOLAR_TIME_SOURCE.QUERY") && modeSource.includes("showError: false"));
   check("true-solar-runtime-mode-entry-sync-before-render", true, modeSource.indexOf("syncTrueSolarTimeLocationFromCoordinateInput") < modeSource.indexOf("renderActiveTrueSolarTime()"));
   check("true-solar-runtime-mode-entry-no-legacy-button", false, modeSource.includes("calculateTrueSolarTimeFromCoordinateInput"));
 
@@ -10986,7 +10989,7 @@ function runTrueSolarBaziRuntimeBugFixTests() {
   check("true-solar-runtime-coordinate-change-listener", true, mainModuleRaw.includes('elements.trueSolarTimeCoordinate.addEventListener("change", handleTrueSolarTimeCoordinateChange)'));
   const inputSource = extractNamedFunctionSource(mainModuleRaw, "handleTrueSolarTimeCoordinateInput");
   const changeSource = extractNamedFunctionSource(mainModuleRaw, "handleTrueSolarTimeCoordinateChange");
-  check("true-solar-runtime-coordinate-input-clears-stale-state", true, inputSource.includes("trueSolarTimeLocation = null") && inputSource.includes("clearTrueSolarTimePresentation()"));
+  check("true-solar-runtime-coordinate-input-clears-stale-state", true, inputSource.includes("setTrueSolarTimeLocationForSource(source, null)") && inputSource.includes("clearTrueSolarTimePresentation({ clearFormalChart: isFormalSource })"));
   check("true-solar-runtime-coordinate-change-rerenders", true, changeSource.includes("syncTrueSolarTimeLocationFromCoordinateInput") && changeSource.includes("renderActiveTrueSolarTime()"));
   check("true-solar-runtime-coordinate-change-no-duplicate-mode-render", false, changeSource.includes("renderChartDisplayMode()"));
 
@@ -11691,7 +11694,7 @@ function runTrueSolarFormalTimeSyncBugFixTests() {
   check("true-solar-sync-one-formal-clock-interval", 1, (mainModuleRaw.match(/setInterval\(\s*refreshTrueSolarTimeClock,\s*TRUE_SOLAR_TIME_CLOCK_REFRESH_MS/g) ?? []).length);
   check("true-solar-sync-query-source-remains-formal-only", true, formalSource.includes("source: TRUE_SOLAR_TIME_SOURCE.QUERY") && formalSource.includes('timeZone: "Asia/Taipei"') && !formalSource.includes("trueSolarTimeSource"));
   check("true-solar-sync-bc-stays-isolated", true, !contextSource.includes("currentTrueSolarChartContextInput") && contextSource.includes("clearTrueSolarTimePresentation({ clearFormalChart: false })") && formalSource.includes("resolveTrueSolarTimeCalculation(context)"));
-  check("true-solar-sync-coordinate-state-is-independent", true, calculationSource.includes("trueSolarTimeLocation.latitude") && !contextSource.includes("elements.datetime.value ="));
+  check("true-solar-sync-coordinate-state-is-independent", true, calculationSource.includes("latitude: location.latitude") && calculationSource.includes("longitude: location.longitude") && !contextSource.includes("elements.datetime.value ="));
   check("true-solar-sync-reload-starts-current-flow", true, extractNamedFunctionSource(mainModuleRaw, "initializeChartDisplayMode").includes("renderChartDisplayMode") && extractNamedFunctionSource(mainModuleRaw, "startAutoNowMode").includes("refreshFromCurrentTime()"));
 
   const watchInput = "2026-08-07T16:59:40";
@@ -11820,7 +11823,7 @@ function runTrueSolarQuerySourceIsolationBugFixTests() {
   check("source-isolation-compute-helper-no-dom", false, /document|elements\.|render|setTrueSolarTimeStatus|trueSolarTimeSource\s*=/.test(calculationSource));
   check("source-isolation-compute-helper-returns-calculation", true, calculationSource.includes("return { civilResolution, carrierDate, result }") && calculationSource.includes("calculateTrueSolarTime"));
   check("source-isolation-query-owns-summary", true, querySource.includes("renderTrueSolarTimeWatchSummary(context)") && querySource.includes("elements.trueSolarTimeResult.replaceChildren"));
-  check("source-isolation-query-owns-events", true, querySource.includes("renderTrueSolarTimeSolarEvents(context, carrierDate)"));
+  check("source-isolation-query-owns-events", true, querySource.includes("renderTrueSolarTimeSolarEvents(context, carrierDate, location)"));
   check("source-isolation-query-owns-status", true, querySource.includes("setTrueSolarTimeStatus("));
   check("source-isolation-query-uses-compute-helper", true, querySource.includes("resolveTrueSolarTimeCalculation(context)"));
   check("source-isolation-query-keeps-formal-context-separate", false, querySource.includes("currentTrueSolarChartContextInput") || querySource.includes("currentTrueSolarChartContext ="));
@@ -11842,6 +11845,136 @@ function runTrueSolarQuerySourceIsolationBugFixTests() {
   check("source-isolation-existing-timer-counts", 1, (mainModuleRaw.match(/setInterval\(refreshFromCurrentTime, AUTO_NOW_REFRESH_MS\)/g) ?? []).length);
   check("source-isolation-custom-label-retained", true, indexHtmlRaw.includes("自訂當地日期時間（僅換算查詢）") && mainModuleRaw.includes("自訂當地時間（僅換算查詢）"));
   check("source-isolation-device-label-retained", true, indexHtmlRaw.includes("裝置目前時間（僅換算查詢）") && mainModuleRaw.includes("裝置目前時間（僅換算查詢）"));
+}
+
+async function runTrueSolarLocationOwnershipFixTests(solarTerms) {
+  const check = (id, expected, actual) => {
+    trueSolarLocationOwnershipFixVerifiedCaseCount += 1;
+    assertEqual(id, "result", expected, actual);
+  };
+
+  const ownership = loadTrueSolarLocationOwnershipForTest(mainModuleRaw);
+  const sourceChangeSource = extractNamedFunctionSource(mainModuleRaw, "handleTrueSolarTimeSourceChange");
+  const inputSource = extractNamedFunctionSource(mainModuleRaw, "handleTrueSolarTimeCoordinateInput");
+  const changeSource = extractNamedFunctionSource(mainModuleRaw, "handleTrueSolarTimeCoordinateChange");
+  const calculateSource = extractNamedFunctionSource(mainModuleRaw, "calculateTrueSolarTimeFromCoordinateInput");
+  const geolocationSource = extractNamedFunctionSource(mainModuleRaw, "requestTrueSolarTimeGeolocation");
+  const calculationSource = extractNamedFunctionSource(mainModuleRaw, "resolveTrueSolarTimeCalculation");
+  const formalSource = extractNamedFunctionSource(mainModuleRaw, "renderFormalTrueSolarChartTime");
+  const deviceSource = extractNamedFunctionSource(mainModuleRaw, "renderTrueSolarTimeForDeviceNow");
+  const customSource = extractNamedFunctionSource(mainModuleRaw, "renderTrueSolarTimeForCustomInput");
+  const clearSource = extractNamedFunctionSource(mainModuleRaw, "clearTrueSolarTimePresentation");
+  const selectChineseHourSource = extractNamedFunctionSource(mainModuleRaw, "selectChineseHour");
+  const pickerSource = extractNamedFunctionSource(mainModuleRaw, "resolveTrueSolarChineseHourDateTime");
+  const timezoneInputSource = extractNamedFunctionSource(mainModuleRaw, "handleTrueSolarTimeTimeZoneInput");
+  const disambiguationSource = extractNamedFunctionSource(mainModuleRaw, "handleTrueSolarTimeDisambiguationChange");
+  const modeSource = extractNamedFunctionSource(mainModuleRaw, "resetLegacyChartTimeState");
+  const qimenSource = extractNamedFunctionSource(mainModuleRaw, "renderQimenSection");
+
+  const formalFixture = "25.033964,121.564468";
+  const bFixture = "34.0522,-118.2437";
+  const cFixture = "35.681236,139.767125";
+  const formalLocation = ownership.sync("query", formalFixture);
+  check("location-owner-source-a-coordinate-updates-formal", formalFixture, `${formalLocation.latitude},${formalLocation.longitude}`);
+  check("location-owner-source-a-formal-state", formalFixture, ownership.locationText("query"));
+  check("location-owner-source-a-dom-normalized", "25.033964, 121.564468", ownership.getInput());
+
+  ownership.switchSource("device");
+  check("location-owner-source-b-first-switch-clones-value", formalFixture, ownership.locationText("device"));
+  check("location-owner-source-b-dom-loads-snapshot", "25.033964, 121.564468", ownership.getInput());
+  const bLocation = ownership.sync("device", bFixture);
+  check("location-owner-source-b-query-location", bFixture, `${bLocation.latitude},${bLocation.longitude}`);
+  check("location-owner-source-b-does-not-write-formal", formalFixture, ownership.locationText("query"));
+  check("location-owner-source-b-result-uses-b-location", bFixture, `${calculateTrueSolarTime({ date: new Date(Date.UTC(2026, 7, 10, 12)), latitude: bLocation.latitude, longitude: bLocation.longitude, utcOffsetMinutes: -420, useUtcComponents: true }).latitude},${calculateTrueSolarTime({ date: new Date(Date.UTC(2026, 7, 10, 12)), latitude: bLocation.latitude, longitude: bLocation.longitude, utcOffsetMinutes: -420, useUtcComponents: true }).longitude}`);
+
+  check("location-owner-source-b-invalid-rejected", null, ownership.sync("device", "invalid"));
+  check("location-owner-source-b-invalid-clears-query-only", null, ownership.getLocation("device"));
+  check("location-owner-source-b-invalid-keeps-formal", formalFixture, ownership.locationText("query"));
+  ownership.sync("device", bFixture);
+
+  ownership.switchSource("custom");
+  check("location-owner-source-c-first-switch-clones-value", formalFixture, ownership.locationText("custom"));
+  const cLocation = ownership.sync("custom", cFixture);
+  check("location-owner-source-c-query-location", cFixture, `${cLocation.latitude},${cLocation.longitude}`);
+  check("location-owner-source-c-does-not-write-formal", formalFixture, ownership.locationText("query"));
+  check("location-owner-source-c-result-uses-c-location", cFixture, `${calculateTrueSolarTime({ date: new Date(Date.UTC(2026, 7, 10, 12)), latitude: cLocation.latitude, longitude: cLocation.longitude, utcOffsetMinutes: 540, useUtcComponents: true }).latitude},${calculateTrueSolarTime({ date: new Date(Date.UTC(2026, 7, 10, 12)), latitude: cLocation.latitude, longitude: cLocation.longitude, utcOffsetMinutes: 540, useUtcComponents: true }).longitude}`);
+  check("location-owner-source-c-invalid-rejected", null, ownership.sync("custom", "invalid"));
+  check("location-owner-source-c-invalid-clears-query-only", null, ownership.getLocation("custom"));
+  check("location-owner-source-c-invalid-keeps-formal", formalFixture, ownership.locationText("query"));
+  ownership.sync("custom", cFixture);
+
+  ownership.switchSource("query");
+  check("location-owner-switch-bc-a-restores-formal-dom", "25.033964, 121.564468", ownership.getInput());
+  ownership.switchSource("device");
+  check("location-owner-switch-a-b-restores-b-dom", "34.052200, -118.243700", ownership.getInput());
+  ownership.switchSource("custom");
+  check("location-owner-switch-b-c-restores-c-dom", "35.681236, 139.767125", ownership.getInput());
+  check("location-owner-dom-is-not-authority", formalFixture, ownership.locationText("query"));
+
+  const localParts = { year: 2026, month: 8, day: 10, hour: 12, minute: 0, second: 0, millisecond: 0 };
+  const formalResult = calculateTrueSolarTime({
+    date: new Date(Date.UTC(2026, 7, 10, 12)),
+    latitude: formalLocation.latitude,
+    longitude: formalLocation.longitude,
+    utcOffsetMinutes: 480,
+    useUtcComponents: true,
+  });
+  const formalContext = createTrueSolarChartTimeContext({
+    source: "query",
+    civil: {
+      localParts,
+      timeZone: "Asia/Taipei",
+      utcOffsetMinutes: 480,
+      abbreviation: "",
+      instantMs: Date.UTC(2026, 7, 10, 4),
+    },
+    location: formalLocation,
+    trueSolarResult: formalResult,
+    createdAtInstantMs: 0,
+  });
+  const baziBefore = calculateBaziFromChartTimeContext(formalContext, solarTerms);
+  const flyingBefore = calculateFlyingStarsFromBaziResult(formalContext, baziBefore);
+  const jinhanBefore = calculateJinhanFromChartTimeContext({ context: formalContext, baziResult: baziBefore, solarTerms });
+  const guiDengBefore = await calculateGuiDengFromChartTimeContext({ context: formalContext, baziResult: baziBefore });
+  ownership.sync("device", bFixture);
+  ownership.sync("custom", cFixture);
+  const baziAfter = calculateBaziFromChartTimeContext(formalContext, solarTerms);
+  const flyingAfter = calculateFlyingStarsFromBaziResult(formalContext, baziAfter);
+  const jinhanAfter = calculateJinhanFromChartTimeContext({ context: formalContext, baziResult: baziAfter, solarTerms });
+  const guiDengAfter = await calculateGuiDengFromChartTimeContext({ context: formalContext, baziResult: baziAfter });
+  const guiDengInputAfter = createGuiDengCalculationInput({ context: formalContext, baziResult: baziAfter });
+  check("location-owner-formal-context-remains-a", formalFixture, `${formalContext.location.latitude},${formalContext.location.longitude}`);
+  check("location-owner-formal-bazi-unchanged", JSON.stringify(baziBefore), JSON.stringify(baziAfter));
+  check("location-owner-formal-flying-unchanged", JSON.stringify(flyingBefore), JSON.stringify(flyingAfter));
+  check("location-owner-formal-jinhan-unchanged", JSON.stringify(jinhanBefore), JSON.stringify(jinhanAfter));
+  check("location-owner-formal-guideng-location-unchanged", formalFixture, `${guiDengInputAfter.location.latitude},${guiDengInputAfter.location.longitude}`);
+  check("location-owner-formal-guideng-sunrise-unchanged", guiDengBefore.solarEvents.sunriseInstantMs, guiDengAfter.solarEvents.sunriseInstantMs);
+  check("location-owner-formal-guideng-sunset-unchanged", guiDengBefore.solarEvents.sunsetInstantMs, guiDengAfter.solarEvents.sunsetInstantMs);
+  check("location-owner-formal-guideng-next-sunrise-unchanged", guiDengBefore.solarEvents.nextSunriseInstantMs, guiDengAfter.solarEvents.nextSunriseInstantMs);
+
+  check("location-owner-query-state-exists", true, mainModuleRaw.includes("trueSolarTimeQueryLocations"));
+  check("location-owner-bc-input-does-not-directly-clear-formal", false, inputSource.includes("trueSolarTimeLocation = null"));
+  check("location-owner-input-clears-active-owner", true, inputSource.includes("setTrueSolarTimeLocationForSource(source, null)") && inputSource.includes("clearFormalChart: isFormalSource"));
+  check("location-owner-change-gates-formal-refresh", true, changeSource.includes("isFormalTrueSolarTimeSource") && changeSource.includes("if (isFormalSource && isTrueSolarDisplayMode"));
+  check("location-owner-calculate-gates-formal-refresh", true, calculateSource.includes("isFormalTrueSolarTimeSource") && calculateSource.includes("if (isFormalSource && isTrueSolarDisplayMode"));
+  check("location-owner-geolocation-captures-source", true, geolocationSource.includes("const source = trueSolarTimeSource") && geolocationSource.includes("setTrueSolarTimeLocationForSource(source"));
+  check("location-owner-geolocation-gates-formal-refresh", true, geolocationSource.includes("if (isFormalSource && isTrueSolarDisplayMode"));
+  check("location-owner-query-calculation-explicit-location", true, calculationSource.includes("location } = context") && calculationSource.includes("latitude: location.latitude"));
+  check("location-owner-formal-context-explicit-location", true, formalSource.includes("location: formalLocation") && formalSource.includes("getTrueSolarTimeLocationForSource(TRUE_SOLAR_TIME_SOURCE.QUERY)"));
+  check("location-owner-device-render-query-location", true, deviceSource.includes("getTrueSolarTimeLocationForSource(TRUE_SOLAR_TIME_SOURCE.DEVICE)"));
+  check("location-owner-custom-render-query-location", true, customSource.includes("getTrueSolarTimeLocationForSource(TRUE_SOLAR_TIME_SOURCE.CUSTOM)"));
+  check("location-owner-clear-presentation-separates-formal", true, clearSource.includes("options?.clearFormalChart !== false"));
+  check("location-owner-picker-uses-formal-context-location", true, selectChineseHourSource.includes("context: currentTrueSolarChartContext") && pickerSource.includes("location: context.location"));
+  check("location-owner-bc-no-datetime-write", false, [inputSource, changeSource, calculateSource, geolocationSource, deviceSource, customSource].some((source) => source.includes("elements.datetime.value =")));
+  check("location-owner-source-switch-syncs-own-dom", true, sourceChangeSource.includes("syncTrueSolarTimeCoordinateInputForSource(trueSolarTimeSource)") && sourceChangeSource.includes("clearTrueSolarTimePresentation({ clearFormalChart: false })"));
+  check("location-owner-mode-switch-keeps-formal", false, /trueSolarTimeLocation\s*=|trueSolarTimeQueryLocations\s*=/.test(modeSource));
+  check("location-owner-timezone-input-keeps-formal", false, /trueSolarTimeLocation|currentTrueSolarChartContext|renderFormalTrueSolarChartTime/.test(timezoneInputSource));
+  check("location-owner-dst-choice-keeps-formal", false, /trueSolarTimeLocation|currentTrueSolarChartContext|renderFormalTrueSolarChartTime/.test(disambiguationSource));
+  check("location-owner-qimen-unchanged", true, qimenSource.includes("resolveQimenJuFromFullTermCycleDraft(dateTimeText)") && !/trueSolar|ChartTimeContext|location/.test(qimenSource));
+  check("location-owner-no-new-timer", 2, (mainModuleRaw.match(/setInterval\(/g) ?? []).length);
+  check("location-owner-no-storage", false, /localStorage|sessionStorage/.test(mainModuleRaw));
+  const packageJson = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
+  check("location-owner-dependency-unchanged", JSON.stringify({ suncalc: "^1.9.0" }), JSON.stringify(packageJson.dependencies));
 }
 
 function runTrueSolarBaziPriorityBugFixTests(solarTerms) {
@@ -16047,15 +16180,27 @@ function loadFormalChartTimeStatusForTest(mainModuleRaw) {
 }
 
 function loadTrueSolarLocationSyncForTest(mainModuleRaw) {
-  const definition = extractNamedFunctionSource(mainModuleRaw, "syncTrueSolarTimeLocationFromCoordinateInput");
+  const definitions = [
+    "isFormalTrueSolarTimeSource",
+    "cloneTrueSolarTimeLocation",
+    "getTrueSolarTimeLocationForSource",
+    "setTrueSolarTimeLocationForSource",
+    "syncTrueSolarTimeLocationFromCoordinateInput",
+  ].map((name) => extractNamedFunctionSource(mainModuleRaw, name)).join("\n\n");
   return Function("parseCoordinateInput", `
+    const TRUE_SOLAR_TIME_SOURCE = Object.freeze({ QUERY: "query", DEVICE: "device", CUSTOM: "custom" });
     const elements = { trueSolarTimeCoordinate: { value: "" } };
+    let trueSolarTimeSource = TRUE_SOLAR_TIME_SOURCE.QUERY;
     let trueSolarTimeLocation = null;
+    let trueSolarTimeQueryLocations = {
+      [TRUE_SOLAR_TIME_SOURCE.DEVICE]: undefined,
+      [TRUE_SOLAR_TIME_SOURCE.CUSTOM]: undefined,
+    };
     const statuses = [];
     function setTrueSolarTimeStatus(message, type) {
       statuses.push({ message, type });
     }
-    ${definition}
+    ${definitions}
     return {
       sync(input, options) {
         elements.trueSolarTimeCoordinate.value = input;
@@ -16072,6 +16217,52 @@ function loadTrueSolarLocationSyncForTest(mainModuleRaw) {
       },
       getStatuses() {
         return statuses.slice();
+      },
+    };
+  `)(parseCoordinateInput);
+}
+
+function loadTrueSolarLocationOwnershipForTest(mainModuleRaw) {
+  const definitions = [
+    "isFormalTrueSolarTimeSource",
+    "cloneTrueSolarTimeLocation",
+    "getTrueSolarTimeLocationForSource",
+    "setTrueSolarTimeLocationForSource",
+    "initializeTrueSolarTimeQueryLocation",
+    "formatTrueSolarTimeCoordinateInput",
+    "syncTrueSolarTimeCoordinateInputForSource",
+    "syncTrueSolarTimeLocationFromCoordinateInput",
+  ].map((name) => extractNamedFunctionSource(mainModuleRaw, name)).join("\n\n");
+  return Function("parseCoordinateInput", `
+    const TRUE_SOLAR_TIME_SOURCE = Object.freeze({ QUERY: "query", DEVICE: "device", CUSTOM: "custom" });
+    const elements = { trueSolarTimeCoordinate: { value: "" } };
+    let trueSolarTimeSource = TRUE_SOLAR_TIME_SOURCE.QUERY;
+    let trueSolarTimeLocation = null;
+    let trueSolarTimeQueryLocations = {
+      [TRUE_SOLAR_TIME_SOURCE.DEVICE]: undefined,
+      [TRUE_SOLAR_TIME_SOURCE.CUSTOM]: undefined,
+    };
+    function setTrueSolarTimeStatus() {}
+    ${definitions}
+    return {
+      sync(source, input) {
+        trueSolarTimeSource = source;
+        elements.trueSolarTimeCoordinate.value = input;
+        return syncTrueSolarTimeLocationFromCoordinateInput({ source, showError: false });
+      },
+      switchSource(source) {
+        trueSolarTimeSource = source;
+        syncTrueSolarTimeCoordinateInputForSource(source);
+      },
+      getLocation(source) {
+        return getTrueSolarTimeLocationForSource(source);
+      },
+      locationText(source) {
+        const location = getTrueSolarTimeLocationForSource(source);
+        return location ? location.latitude + "," + location.longitude : null;
+      },
+      getInput() {
+        return elements.trueSolarTimeCoordinate.value;
       },
     };
   `)(parseCoordinateInput);

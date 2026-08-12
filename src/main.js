@@ -295,6 +295,10 @@ let qimenManualOverride = {
   ju: null,
 };
 let trueSolarTimeLocation = null;
+const trueSolarTimeQueryLocations = {
+  [TRUE_SOLAR_TIME_SOURCE.DEVICE]: undefined,
+  [TRUE_SOLAR_TIME_SOURCE.CUSTOM]: undefined,
+};
 let trueSolarTimeSolarEventsKey = null;
 let trueSolarTimeSource = TRUE_SOLAR_TIME_SOURCE.QUERY;
 let trueSolarTimeCustomDisambiguation = null;
@@ -440,8 +444,11 @@ function renderChartDisplayMode() {
   elements.chartTimeModeSwitchLink.href = switchUrl;
   elements.trueSolarTimeQueryOnlyNote.hidden = !isTrueSolar;
   if (isTrueSolar) {
-    if (!trueSolarTimeLocation) {
-      syncTrueSolarTimeLocationFromCoordinateInput({ showError: false });
+    if (!trueSolarTimeLocation && isFormalTrueSolarTimeSource()) {
+      syncTrueSolarTimeLocationFromCoordinateInput({
+        source: TRUE_SOLAR_TIME_SOURCE.QUERY,
+        showError: false,
+      });
     }
     renderFormalTrueSolarChartTime();
     renderActiveTrueSolarTime();
@@ -2429,13 +2436,66 @@ function insertQimenSection(section) {
   elements.qimenTabPanel.append(section);
 }
 
+function isFormalTrueSolarTimeSource(source = trueSolarTimeSource) {
+  return source === TRUE_SOLAR_TIME_SOURCE.QUERY;
+}
+
+function cloneTrueSolarTimeLocation(location) {
+  return location ? { ...location } : null;
+}
+
+function getTrueSolarTimeLocationForSource(source = trueSolarTimeSource) {
+  if (isFormalTrueSolarTimeSource(source)) {
+    return trueSolarTimeLocation;
+  }
+  if (source === TRUE_SOLAR_TIME_SOURCE.DEVICE || source === TRUE_SOLAR_TIME_SOURCE.CUSTOM) {
+    return trueSolarTimeQueryLocations[source] ?? null;
+  }
+  return null;
+}
+
+function setTrueSolarTimeLocationForSource(source, location) {
+  const snapshot = cloneTrueSolarTimeLocation(location);
+  if (isFormalTrueSolarTimeSource(source)) {
+    trueSolarTimeLocation = snapshot;
+  } else if (source === TRUE_SOLAR_TIME_SOURCE.DEVICE || source === TRUE_SOLAR_TIME_SOURCE.CUSTOM) {
+    trueSolarTimeQueryLocations[source] = snapshot;
+  }
+  return snapshot;
+}
+
+function initializeTrueSolarTimeQueryLocation(source) {
+  if ((source === TRUE_SOLAR_TIME_SOURCE.DEVICE || source === TRUE_SOLAR_TIME_SOURCE.CUSTOM)
+    && trueSolarTimeQueryLocations[source] === undefined) {
+    trueSolarTimeQueryLocations[source] = cloneTrueSolarTimeLocation(trueSolarTimeLocation);
+  }
+  return getTrueSolarTimeLocationForSource(source);
+}
+
+function formatTrueSolarTimeCoordinateInput(location) {
+  if (!location) return "";
+  if (typeof location.normalizedText === "string" && location.normalizedText) {
+    return location.normalizedText;
+  }
+  return Number.isFinite(location.latitude) && Number.isFinite(location.longitude)
+    ? `${location.latitude.toFixed(6)}, ${location.longitude.toFixed(6)}`
+    : "";
+}
+
+function syncTrueSolarTimeCoordinateInputForSource(source = trueSolarTimeSource) {
+  const location = isFormalTrueSolarTimeSource(source)
+    ? getTrueSolarTimeLocationForSource(source)
+    : initializeTrueSolarTimeQueryLocation(source);
+  elements.trueSolarTimeCoordinate.value = formatTrueSolarTimeCoordinateInput(location);
+}
+
 function syncTrueSolarTimeLocationFromCoordinateInput(options) {
-  const { showError = true } = options ?? {};
+  const { source = trueSolarTimeSource, showError = true } = options ?? {};
   const rawInput = typeof elements.trueSolarTimeCoordinate.value === "string"
     ? elements.trueSolarTimeCoordinate.value
     : "";
   if (rawInput.length > 128) {
-    trueSolarTimeLocation = null;
+    setTrueSolarTimeLocationForSource(source, null);
     if (showError) {
       setTrueSolarTimeStatus("座標輸入過長，請縮短後再試。", "error");
     }
@@ -2443,7 +2503,7 @@ function syncTrueSolarTimeLocationFromCoordinateInput(options) {
   }
   const input = rawInput.trim();
   if (!input) {
-    trueSolarTimeLocation = null;
+    setTrueSolarTimeLocationForSource(source, null);
     if (showError) {
       setTrueSolarTimeStatus("請輸入經緯度。", "error");
     }
@@ -2452,31 +2512,33 @@ function syncTrueSolarTimeLocationFromCoordinateInput(options) {
 
   const coordinate = parseCoordinateInput(input);
   if (!coordinate) {
-    trueSolarTimeLocation = null;
+    setTrueSolarTimeLocationForSource(source, null);
     if (showError) {
       setTrueSolarTimeStatus("無法辨識座標，請貼上 Google Maps 經緯度。", "error");
     }
     return null;
   }
 
-  const previousLocation = trueSolarTimeLocation;
+  const previousLocation = getTrueSolarTimeLocationForSource(source);
   const isSameLocation = previousLocation
     && previousLocation.latitude === coordinate.latitude
     && previousLocation.longitude === coordinate.longitude;
-  trueSolarTimeLocation = {
+  const nextLocation = setTrueSolarTimeLocationForSource(source, {
     ...coordinate,
     ...(isSameLocation && Number.isFinite(previousLocation.accuracy)
       ? { accuracy: previousLocation.accuracy }
       : {}),
-  };
+  });
   elements.trueSolarTimeCoordinate.value = coordinate.normalizedText;
-  return trueSolarTimeLocation;
+  return nextLocation;
 }
 
 function handleTrueSolarTimeCoordinateInput() {
-  trueSolarTimeLocation = null;
-  clearTrueSolarTimePresentation();
-  if (isTrueSolarDisplayMode(chartDisplayMode)) {
+  const source = trueSolarTimeSource;
+  const isFormalSource = isFormalTrueSolarTimeSource(source);
+  setTrueSolarTimeLocationForSource(source, null);
+  clearTrueSolarTimePresentation({ clearFormalChart: isFormalSource });
+  if (isFormalSource && isTrueSolarDisplayMode(chartDisplayMode)) {
     const requestId = ++latestBaziRenderRequestId;
     renderBaziForActiveDisplayMode();
     refreshFlyingStarsForCurrentChartTime(requestId);
@@ -2486,26 +2548,28 @@ function handleTrueSolarTimeCoordinateInput() {
 }
 
 function handleTrueSolarTimeCoordinateChange() {
-  const location = syncTrueSolarTimeLocationFromCoordinateInput({ showError: true });
+  const source = trueSolarTimeSource;
+  const isFormalSource = isFormalTrueSolarTimeSource(source);
+  const location = syncTrueSolarTimeLocationFromCoordinateInput({ source, showError: true });
   if (!location) {
-    clearTrueSolarTimePresentation();
-    if (isTrueSolarDisplayMode(chartDisplayMode)) {
+    clearTrueSolarTimePresentation({ clearFormalChart: isFormalSource });
+    if (isFormalSource && isTrueSolarDisplayMode(chartDisplayMode)) {
       const requestId = ++latestBaziRenderRequestId;
       renderBaziForActiveDisplayMode();
       refreshFlyingStarsForCurrentChartTime(requestId);
       void refreshJinhanForCurrentChartTime(requestId);
       renderChartTimeStatus();
-    } else {
+    } else if (isFormalSource) {
       refreshFormalWatchGuiDengAfterLocationChange();
     }
     return;
   }
-  if (isTrueSolarDisplayMode(chartDisplayMode)) {
+  if (isFormalSource && isTrueSolarDisplayMode(chartDisplayMode)) {
     const requestId = ++latestBaziRenderRequestId;
     renderFormalTrueSolarChartTime();
     refreshFlyingStarsForCurrentChartTime(requestId);
     void refreshJinhanForCurrentChartTime(requestId);
-  } else {
+  } else if (isFormalSource) {
     refreshFormalWatchGuiDengAfterLocationChange();
   }
   renderActiveTrueSolarTime();
@@ -2518,14 +2582,16 @@ function refreshFormalWatchGuiDengAfterLocationChange() {
 }
 
 function calculateTrueSolarTimeFromCoordinateInput() {
-  const location = syncTrueSolarTimeLocationFromCoordinateInput({ showError: true });
+  const source = trueSolarTimeSource;
+  const isFormalSource = isFormalTrueSolarTimeSource(source);
+  const location = syncTrueSolarTimeLocationFromCoordinateInput({ source, showError: true });
   if (!location) return;
-  if (isTrueSolarDisplayMode(chartDisplayMode)) {
+  if (isFormalSource && isTrueSolarDisplayMode(chartDisplayMode)) {
     const requestId = ++latestBaziRenderRequestId;
     renderFormalTrueSolarChartTime();
     refreshFlyingStarsForCurrentChartTime(requestId);
     void refreshJinhanForCurrentChartTime(requestId);
-  } else {
+  } else if (isFormalSource) {
     refreshFormalWatchGuiDengAfterLocationChange();
   }
   renderActiveTrueSolarTime();
@@ -2536,23 +2602,35 @@ function requestTrueSolarTimeGeolocation() {
     setTrueSolarTimeStatus("此瀏覽器不支援自動定位，請手動輸入座標。", "error");
     return;
   }
+  const source = trueSolarTimeSource;
+  const isFormalSource = isFormalTrueSolarTimeSource(source);
   elements.trueSolarTimeGeolocate.disabled = true;
   elements.trueSolarTimeGeolocate.textContent = "取得位置中…";
   navigator.geolocation.getCurrentPosition(
     (position) => {
       const { latitude, longitude, accuracy } = position.coords;
-      trueSolarTimeLocation = { latitude, longitude, normalizedText: `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`, sourceFormat: "geolocation", accuracy };
-      elements.trueSolarTimeCoordinate.value = trueSolarTimeLocation.normalizedText;
-      if (isTrueSolarDisplayMode(chartDisplayMode)) {
+      const location = setTrueSolarTimeLocationForSource(source, {
+        latitude,
+        longitude,
+        normalizedText: `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`,
+        sourceFormat: "geolocation",
+        accuracy,
+      });
+      if (trueSolarTimeSource === source) {
+        elements.trueSolarTimeCoordinate.value = location.normalizedText;
+      }
+      if (isFormalSource && isTrueSolarDisplayMode(chartDisplayMode)) {
         const requestId = ++latestBaziRenderRequestId;
         renderFormalTrueSolarChartTime();
         refreshFlyingStarsForCurrentChartTime(requestId);
         void refreshJinhanForCurrentChartTime(requestId);
-      } else {
+      } else if (isFormalSource) {
         refreshFormalWatchGuiDengAfterLocationChange();
       }
-      renderActiveTrueSolarTime();
-      setTrueSolarTimeStatus(`定位精確度：約 ${Math.round(accuracy)} 公尺`, "");
+      if (trueSolarTimeSource === source) {
+        renderActiveTrueSolarTime();
+        setTrueSolarTimeStatus(`定位精確度：約 ${Math.round(accuracy)} 公尺`, "");
+      }
       restoreTrueSolarTimeGeolocateButton();
     },
     (error) => {
@@ -2584,6 +2662,7 @@ function renderTrueSolarTimeForWatchDate(dateTimeValue) {
     timeZone: "Asia/Taipei",
     utcOffsetMinutes: TAIPEI_UTC_OFFSET_MINUTES,
     abbreviation: "",
+    location: getTrueSolarTimeLocationForSource(TRUE_SOLAR_TIME_SOURCE.QUERY),
   });
 }
 
@@ -2606,6 +2685,7 @@ function renderTrueSolarTimeForDeviceNow() {
     timeZone: zoned.timeZone,
     utcOffsetMinutes: zoned.utcOffsetMinutes,
     abbreviation: zoned.abbreviation,
+    location: getTrueSolarTimeLocationForSource(TRUE_SOLAR_TIME_SOURCE.DEVICE),
   });
 }
 
@@ -2661,6 +2741,7 @@ function renderTrueSolarTimeForCustomInput() {
     utcOffsetMinutes: resolved.utcOffsetMinutes,
     abbreviation: resolved.abbreviation,
     disambiguation: trueSolarTimeCustomDisambiguation,
+    location: getTrueSolarTimeLocationForSource(TRUE_SOLAR_TIME_SOURCE.CUSTOM),
   });
 }
 
@@ -2683,7 +2764,8 @@ function renderFormalTrueSolarChartTime() {
   invalidateCurrentTrueSolarChartContext();
   const canonicalDateTimeValue = normalizeLocalDateTimeValueWithSeconds(elements.datetime.value);
   const localParts = parseTopQueryDateTimeLocalParts(elements.datetime.value);
-  if (!canonicalDateTimeValue || !localParts) {
+  const formalLocation = getTrueSolarTimeLocationForSource(TRUE_SOLAR_TIME_SOURCE.QUERY);
+  if (!canonicalDateTimeValue || !localParts || !formalLocation) {
     renderBaziForActiveDisplayMode();
     renderChineseHourButtons();
     renderChartTimeStatus();
@@ -2695,11 +2777,12 @@ function renderFormalTrueSolarChartTime() {
     timeZone: "Asia/Taipei",
     utcOffsetMinutes: TAIPEI_UTC_OFFSET_MINUTES,
     abbreviation: "",
+    location: formalLocation,
   };
   try {
     const { civilResolution, result } = resolveTrueSolarTimeCalculation(context);
     chartTimeState.trueSolarResult = result;
-    chartTimeState.location = { latitude: trueSolarTimeLocation.latitude, longitude: trueSolarTimeLocation.longitude };
+    chartTimeState.location = { latitude: formalLocation.latitude, longitude: formalLocation.longitude };
     currentTrueSolarChartContextInput = {
       source: TRUE_SOLAR_TIME_SOURCE.QUERY,
       civil: {
@@ -2711,9 +2794,9 @@ function renderFormalTrueSolarChartTime() {
         disambiguation: context.disambiguation ?? null,
       },
       location: {
-        latitude: trueSolarTimeLocation.latitude,
-        longitude: trueSolarTimeLocation.longitude,
-        accuracy: trueSolarTimeLocation.accuracy ?? null,
+        latitude: formalLocation.latitude,
+        longitude: formalLocation.longitude,
+        accuracy: formalLocation.accuracy ?? null,
       },
       trueSolarResult: result,
       compatibility: {
@@ -2733,8 +2816,8 @@ function renderFormalTrueSolarChartTime() {
 }
 
 function resolveTrueSolarTimeCalculation(context) {
-  const { localParts, timeZone, utcOffsetMinutes, disambiguation = null } = context;
-  if (!trueSolarTimeLocation) {
+  const { localParts, timeZone, utcOffsetMinutes, disambiguation = null, location } = context;
+  if (!location) {
     throw new Error("真太陽時座標尚未設定");
   }
   const civilResolution = resolveLocalDateTimeInTimeZone({ localParts, timeZone, disambiguation });
@@ -2744,8 +2827,8 @@ function resolveTrueSolarTimeCalculation(context) {
   const carrierDate = createUtcCarrierFromLocalParts(localParts);
   const result = calculateTrueSolarTime({
     date: carrierDate,
-    latitude: trueSolarTimeLocation.latitude,
-    longitude: trueSolarTimeLocation.longitude,
+    latitude: location.latitude,
+    longitude: location.longitude,
     utcOffsetMinutes,
     useUtcComponents: true,
   });
@@ -2753,14 +2836,16 @@ function resolveTrueSolarTimeCalculation(context) {
 }
 
 function renderTrueSolarTimeForContext(context) {
-  const { source, localParts, timeZone, utcOffsetMinutes, abbreviation, disambiguation = null } = context;
+  const { source, localParts, timeZone, utcOffsetMinutes, abbreviation, disambiguation = null, location } = context;
   renderTrueSolarTimeWatchSummary(context);
-  if (!isTrueSolarDisplayMode(chartDisplayMode)) clearCurrentTrueSolarChartContext();
+  if (source === TRUE_SOLAR_TIME_SOURCE.QUERY && !isTrueSolarDisplayMode(chartDisplayMode)) {
+    clearCurrentTrueSolarChartContext();
+  }
   try {
     const { carrierDate, result } = resolveTrueSolarTimeCalculation(context);
     if (source === TRUE_SOLAR_TIME_SOURCE.QUERY && !isTrueSolarDisplayMode(chartDisplayMode)) {
       chartTimeState.trueSolarResult = result;
-      chartTimeState.location = { latitude: trueSolarTimeLocation.latitude, longitude: trueSolarTimeLocation.longitude };
+      chartTimeState.location = { latitude: location.latitude, longitude: location.longitude };
     }
     // Legacy compatibility handler remains below, but this old single-page apply UI is retired.
     elements.trueSolarTimeApplyActions.hidden = true;
@@ -2769,7 +2854,7 @@ function renderTrueSolarTimeForContext(context) {
     elements.trueSolarTimeResult.replaceChildren(createTrueSolarTimeResultContent(result, context));
     elements.trueSolarTimeResult.hidden = false;
     setTrueSolarTimeStatus(result.crossedDateBoundary ? `真太陽時已跨至${result.dateBoundaryDirection === "previous" ? "前一日" : "次一日"}` : "", "");
-    void renderTrueSolarTimeSolarEvents(context, carrierDate);
+    void renderTrueSolarTimeSolarEvents(context, carrierDate, location);
   } catch {
     clearTrueSolarTimePresentation({ clearFormalChart: false });
     setTrueSolarTimeStatus("目前無法計算真太陽時，請確認查詢時間與座標。", "error");
@@ -2803,16 +2888,17 @@ function renderTrueSolarTimeWatchSummary({ source, localParts, timeZone, utcOffs
   elements.trueSolarTimeWatchNote.textContent = `${timeZone}｜${abbreviation ? `${abbreviation} ` : ""}${formatUtcOffset(utcOffsetMinutes)}`;
 }
 
-async function renderTrueSolarTimeSolarEvents(context, carrierDate) {
+async function renderTrueSolarTimeSolarEvents(context, carrierDate, location) {
   const { localParts, utcOffsetMinutes } = context;
-  const key = `${localParts.year}-${localParts.month}-${localParts.day}|${trueSolarTimeLocation.latitude}|${trueSolarTimeLocation.longitude}|${utcOffsetMinutes}`;
+  if (!location) return;
+  const key = `${localParts.year}-${localParts.month}-${localParts.day}|${location.latitude}|${location.longitude}|${utcOffsetMinutes}`;
   if (key === trueSolarTimeSolarEventsKey) return;
   trueSolarTimeSolarEventsKey = key;
   try {
     const events = await calculateSolarEvents({
       date: carrierDate,
-      latitude: trueSolarTimeLocation.latitude,
-      longitude: trueSolarTimeLocation.longitude,
+      latitude: location.latitude,
+      longitude: location.longitude,
       utcOffsetMinutes,
       useUtcComponents: true,
     });
@@ -2837,6 +2923,7 @@ function createTrueSolarTimeResultContent(result, context) {
 function handleTrueSolarTimeSourceChange(event) {
   clearTrueSolarTimeTimeZoneSearchDebounce();
   trueSolarTimeSource = event.target.value;
+  syncTrueSolarTimeCoordinateInputForSource(trueSolarTimeSource);
   trueSolarTimeCustomDisambiguation = null;
   clearTrueSolarTimeCustomDisambiguation();
   closeTrueSolarTimeTimeZoneSearch();
