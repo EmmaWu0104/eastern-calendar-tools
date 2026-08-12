@@ -1513,7 +1513,10 @@ function createSolarTermDayPanel() {
   return panel;
 }
 
-function renderSolarTermDayPanel(solarTerms, displayContext = null) {
+function renderSolarTermDayPanel(solarTerms, displayContext) {
+  if (!isSolarTermDayPanelWriteCurrent(displayContext)) {
+    return false;
+  }
   solarTermDayPanel.replaceChildren(
     ...solarTerms.map((term) => createBlockSpan(
       formatSolarTermDayPanelLine(term, displayContext),
@@ -1521,6 +1524,14 @@ function renderSolarTermDayPanel(solarTerms, displayContext = null) {
     ))
   );
   solarTermDayPanel.hidden = solarTerms.length === 0;
+  return true;
+}
+
+function isSolarTermDayPanelWriteCurrent(displayContext) {
+  const activeMode = isTrueSolarDisplayMode(chartDisplayMode)
+    ? CHART_TIME_MODE.TRUE_SOLAR
+    : CHART_TIME_MODE.WATCH;
+  return displayContext?.mode === activeMode;
 }
 
 function formatSolarTermDayPanelLine(term, displayContext = null) {

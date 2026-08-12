@@ -391,6 +391,8 @@ let trueSolarTimeUiVerifiedCaseCount = 0;
 let trueSolarPresentationLabelVerifiedCaseCount = 0;
 let lunarCivilDateUxVerifiedCaseCount = 0;
 let astronomicalDisplayTimeVerifiedCaseCount = 0;
+let finalManualR1VerifiedCaseCount = 0;
+let finalManualR2VerifiedCaseCount = 0;
 let chineseHourActiveClockVerifiedCaseCount = 0;
 let solarEventsVerifiedCaseCount = 0;
 let timeZoneVerifiedCaseCount = 0;
@@ -830,6 +832,8 @@ runTrueSolarTimeUiTests();
 await runTrueSolarPresentationLabelTests();
 await runLunarCivilDateUxTests();
 await runAstronomicalDisplayTimeTests(solarTerms);
+await runFinalManualR1Tests(solarTerms);
+await runFinalManualR2Tests(solarTerms);
 await runChineseHourActiveClockTests(solarTerms);
 runChartDisplayModeTests();
   runChartTimeContextTests();
@@ -885,6 +889,8 @@ if (failures.length > 0) {
   console.log(`真太陽時 presentation label 測試通過：${trueSolarPresentationLabelVerifiedCaseCount} cases`);
   console.log(`農曆／civil-date UX 測試通過：${lunarCivilDateUxVerifiedCaseCount} cases`);
   console.log(`astronomical display-time mode-aware 測試通過：${astronomicalDisplayTimeVerifiedCaseCount} cases`);
+  console.log(`8B final manual R1 驗收測試通過：${finalManualR1VerifiedCaseCount} cases`);
+  console.log(`8B final manual R2 refresh isolation 測試通過：${finalManualR2VerifiedCaseCount} cases`);
   console.log(`十二時辰 active chart clock 測試通過：${chineseHourActiveClockVerifiedCaseCount} cases`);
   console.log(`排盤顯示模式測試通過：${chartDisplayModeVerifiedCaseCount} cases`);
   console.log(`ChartTimeContext 核心測試通過：${chartTimeContextVerifiedCaseCount} cases`);
@@ -10122,6 +10128,7 @@ async function runAstronomicalDisplayTimeTests(solarTerms) {
   const watchResult = calculateBaziFromChartTimeContext(watch, solarTerms);
   const trueResult = calculateBaziFromChartTimeContext(trueSolar, solarTerms);
   const formatters = loadAstronomicalDisplayFormattersForTest(mainModuleRaw);
+  const panelRuntime = loadSolarTermDayPanelRuntimeHarnessForTest(mainModuleRaw);
   const watchHouRange = `${formatters.hou(watchResult.currentHou.start, watch)} ～ ${formatters.hou(watchResult.currentHou.end, watch)}`;
   const trueHouRange = `${formatters.hou(trueResult.currentHou.start, trueSolar)} ～ ${formatters.hou(trueResult.currentHou.end, trueSolar)}`;
 
@@ -10134,6 +10141,29 @@ async function runAstronomicalDisplayTimeTests(solarTerms) {
   check("astronomical-display-true-hou-start", "08/07 19:16", formatters.hou(trueResult.currentHou.start, trueSolar));
   check("astronomical-display-true-hou-end", "08/13 00:09", formatters.hou(trueResult.currentHou.end, trueSolar));
   check("astronomical-display-true-term-panel", "🌤️ 立秋\n08/07 19:16", formatters.panel(trueResult.currentTerm, trueSolar));
+
+  const selectedTerm = getSolarTermOnDate(solarTerms, "2026-08-07")[0];
+  panelRuntime.setMode("watch");
+  check("astronomical-display-runtime-watch-write", true, panelRuntime.render([selectedTerm], watch));
+  check("astronomical-display-runtime-watch-panel", "🌤️ 立秋\n08/07 19:42", panelRuntime.text());
+  panelRuntime.setMode("true-solar");
+  check("astronomical-display-runtime-watch-to-true-write", true, panelRuntime.render([selectedTerm], trueSolar));
+  check("astronomical-display-runtime-watch-to-true-panel", "🌤️ 立秋\n08/07 19:16", panelRuntime.text());
+  panelRuntime.setMode("watch");
+  check("astronomical-display-runtime-true-to-watch-write", true, panelRuntime.render([selectedTerm], watch));
+  check("astronomical-display-runtime-true-to-watch-panel", "🌤️ 立秋\n08/07 19:42", panelRuntime.text());
+  panelRuntime.setMode("true-solar");
+  check("astronomical-display-runtime-second-watch-to-true-write", true, panelRuntime.render([selectedTerm], trueSolar));
+  check("astronomical-display-runtime-second-watch-to-true-panel", "🌤️ 立秋\n08/07 19:16", panelRuntime.text());
+  check("astronomical-display-runtime-stale-watch-rejected", false, panelRuntime.render([selectedTerm], watch));
+  check("astronomical-display-runtime-stale-watch-does-not-overwrite", "🌤️ 立秋\n08/07 19:16", panelRuntime.text());
+  panelRuntime.setMode("watch");
+  check("astronomical-display-runtime-watch-restored", true, panelRuntime.render([selectedTerm], watch));
+  check("astronomical-display-runtime-stale-true-rejected", false, panelRuntime.render([selectedTerm], trueSolar));
+  check("astronomical-display-runtime-stale-true-does-not-overwrite", "🌤️ 立秋\n08/07 19:42", panelRuntime.text());
+  check("astronomical-display-runtime-context-required", false, panelRuntime.render([selectedTerm], null));
+  check("astronomical-display-runtime-no-context-fallback", "🌤️ 立秋\n08/07 19:42", panelRuntime.text());
+  check("astronomical-display-runtime-term-identity", selectedTerm.timeMs, getSolarTermOnDate(solarTerms, "2026-08-07")[0].timeMs);
 
   check("astronomical-display-term-instant-unchanged", watchResult.currentTerm.timeMs, trueResult.currentTerm.timeMs);
   check("astronomical-display-hou-start-unchanged", watchResult.currentHou.start, trueResult.currentHou.start);
@@ -10174,10 +10204,14 @@ async function runAstronomicalDisplayTimeTests(solarTerms) {
   const watchRendererSource = extractNamedFunctionSource(mainModuleRaw, "renderResult");
   const trueRendererSource = extractNamedFunctionSource(mainModuleRaw, "renderTrueSolarBaziResult");
   const unavailableRendererSource = extractNamedFunctionSource(mainModuleRaw, "renderUnavailableTrueSolarBazi");
+  const panelRendererSource = extractNamedFunctionSource(mainModuleRaw, "renderSolarTermDayPanel");
+  const panelAuthoritySource = extractNamedFunctionSource(mainModuleRaw, "isSolarTermDayPanelWriteCurrent");
   check("astronomical-display-no-next-hou-range", false, /nextHou\.(start|end)/.test(seasonRendererSource));
   check("astronomical-display-true-clears-stale-panel", true, trueRendererSource.includes("renderSolarTermDayPanel(getSelectedSolarTermDay(), context)") && unavailableRendererSource.includes("clearSolarTermDayPanel()"));
   check("astronomical-display-watch-restores-panel", true, watchRendererSource.includes("renderSolarTermDayPanel(getSelectedSolarTermDay(), displayContext)"));
   check("astronomical-display-mode-switch-no-stale-term", true, watchRendererSource.includes("renderSeasonInfo(result, displayContext)") && trueRendererSource.includes("renderSeasonInfo(result, context)"));
+  check("astronomical-display-panel-single-mode-authority", true, panelRendererSource.includes("isSolarTermDayPanelWriteCurrent(displayContext)") && panelAuthoritySource.includes("displayContext?.mode === activeMode"));
+  check("astronomical-display-panel-no-contextless-runtime-call", false, /renderSolarTermDayPanel\(getSelectedSolarTermDay\(\)\s*\)/.test(mainModuleRaw));
 
   const currentTermCivil = getZonedDateTimeParts(new Date(trueResult.currentTerm.timeMs), trueSolar.civil.timeZone);
   const currentTermTrue = calculateTrueSolarTime({
@@ -10237,6 +10271,320 @@ async function runAstronomicalDisplayTimeTests(solarTerms) {
   check("astronomical-display-no-storage", false, /localStorage|sessionStorage/.test(mainModuleRaw));
   const packageJson = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
   check("astronomical-display-no-dependency", "^1.9.0|^14.1.1", `${packageJson.dependencies?.suncalc}|${packageJson.devDependencies?.["http-server"]}`);
+}
+
+async function runFinalManualR1Tests(solarTerms) {
+  const check = (id, expected, actual) => {
+    finalManualR1VerifiedCaseCount += 1;
+    assertEqual(id, "result", expected, actual);
+  };
+  const parts = (year, month, day, hour, minute, second = 0, millisecond = 0) => ({
+    year, month, day, hour, minute, second, millisecond,
+  });
+  const instantFor = (value, offsetMinutes) => Date.UTC(
+    value.year,
+    value.month - 1,
+    value.day,
+    value.hour,
+    value.minute,
+    value.second,
+    value.millisecond ?? 0,
+  ) - offsetMinutes * 60_000;
+  const civilParts = parts(2026, 8, 10, 12, 0);
+  const formalLocation = { latitude: 25.033964, longitude: 121.564468, accuracy: null };
+  const formalTrueSolarResult = calculateTrueSolarTime({
+    date: new Date(Date.UTC(2026, 7, 10, 12)),
+    latitude: formalLocation.latitude,
+    longitude: formalLocation.longitude,
+    utcOffsetMinutes: 480,
+    useUtcComponents: true,
+  });
+  const formalContext = createTrueSolarChartTimeContext({
+    source: "query",
+    civil: {
+      localParts: civilParts,
+      timeZone: "Asia/Taipei",
+      utcOffsetMinutes: 480,
+      abbreviation: "",
+      instantMs: instantFor(civilParts, 480),
+      disambiguation: null,
+    },
+    location: formalLocation,
+    trueSolarResult: formalTrueSolarResult,
+    createdAtInstantMs: 0,
+  });
+  const formalBazi = calculateBaziFromChartTimeContext(formalContext, solarTerms);
+  const formalGuiDengResult = await calculateGuiDengFromChartTimeContext({
+    context: formalContext,
+    baziResult: formalBazi,
+  });
+  const formalGuiDengDisplay = createGuiDengDisplayModel({
+    result: formalGuiDengResult,
+    context: formalContext,
+  });
+  const formalDom = Object.freeze({
+    summary: formalGuiDengDisplay.guiDengText,
+    branches: formalGuiDengDisplay.dengGuiBranches.join("、"),
+    sunrise: formalGuiDengDisplay.sunriseText,
+    sunset: formalGuiDengDisplay.sunsetText,
+    nextSunrise: formalGuiDengDisplay.nextSunriseText,
+  });
+  const bcHarness = loadTrueSolarBcFormalIsolationHarnessForTest(mainModuleRaw);
+  const formalSeed = {
+    location: formalLocation,
+    context: formalContext,
+    generation: 73,
+    renderKey: "formal-guideng-73",
+    adapterResult: formalGuiDengResult,
+    displayModel: formalGuiDengDisplay,
+    dom: formalDom,
+  };
+  bcHarness.seedFormal(formalSeed);
+
+  const assertFormalUnchanged = (phase) => {
+    const state = bcHarness.formalState();
+    check(`final-manual-b-${phase}-formal-location`, "25.033964,121.564468", `${state.location.latitude},${state.location.longitude}`);
+    check(`final-manual-b-${phase}-context-location`, "25.033964,121.564468", `${state.context.location.latitude},${state.context.location.longitude}`);
+    check(`final-manual-b-${phase}-generation`, 73, state.generation);
+    check(`final-manual-b-${phase}-render-key`, "formal-guideng-73", state.renderKey);
+    check(`final-manual-b-${phase}-adapter-result`, formalGuiDengResult, state.adapterResult);
+    check(`final-manual-b-${phase}-display-model`, formalGuiDengDisplay, state.displayModel);
+    check(`final-manual-b-${phase}-dom`, formalDom, state.dom);
+  };
+
+  check("final-manual-b-formal-guideng-resolved", GUIDENG_CHART_TIME_STATUS.RESOLVED, formalGuiDengResult.status);
+  check("final-manual-b-formal-display-resolved", GUIDENG_CHART_TIME_STATUS.RESOLVED, formalGuiDengDisplay.status);
+  check("final-manual-b-formal-has-solar-events", true, [formalDom.sunrise, formalDom.sunset, formalDom.nextSunrise].every(Boolean));
+  assertFormalUnchanged("initial");
+  bcHarness.sourceChange("device");
+  assertFormalUnchanged("source-change");
+  bcHarness.coordinateInput("34.0522,-118.2437");
+  assertFormalUnchanged("coordinate-input");
+  bcHarness.coordinateChange("34.0522,-118.2437");
+  assertFormalUnchanged("coordinate-change");
+  bcHarness.calculate("34.0522,-118.2437");
+  assertFormalUnchanged("calculate");
+  check("final-manual-b-query-location", "34.0522,-118.2437", bcHarness.queryLocationText("device"));
+  check("final-manual-b-query-result-location", "34.0522,-118.2437", bcHarness.queryResultLocationText());
+  check("final-manual-b-no-request-generation", 0, bcHarness.calls().requestIncrements);
+  check("final-manual-b-no-formal-jinhan-refresh", 0, bcHarness.calls().refreshJinhan);
+  check("final-manual-b-no-formal-guideng-refresh", 0, bcHarness.calls().refreshGuiDeng);
+  check("final-manual-b-no-formal-core-render", 0, bcHarness.calls().renderJinhanCore);
+  check("final-manual-b-no-formal-decoration-render", 0, bcHarness.calls().renderGuiDengDecorations);
+  check("final-manual-b-no-formal-clear", 0, bcHarness.calls().clearJinhan);
+
+  const sourceChangeSource = extractNamedFunctionSource(mainModuleRaw, "handleTrueSolarTimeSourceChange");
+  const coordinateInputSource = extractNamedFunctionSource(mainModuleRaw, "handleTrueSolarTimeCoordinateInput");
+  const coordinateChangeSource = extractNamedFunctionSource(mainModuleRaw, "handleTrueSolarTimeCoordinateChange");
+  const calculateSource = extractNamedFunctionSource(mainModuleRaw, "calculateTrueSolarTimeFromCoordinateInput");
+  const bcSources = [sourceChangeSource, coordinateInputSource, coordinateChangeSource, calculateSource].join("\n");
+  check("final-manual-b-static-no-guideng-writer", false, /refreshGuiDengForCurrentChartTime|renderGuiDengDecorations|renderJinhanCoreSnapshot|clearJinhanYujing/.test(bcSources));
+  check("final-manual-b-static-formal-refresh-gated", true, [coordinateInputSource, coordinateChangeSource, calculateSource].every((source) => source.includes("isFormalSource")));
+
+  const dstHarness = loadTrueSolarDstUiSequenceHarnessForTest(mainModuleRaw);
+  const assertAmbiguous = (caseId) => {
+    const state = dstHarness.state();
+    check(`final-manual-dst-${caseId}-visible`, false, state.hidden);
+    check(`final-manual-dst-${caseId}-earlier-label`, "第一次：UTC-07:00", state.earlierLabel);
+    check(`final-manual-dst-${caseId}-later-label`, "第二次：UTC-08:00", state.laterLabel);
+    check(`final-manual-dst-${caseId}-status`, "此當地時間出現兩次，請選擇實際使用的時間。", state.status);
+    check(`final-manual-dst-${caseId}-final-transition-visible`, false, state.hiddenTransitions.at(-1));
+  };
+
+  dstHarness.reset();
+  dstHarness.dateInput("2027-11-07");
+  dstHarness.dateChange("2027-11-07");
+  dstHarness.timeInput("01:30:00");
+  dstHarness.timeChange("01:30:00");
+  dstHarness.selectSuggestion("America/Los_Angeles");
+  assertAmbiguous("case-a");
+
+  dstHarness.reset();
+  dstHarness.selectSuggestion("America/Los_Angeles");
+  dstHarness.dateInput("2027-11-07");
+  dstHarness.dateChange("2027-11-07");
+  dstHarness.timeInput("01:30:00");
+  dstHarness.timeChange("01:30:00");
+  assertAmbiguous("case-b");
+
+  dstHarness.reset();
+  dstHarness.dateInput("2027-11-07");
+  dstHarness.timeInput("01:30:00");
+  dstHarness.timeZoneInput("America/Los_Angeles");
+  check("final-manual-dst-case-c-debounce-ms", 200, dstHarness.pendingDebounceMs());
+  dstHarness.flushDebounce();
+  assertAmbiguous("case-c");
+
+  dstHarness.reset();
+  dstHarness.dateInput("2027-11-07");
+  dstHarness.timeInput("01:30:00");
+  dstHarness.timeZoneInput("America/Los_Angeles");
+  dstHarness.timeZoneChange("America/Los_Angeles");
+  assertAmbiguous("case-d");
+  check("final-manual-dst-case-d-debounce-cleared", 0, dstHarness.pendingDebounceCount());
+
+  dstHarness.choose("earlier");
+  check("final-manual-dst-earlier-visible", false, dstHarness.state().hidden);
+  check("final-manual-dst-earlier-selected", "目前選擇：第一次（UTC-07:00）", dstHarness.state().selectedText);
+  check("final-manual-dst-earlier-offset", -420, dstHarness.state().renderedContext.utcOffsetMinutes);
+  check("final-manual-dst-earlier-choice", "earlier", dstHarness.state().renderedContext.disambiguation);
+
+  dstHarness.reset();
+  dstHarness.dateInput("2027-11-07");
+  dstHarness.timeInput("01:30:00");
+  dstHarness.selectSuggestion("America/Los_Angeles");
+  dstHarness.choose("later");
+  check("final-manual-dst-later-visible", false, dstHarness.state().hidden);
+  check("final-manual-dst-later-selected", "目前選擇：第二次（UTC-08:00）", dstHarness.state().selectedText);
+  check("final-manual-dst-later-offset", -480, dstHarness.state().renderedContext.utcOffsetMinutes);
+  check("final-manual-dst-later-choice", "later", dstHarness.state().renderedContext.disambiguation);
+
+  const repeated = resolveLocalDateTimeInTimeZone({
+    localParts: parts(2027, 11, 7, 1, 30),
+    timeZone: "America/Los_Angeles",
+  });
+  check("final-manual-dst-core-status", "ambiguous", repeated.status);
+  check("final-manual-dst-core-offsets", "-420,-480", repeated.candidates.map((candidate) => candidate.utcOffsetMinutes).join(","));
+  check("final-manual-dst-css-visible-contract", true, mainCssRaw.includes(".true-solar-time-disambiguation[hidden] { display: none !important; }") && !/\.true-solar-time-disambiguation\s*\{[^}]*display:\s*none/.test(mainCssRaw));
+
+  const term = getSolarTermOnDate(solarTerms, "2026-08-07")[0];
+  const formalTermText = formatDateTimeForChartMode({
+    instantMs: term.timeMs,
+    context: formalContext,
+    includeYear: false,
+  });
+  check("final-manual-termui-formal-taipei-location", "08/07 19:43", formalTermText);
+  check("final-manual-termui-not-hardcoded-25-115", false, formalTermText === "08/07 19:16");
+}
+
+async function runFinalManualR2Tests(solarTerms) {
+  const check = (id, expected, actual) => {
+    finalManualR2VerifiedCaseCount += 1;
+    assertEqual(id, "result", expected, actual);
+  };
+  const formalLocation = Object.freeze({
+    latitude: 25.033964,
+    longitude: 121.564468,
+    accuracy: null,
+  });
+  const queryLocation = Object.freeze({
+    latitude: 34.0522,
+    longitude: -118.2437,
+    accuracy: null,
+  });
+  const baseInstantMs = Date.UTC(2026, 7, 12, 15, 17, 44);
+  const localPartsInstantMs = (parts) => Date.UTC(
+    parts.year,
+    parts.month - 1,
+    parts.day,
+    parts.hour,
+    parts.minute,
+    parts.second,
+    parts.millisecond ?? 0,
+  );
+  const buildFormalSnapshot = async (instantMs) => {
+    const zoned = getZonedDateTimeParts(new Date(instantMs), "Asia/Taipei");
+    const localParts = { ...zoned.localParts, millisecond: 0 };
+    const result = calculateTrueSolarTime({
+      date: new Date(localPartsInstantMs(localParts)),
+      latitude: formalLocation.latitude,
+      longitude: formalLocation.longitude,
+      utcOffsetMinutes: 480,
+      useUtcComponents: true,
+    });
+    const context = createTrueSolarChartTimeContext({
+      source: "query",
+      civil: {
+        localParts,
+        timeZone: "Asia/Taipei",
+        utcOffsetMinutes: 480,
+        abbreviation: "",
+        instantMs,
+        disambiguation: null,
+      },
+      location: formalLocation,
+      trueSolarResult: result,
+      createdAtInstantMs: instantMs,
+    });
+    const bazi = calculateBaziFromChartTimeContext(context, solarTerms);
+    const jinhan = calculateJinhanFromChartTimeContext({ context, baziResult: bazi, solarTerms });
+    const guiDengResult = await calculateGuiDengFromChartTimeContext({ context, baziResult: bazi });
+    const guiDeng = createGuiDengDisplayModel({ result: guiDengResult, context });
+    return { context, bazi, jinhan, guiDeng };
+  };
+  const formalBefore = await buildFormalSnapshot(baseInstantMs);
+  const formalAfterOneSecond = await buildFormalSnapshot(baseInstantMs + 1_000);
+  const formalAfterThirtySeconds = await buildFormalSnapshot(baseInstantMs + 30_000);
+  const stableGuiDengSignature = (snapshot) => JSON.stringify({
+    sunrise: snapshot.guiDeng.sunriseText,
+    sunset: snapshot.guiDeng.sunsetText,
+    nextSunrise: snapshot.guiDeng.nextSunriseText,
+    branches: snapshot.guiDeng.dengGuiBranches,
+    ranges: snapshot.guiDeng.guiDengText,
+  });
+  const stableJinhanSignature = (snapshot) => JSON.stringify({
+    dayPillar: snapshot.jinhan.dayPillar,
+    currentHourIndex: snapshot.jinhan.currentHourIndex,
+  });
+  const stableBaziSignature = (snapshot) => `${snapshot.bazi.dayPillar}|${snapshot.bazi.hourPillar}`;
+
+  check("final-manual-r2-formal-location-before", "25.033964,121.564468", `${formalBefore.context.location.latitude},${formalBefore.context.location.longitude}`);
+  check("final-manual-r2-formal-clock-before", "2026-08-12T23:18:57", formatLocalPartsForTest(formalBefore.context.trueSolar.localParts));
+
+  for (const source of ["device", "custom"]) {
+    const sourceLabel = source === "device" ? "b" : "c";
+    const formalImmediate = formalBefore;
+    check(`final-manual-r2-${sourceLabel}-immediate-location`, "25.033964,121.564468", `${formalImmediate.context.location.latitude},${formalImmediate.context.location.longitude}`);
+    check(`final-manual-r2-${sourceLabel}-immediate-clock`, formatLocalPartsForTest(formalBefore.context.trueSolar.localParts), formatLocalPartsForTest(formalImmediate.context.trueSolar.localParts));
+    check(`final-manual-r2-${sourceLabel}-one-second-location`, "25.033964,121.564468", `${formalAfterOneSecond.context.location.latitude},${formalAfterOneSecond.context.location.longitude}`);
+    check(`final-manual-r2-${sourceLabel}-one-second-progress`, 1_000, localPartsInstantMs(formalAfterOneSecond.context.trueSolar.localParts) - localPartsInstantMs(formalBefore.context.trueSolar.localParts));
+    check(`final-manual-r2-${sourceLabel}-thirty-second-location`, "25.033964,121.564468", `${formalAfterThirtySeconds.context.location.latitude},${formalAfterThirtySeconds.context.location.longitude}`);
+    check(`final-manual-r2-${sourceLabel}-thirty-second-progress`, 30_003, localPartsInstantMs(formalAfterThirtySeconds.context.trueSolar.localParts) - localPartsInstantMs(formalBefore.context.trueSolar.localParts));
+    check(`final-manual-r2-${sourceLabel}-no-23-to-07-jump`, 23, formalAfterThirtySeconds.context.trueSolar.localParts.hour);
+    check(`final-manual-r2-${sourceLabel}-bazi-one-second-stable`, stableBaziSignature(formalBefore), stableBaziSignature(formalAfterOneSecond));
+    check(`final-manual-r2-${sourceLabel}-bazi-thirty-second-stable`, stableBaziSignature(formalBefore), stableBaziSignature(formalAfterThirtySeconds));
+    check(`final-manual-r2-${sourceLabel}-jinhan-one-second-stable`, stableJinhanSignature(formalBefore), stableJinhanSignature(formalAfterOneSecond));
+    check(`final-manual-r2-${sourceLabel}-jinhan-thirty-second-stable`, stableJinhanSignature(formalBefore), stableJinhanSignature(formalAfterThirtySeconds));
+    check(`final-manual-r2-${sourceLabel}-guideng-one-second-stable`, stableGuiDengSignature(formalBefore), stableGuiDengSignature(formalAfterOneSecond));
+    check(`final-manual-r2-${sourceLabel}-guideng-thirty-second-stable`, stableGuiDengSignature(formalBefore), stableGuiDengSignature(formalAfterThirtySeconds));
+  }
+
+  const bQueryResult = calculateTrueSolarTime({
+    date: new Date(Date.UTC(2026, 7, 12, 23, 17, 44)),
+    latitude: queryLocation.latitude,
+    longitude: queryLocation.longitude,
+    utcOffsetMinutes: 480,
+    useUtcComponents: true,
+  });
+  const cQueryResult = calculateTrueSolarTime({
+    date: new Date(Date.UTC(2026, 7, 12, 23, 17, 44)),
+    latitude: queryLocation.latitude,
+    longitude: queryLocation.longitude,
+    utcOffsetMinutes: -420,
+    useUtcComponents: true,
+  });
+  check("final-manual-r2-b-query-location", "34.0522,-118.2437", `${bQueryResult.latitude},${bQueryResult.longitude}`);
+  check("final-manual-r2-b-query-can-show-la-clock", 7, bQueryResult.trueSolarParts.hour);
+  check("final-manual-r2-c-query-location", "34.0522,-118.2437", `${cQueryResult.latitude},${cQueryResult.longitude}`);
+  check("final-manual-r2-query-does-not-change-formal-location", "25.033964,121.564468", `${formalBefore.context.location.latitude},${formalBefore.context.location.longitude}`);
+
+  const clockSource = extractNamedFunctionSource(mainModuleRaw, "refreshTrueSolarTimeClock");
+  const autoClockSource = extractNamedFunctionSource(mainModuleRaw, "refreshQueryTimeFromAutoNowClock");
+  const mainRefreshSource = extractNamedFunctionSource(mainModuleRaw, "refreshFromCurrentTime");
+  const formalRenderSource = extractNamedFunctionSource(mainModuleRaw, "renderFormalTrueSolarChartTime");
+  const activeRenderSource = extractNamedFunctionSource(mainModuleRaw, "renderActiveTrueSolarTime");
+  const panelContextSource = extractNamedFunctionSource(mainModuleRaw, "renderTrueSolarTimeForContext");
+  const locationGetterSource = extractNamedFunctionSource(mainModuleRaw, "getTrueSolarTimeLocationForSource");
+  check("final-manual-r2-clock-renders-device-query", true, clockSource.includes("renderTrueSolarTimeForDeviceNow()"));
+  check("final-manual-r2-clock-still-refreshes-formal-auto-now", true, clockSource.includes("refreshQueryTimeFromAutoNowClock()"));
+  check("final-manual-r2-auto-clock-rebuilds-through-formal-path", true, autoClockSource.includes("refreshBaziForCurrentChartTime(dateTimeValue, requestId)"));
+  check("final-manual-r2-main-refresh-uses-top-query", true, mainRefreshSource.includes("requestRenderDateTime(elements.datetime.value)"));
+  check("final-manual-r2-formal-source-explicit", true, formalRenderSource.includes("getTrueSolarTimeLocationForSource(TRUE_SOLAR_TIME_SOURCE.QUERY)"));
+  check("final-manual-r2-formal-context-location-explicit", true, formalRenderSource.includes("location: formalLocation"));
+  check("final-manual-r2-active-render-no-formal-location-write", false, /trueSolarTimeLocation\s*=|currentTrueSolarChartContextInput\s*=|currentTrueSolarChartContext\s*=|currentTrueSolarBaziResult\s*=/.test(activeRenderSource));
+  check("final-manual-r2-panel-shared-state-write-source-a-gated", true, panelContextSource.includes("if (source === TRUE_SOLAR_TIME_SOURCE.QUERY && !isTrueSolarDisplayMode(chartDisplayMode))") && (panelContextSource.match(/chartTimeState\.(trueSolarResult|location)\s*=/g) ?? []).length === 2);
+  check("final-manual-r2-location-getter-keeps-separate-owners", true, locationGetterSource.includes("trueSolarTimeLocation") && locationGetterSource.includes("trueSolarTimeQueryLocations[source]"));
+  check("final-manual-r2-no-context-input-writer-outside-formal", 1, (mainModuleRaw.match(/currentTrueSolarChartContextInput\s*=\s*\{/g) ?? []).length);
 }
 
 async function runChineseHourActiveClockTests(solarTerms) {
@@ -16192,6 +16540,328 @@ function loadAstronomicalDisplayFormattersForTest(mainModuleRaw) {
     "formatSolarTermDateTime",
     `${definitions}\nreturn { term: formatTermDateTime, hou: formatHouRangeDateTime, panel: formatSolarTermDayPanelLine };`
   )(formatDateTimeForChartMode, formatSolarTermDateTime);
+}
+
+function loadSolarTermDayPanelRuntimeHarnessForTest(mainModuleRaw) {
+  const definitions = [
+    "formatSolarTermDayPanelLine",
+    "isSolarTermDayPanelWriteCurrent",
+    "renderSolarTermDayPanel",
+  ].map((name) => extractNamedFunctionSource(mainModuleRaw, name)).join("\n\n");
+  return Function(
+    "formatDateTimeForChartMode",
+    "formatSolarTermDateTime",
+    `const CHART_TIME_MODE = Object.freeze({ WATCH: "watch", TRUE_SOLAR: "true-solar" });
+let chartDisplayMode = CHART_TIME_MODE.WATCH;
+const isTrueSolarDisplayMode = (mode) => mode === CHART_TIME_MODE.TRUE_SOLAR;
+const createBlockSpan = (textContent) => ({ textContent });
+const solarTermDayPanel = {
+  children: [],
+  hidden: true,
+  replaceChildren(...children) {
+    this.children = children;
+  },
+};
+${definitions}
+return {
+  setMode(mode) {
+    chartDisplayMode = mode;
+  },
+  render: renderSolarTermDayPanel,
+  text() {
+    return solarTermDayPanel.children.map((child) => child.textContent).join("\\n");
+  },
+};`
+  )(formatDateTimeForChartMode, formatSolarTermDateTime);
+}
+
+function loadTrueSolarBcFormalIsolationHarnessForTest(mainModuleRaw) {
+  const definitions = [
+    "isFormalTrueSolarTimeSource",
+    "cloneTrueSolarTimeLocation",
+    "getTrueSolarTimeLocationForSource",
+    "setTrueSolarTimeLocationForSource",
+    "initializeTrueSolarTimeQueryLocation",
+    "formatTrueSolarTimeCoordinateInput",
+    "syncTrueSolarTimeCoordinateInputForSource",
+    "syncTrueSolarTimeLocationFromCoordinateInput",
+    "handleTrueSolarTimeSourceChange",
+    "handleTrueSolarTimeCoordinateInput",
+    "handleTrueSolarTimeCoordinateChange",
+    "calculateTrueSolarTimeFromCoordinateInput",
+  ].map((name) => extractNamedFunctionSource(mainModuleRaw, name)).join("\n\n");
+  return Function("parseCoordinateInput", "calculateTrueSolarTime", `
+    const TRUE_SOLAR_TIME_SOURCE = Object.freeze({ QUERY: "query", DEVICE: "device", CUSTOM: "custom" });
+    const elements = {
+      trueSolarTimeCoordinate: { value: "" },
+      trueSolarTimeDeviceFields: { hidden: true },
+      trueSolarTimeCustomFields: { hidden: true },
+      trueSolarTimeQueryOnlyNote: { hidden: false },
+    };
+    let trueSolarTimeSource = TRUE_SOLAR_TIME_SOURCE.QUERY;
+    let trueSolarTimeLocation = null;
+    let trueSolarTimeQueryLocations = {
+      [TRUE_SOLAR_TIME_SOURCE.DEVICE]: undefined,
+      [TRUE_SOLAR_TIME_SOURCE.CUSTOM]: undefined,
+    };
+    let chartDisplayMode = "true-solar";
+    let latestBaziRenderRequestId = 100;
+    let currentTrueSolarChartContext = null;
+    let currentJinhanRenderGeneration = 0;
+    let currentJinhanRenderKey = null;
+    let currentGuiDengAdapterResult = null;
+    let currentGuiDengDisplayModel = null;
+    let formalDom = null;
+    let queryResult = null;
+    const counters = {
+      initialRequestId: latestBaziRenderRequestId,
+      refreshJinhan: 0,
+      refreshGuiDeng: 0,
+      renderJinhanCore: 0,
+      renderGuiDengDecorations: 0,
+      clearJinhan: 0,
+    };
+    const isTrueSolarDisplayMode = (mode) => mode === "true-solar";
+    const clearTrueSolarTimeTimeZoneSearchDebounce = () => {};
+    const clearTrueSolarTimeCustomDisambiguation = () => {};
+    const closeTrueSolarTimeTimeZoneSearch = () => {};
+    const initializeTrueSolarTimeCustomInputs = () => {};
+    const renderTrueSolarTimeTimeZoneSearchResults = () => {};
+    const syncTrueSolarTimeClockRefresh = () => {};
+    const setTrueSolarTimeStatus = () => {};
+    const renderBaziForActiveDisplayMode = () => {};
+    const refreshFlyingStarsForCurrentChartTime = () => {};
+    const renderChartTimeStatus = () => {};
+    const refreshFormalWatchGuiDengAfterLocationChange = () => {};
+    const refreshJinhanForCurrentChartTime = () => { counters.refreshJinhan += 1; };
+    const refreshGuiDengForCurrentChartTime = () => { counters.refreshGuiDeng += 1; };
+    const renderJinhanCoreSnapshot = () => { counters.renderJinhanCore += 1; };
+    const renderGuiDengDecorations = () => { counters.renderGuiDengDecorations += 1; };
+    const clearJinhanYujing = () => { counters.clearJinhan += 1; };
+    function clearTrueSolarTimePresentation(options) {
+      if (options?.clearFormalChart !== false) {
+        currentTrueSolarChartContext = null;
+        currentGuiDengAdapterResult = null;
+        currentGuiDengDisplayModel = null;
+        formalDom = null;
+      }
+    }
+    function renderActiveTrueSolarTime() {
+      const location = getTrueSolarTimeLocationForSource(trueSolarTimeSource);
+      queryResult = location ? calculateTrueSolarTime({
+        date: new Date(Date.UTC(2026, 7, 10, 12)),
+        latitude: location.latitude,
+        longitude: location.longitude,
+        utcOffsetMinutes: trueSolarTimeSource === TRUE_SOLAR_TIME_SOURCE.DEVICE ? -420 : 480,
+        useUtcComponents: true,
+      }) : null;
+    }
+    ${definitions}
+    return {
+      seedFormal(seed) {
+        trueSolarTimeLocation = seed.location;
+        currentTrueSolarChartContext = seed.context;
+        currentJinhanRenderGeneration = seed.generation;
+        currentJinhanRenderKey = seed.renderKey;
+        currentGuiDengAdapterResult = seed.adapterResult;
+        currentGuiDengDisplayModel = seed.displayModel;
+        formalDom = seed.dom;
+      },
+      sourceChange(source) {
+        handleTrueSolarTimeSourceChange({ target: { value: source } });
+      },
+      coordinateInput(value) {
+        elements.trueSolarTimeCoordinate.value = value;
+        handleTrueSolarTimeCoordinateInput();
+      },
+      coordinateChange(value) {
+        elements.trueSolarTimeCoordinate.value = value;
+        handleTrueSolarTimeCoordinateChange();
+      },
+      calculate(value) {
+        elements.trueSolarTimeCoordinate.value = value;
+        calculateTrueSolarTimeFromCoordinateInput();
+      },
+      formalState() {
+        return {
+          location: trueSolarTimeLocation,
+          context: currentTrueSolarChartContext,
+          generation: currentJinhanRenderGeneration,
+          renderKey: currentJinhanRenderKey,
+          adapterResult: currentGuiDengAdapterResult,
+          displayModel: currentGuiDengDisplayModel,
+          dom: formalDom,
+        };
+      },
+      queryLocationText(source) {
+        const location = getTrueSolarTimeLocationForSource(source);
+        return location ? location.latitude + "," + location.longitude : null;
+      },
+      queryResultLocationText() {
+        return queryResult ? queryResult.latitude + "," + queryResult.longitude : null;
+      },
+      calls() {
+        return {
+          requestIncrements: latestBaziRenderRequestId - counters.initialRequestId,
+          refreshJinhan: counters.refreshJinhan,
+          refreshGuiDeng: counters.refreshGuiDeng,
+          renderJinhanCore: counters.renderJinhanCore,
+          renderGuiDengDecorations: counters.renderGuiDengDecorations,
+          clearJinhan: counters.clearJinhan,
+        };
+      },
+    };
+  `)(parseCoordinateInput, calculateTrueSolarTime);
+}
+
+function loadTrueSolarDstUiSequenceHarnessForTest(mainModuleRaw) {
+  const definitions = [
+    "clearTrueSolarTimeTimeZoneSearchDebounce",
+    "parseTrueSolarTimeCustomLocalParts",
+    "configureTrueSolarTimeDisambiguation",
+    "clearTrueSolarTimeCustomDisambiguation",
+    "clearTrueSolarTimePresentation",
+    "renderTrueSolarTimeForCustomInput",
+    "handleTrueSolarTimeCustomInput",
+    "handleTrueSolarTimeTimeZoneInput",
+    "handleTrueSolarTimeTimeZoneChange",
+    "applyTrueSolarTimeTimeZoneInput",
+    "selectTrueSolarTimeTimeZone",
+    "handleTrueSolarTimeDisambiguationChange",
+  ].map((name) => extractNamedFunctionSource(mainModuleRaw, name)).join("\n\n");
+  return Function(
+    "resolveLocalDateTimeInTimeZone",
+    "validateTimeZone",
+    "formatUtcOffset",
+    "searchTimeZones",
+    `const TRUE_SOLAR_TIME_SOURCE = Object.freeze({ QUERY: "query", DEVICE: "device", CUSTOM: "custom" });
+const TRUE_SOLAR_TIME_ZONE_SEARCH_DEBOUNCE_MS = 200;
+const MAX_TIME_ZONE_INPUT_LENGTH = 128;
+let trueSolarTimeSource = TRUE_SOLAR_TIME_SOURCE.CUSTOM;
+let trueSolarTimeCustomDisambiguation = null;
+let trueSolarTimeTimeZoneSearchActiveIndex = -1;
+let trueSolarTimeTimeZoneSearchResults = [];
+let trueSolarTimeTimeZoneSearchDebounceTimerId = null;
+let trueSolarTimeSolarEventsKey = null;
+const trueSolarTimeTimeZoneOffsetCache = new Map();
+let renderedContext = null;
+let status = "";
+let hiddenValue = true;
+const hiddenTransitions = [];
+const pendingTimers = new Map();
+let nextTimerId = 1;
+const window = {
+  setTimeout(callback, delay) {
+    const id = nextTimerId++;
+    pendingTimers.set(id, { callback, delay });
+    return id;
+  },
+  clearTimeout(id) {
+    pendingTimers.delete(id);
+  },
+};
+const disambiguationElement = {};
+Object.defineProperty(disambiguationElement, "hidden", {
+  get() { return hiddenValue; },
+  set(value) {
+    hiddenValue = Boolean(value);
+    hiddenTransitions.push(hiddenValue);
+  },
+});
+const elements = {
+  trueSolarTimeLocalDate: { value: "" },
+  trueSolarTimeLocalTime: { value: "" },
+  trueSolarTimeTimeZone: { value: "", setAttribute() {} },
+  trueSolarTimeTimeZoneSearchResults: { hidden: true, replaceChildren() {} },
+  trueSolarTimeTimeZoneSearchStatus: { textContent: "" },
+  trueSolarTimeDisambiguation: disambiguationElement,
+  trueSolarTimeDisambiguationEarlier: { checked: false, value: "earlier" },
+  trueSolarTimeDisambiguationLater: { checked: false, value: "later" },
+  trueSolarTimeDisambiguationEarlierLabel: { textContent: "" },
+  trueSolarTimeDisambiguationLaterLabel: { textContent: "" },
+  trueSolarTimeDisambiguationSelected: { hidden: true, textContent: "" },
+  trueSolarTimeResult: { hidden: true, replaceChildren() {} },
+  trueSolarTimeSolarEvents: { hidden: true },
+  trueSolarTimeApplyActions: { hidden: true },
+};
+function setTrueSolarTimeTimeZoneStatus(message) { status = message; }
+function clearCurrentTrueSolarChartContext() {}
+function getTrueSolarTimeLocationForSource() {
+  return { latitude: 34.0522, longitude: -118.2437, accuracy: null };
+}
+function renderTrueSolarTimeForContext(context) { renderedContext = context; }
+function closeTrueSolarTimeTimeZoneSearch() {
+  trueSolarTimeTimeZoneSearchResults = [];
+  elements.trueSolarTimeTimeZoneSearchResults.hidden = true;
+}
+function renderTrueSolarTimeTimeZoneSearchResults() {
+  trueSolarTimeTimeZoneSearchResults = searchTimeZones(elements.trueSolarTimeTimeZone.value, { limit: 12 });
+  elements.trueSolarTimeTimeZoneSearchResults.hidden = trueSolarTimeTimeZoneSearchResults.length === 0;
+}
+function showTrueSolarTimeTimeZoneTooLongStatus() {
+  closeTrueSolarTimeTimeZoneSearch();
+  clearTrueSolarTimePresentation({ clearFormalChart: false });
+  setTrueSolarTimeTimeZoneStatus("時區輸入過長，請縮短後再搜尋。", "error");
+}
+${definitions}
+function reset() {
+  elements.trueSolarTimeLocalDate.value = "";
+  elements.trueSolarTimeLocalTime.value = "";
+  elements.trueSolarTimeTimeZone.value = "";
+  elements.trueSolarTimeTimeZoneSearchResults.hidden = true;
+  elements.trueSolarTimeDisambiguationEarlier.checked = false;
+  elements.trueSolarTimeDisambiguationLater.checked = false;
+  elements.trueSolarTimeDisambiguationEarlierLabel.textContent = "";
+  elements.trueSolarTimeDisambiguationLaterLabel.textContent = "";
+  elements.trueSolarTimeDisambiguationSelected.hidden = true;
+  elements.trueSolarTimeDisambiguationSelected.textContent = "";
+  hiddenValue = true;
+  hiddenTransitions.length = 0;
+  pendingTimers.clear();
+  trueSolarTimeTimeZoneSearchDebounceTimerId = null;
+  trueSolarTimeCustomDisambiguation = null;
+  trueSolarTimeTimeZoneSearchResults = [];
+  renderedContext = null;
+  status = "";
+}
+return {
+  reset,
+  dateInput(value) { elements.trueSolarTimeLocalDate.value = value; handleTrueSolarTimeCustomInput(); },
+  dateChange(value) { elements.trueSolarTimeLocalDate.value = value; handleTrueSolarTimeCustomInput(); },
+  timeInput(value) { elements.trueSolarTimeLocalTime.value = value; handleTrueSolarTimeCustomInput(); },
+  timeChange(value) { elements.trueSolarTimeLocalTime.value = value; handleTrueSolarTimeCustomInput(); },
+  timeZoneInput(value) { elements.trueSolarTimeTimeZone.value = value; handleTrueSolarTimeTimeZoneInput(); },
+  timeZoneChange(value) { elements.trueSolarTimeTimeZone.value = value; handleTrueSolarTimeTimeZoneChange(); },
+  selectSuggestion(value) { selectTrueSolarTimeTimeZone(value); },
+  choose(value) {
+    const target = value === "earlier"
+      ? elements.trueSolarTimeDisambiguationEarlier
+      : elements.trueSolarTimeDisambiguationLater;
+    target.checked = true;
+    handleTrueSolarTimeDisambiguationChange({ target });
+  },
+  flushDebounce() {
+    const callbacks = [...pendingTimers.values()].map((timer) => timer.callback);
+    pendingTimers.clear();
+    for (const callback of callbacks) callback();
+  },
+  pendingDebounceMs() {
+    return pendingTimers.values().next().value?.delay ?? null;
+  },
+  pendingDebounceCount() { return pendingTimers.size; },
+  state() {
+    return {
+      hidden: elements.trueSolarTimeDisambiguation.hidden,
+      hiddenTransitions: hiddenTransitions.slice(),
+      earlierLabel: elements.trueSolarTimeDisambiguationEarlierLabel.textContent,
+      laterLabel: elements.trueSolarTimeDisambiguationLaterLabel.textContent,
+      selectedText: elements.trueSolarTimeDisambiguationSelected.textContent,
+      status,
+      renderedContext,
+    };
+  },
+};`
+  )(resolveLocalDateTimeInTimeZone, validateTimeZone, formatUtcOffset, searchTimeZones);
 }
 
 function loadChartTimeStatusDateTimeForTest(mainModuleRaw) {
