@@ -1164,11 +1164,12 @@ function renderTrueSolarBaziResult(result, context) {
   const safeTrueSolarDailyInfo = getSafeTrueSolarDailyInfo(result, context);
   const effectiveDayDateKey = getEffectiveDateKeyFromLocalParts(context.trueSolar?.localParts);
   renderPillarExtraPanel(result.jianchu, dailyDaHuangDao, safeTrueSolarDailyInfo);
-  updateWeekdayLabelForEffectiveDay(
+    updateWeekdayLabelForEffectiveDay(
     effectiveDayDateKey,
     result.dayPillar,
     result.jianchu,
-    safeTrueSolarDailyInfo
+    safeTrueSolarDailyInfo,
+    context
   );
   renderSolarTermDayPanel(getSelectedSolarTermDay(), context);
   renderSeasonInfo(result, context);
@@ -4518,7 +4519,13 @@ function updateWeekdayLabel(dateTimeValue, dayPillar = "", jianchu = null, daily
   );
 }
 
-function updateWeekdayLabelForEffectiveDay(dateKey, dayPillar = "", jianchu = null, dailyInfo = null) {
+function updateWeekdayLabelForEffectiveDay(
+  dateKey,
+  dayPillar = "",
+  jianchu = null,
+  dailyInfo = null,
+  displayContext = null
+) {
   renderWeekdayLabel(
     formatBaziDailySummaryFromDateKey({
       dateKey,
@@ -4527,7 +4534,8 @@ function updateWeekdayLabelForEffectiveDay(dateKey, dayPillar = "", jianchu = nu
       jianchuName: jianchu?.fullName,
     }),
     dailyInfo,
-    formatEffectiveDayLabel(dateKey)
+    formatEffectiveDayLabel(dateKey),
+    formatTrueSolarDateSemanticsLabel(dateKey, displayContext)
   );
 }
 
@@ -4539,7 +4547,45 @@ function formatEffectiveDayLabel(dateKey) {
   return `真太陽有效日：${dateKey.replaceAll("-", "/")}`;
 }
 
-function renderWeekdayLabel(summary, dailyInfo, effectiveDayLabel = "") {
+function formatTrueSolarDateSemanticsLabel(effectiveDayDateKey, displayContext = null) {
+  const watchLocalParts = displayContext?.civil?.localParts;
+  const watchDateKey = formatCalendarDateKey(watchLocalParts);
+  if (!watchDateKey || !/^\d{4}-\d{2}-\d{2}$/.test(effectiveDayDateKey ?? "") || watchDateKey === effectiveDayDateKey) {
+    return "";
+  }
+
+  const lunarDate = getLunarDateForSolarDate(
+    watchLocalParts.year,
+    watchLocalParts.month,
+    watchLocalParts.day
+  );
+  const lunarLabel = lunarDate ? formatLunarCalendarLabel(lunarDate) : "—";
+  return `手錶日期：${formatCalendarDateLabel(watchLocalParts)}｜農曆（手錶日期）：${lunarLabel}`;
+}
+
+function formatCalendarDateKey(localParts) {
+  if (!localParts || !Number.isInteger(localParts.year) || !Number.isInteger(localParts.month) || !Number.isInteger(localParts.day)) {
+    return "";
+  }
+
+  const date = new Date(Date.UTC(localParts.year, localParts.month - 1, localParts.day));
+  if (
+    date.getUTCFullYear() !== localParts.year
+    || date.getUTCMonth() !== localParts.month - 1
+    || date.getUTCDate() !== localParts.day
+  ) {
+    return "";
+  }
+
+  return `${String(localParts.year).padStart(4, "0")}-${String(localParts.month).padStart(2, "0")}-${String(localParts.day).padStart(2, "0")}`;
+}
+
+function formatCalendarDateLabel(localParts) {
+  const dateKey = formatCalendarDateKey(localParts);
+  return dateKey ? dateKey.replaceAll("-", "/") : "—";
+}
+
+function renderWeekdayLabel(summary, dailyInfo, effectiveDayLabel = "", dateSemanticsLabel = "") {
   const weekdayLine = document.createElement("span");
   weekdayLine.className = "weekday-line";
   weekdayLine.textContent = summary;
@@ -4550,11 +4596,18 @@ function renderWeekdayLabel(summary, dailyInfo, effectiveDayLabel = "") {
   if (effectiveDayLine) {
     effectiveDayLine.setAttribute("aria-label", effectiveDayLabel);
   }
+  const dateSemanticsLine = dateSemanticsLabel
+    ? createBlockSpan(dateSemanticsLabel, "date-semantics-label")
+    : null;
+  if (dateSemanticsLine) {
+    dateSemanticsLine.setAttribute("aria-label", dateSemanticsLabel);
+  }
   const clothingBlock = createDailyClothingBlock(dailyInfo?.clothing);
   elements.weekdayLabel.replaceChildren(
     ...[
       weekdayLine,
       effectiveDayLine,
+      dateSemanticsLine,
       clothingBlock,
     ].filter(Boolean)
   );

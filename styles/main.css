@@ -443,6 +443,7 @@ button.query-calendar-day {
 
 .weekday-line,
 .effective-day-label,
+.date-semantics-label,
 .daily-clothing,
 .daily-clothing-title,
 .daily-clothing-lines,
@@ -450,7 +451,8 @@ button.query-calendar-day {
   display: block;
 }
 
-.effective-day-label {
+.effective-day-label,
+.date-semantics-label {
   margin-top: 3px;
   color: #627d98;
   font-size: 12px;

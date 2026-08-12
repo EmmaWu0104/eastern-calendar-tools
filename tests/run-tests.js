@@ -389,6 +389,7 @@ let naYinVerifiedCaseCount = 0;
 let trueSolarTimeVerifiedCaseCount = 0;
 let trueSolarTimeUiVerifiedCaseCount = 0;
 let trueSolarPresentationLabelVerifiedCaseCount = 0;
+let lunarCivilDateUxVerifiedCaseCount = 0;
 let astronomicalDisplayTimeVerifiedCaseCount = 0;
 let chineseHourActiveClockVerifiedCaseCount = 0;
 let solarEventsVerifiedCaseCount = 0;
@@ -824,6 +825,7 @@ runDailyInfoTests();
 runTrueSolarTimeTests();
 runTrueSolarTimeUiTests();
 await runTrueSolarPresentationLabelTests();
+await runLunarCivilDateUxTests();
 await runAstronomicalDisplayTimeTests(solarTerms);
 await runChineseHourActiveClockTests(solarTerms);
 runChartDisplayModeTests();
@@ -877,6 +879,7 @@ if (failures.length > 0) {
   console.log(`真太陽時核心測試通過：${trueSolarTimeVerifiedCaseCount} cases`);
   console.log(`真太陽時 UI 測試通過：${trueSolarTimeUiVerifiedCaseCount} cases`);
   console.log(`真太陽時 presentation label 測試通過：${trueSolarPresentationLabelVerifiedCaseCount} cases`);
+  console.log(`農曆／civil-date UX 測試通過：${lunarCivilDateUxVerifiedCaseCount} cases`);
   console.log(`astronomical display-time mode-aware 測試通過：${astronomicalDisplayTimeVerifiedCaseCount} cases`);
   console.log(`十二時辰 active chart clock 測試通過：${chineseHourActiveClockVerifiedCaseCount} cases`);
   console.log(`排盤顯示模式測試通過：${chartDisplayModeVerifiedCaseCount} cases`);
@@ -9887,6 +9890,93 @@ async function runTrueSolarPresentationLabelTests() {
   );
 }
 
+async function runLunarCivilDateUxTests() {
+  const check = (id, expected, actual) => {
+    lunarCivilDateUxVerifiedCaseCount += 1;
+    assertEqual(id, "result", expected, actual);
+  };
+  const formatDate = (year, month, day) => ({ year, month, day, hour: 12, minute: 0, second: 0, millisecond: 0 });
+  const effectiveDayLabel = loadEffectiveDayLabelForTest(mainModuleRaw);
+  const dateSemanticsLabel = loadTrueSolarDateSemanticsLabelForTest(mainModuleRaw);
+  const queryCalendarDayDetail = loadQueryCalendarDayDetailForTest(mainModuleRaw);
+  const trueSolarRendererSource = extractNamedFunctionSource(mainModuleRaw, "renderTrueSolarBaziResult");
+  const effectiveDayUpdaterSource = extractNamedFunctionSource(mainModuleRaw, "updateWeekdayLabelForEffectiveDay");
+  const weekdayRendererSource = extractNamedFunctionSource(mainModuleRaw, "renderWeekdayLabel");
+  const calendarDetailSource = extractNamedFunctionSource(mainModuleRaw, "getQueryCalendarDayDetail");
+  const selectCalendarSource = extractNamedFunctionSource(mainModuleRaw, "selectQueryCalendarDate");
+  const selectHourSource = extractNamedFunctionSource(mainModuleRaw, "selectChineseHour");
+  const pickerStateSource = extractNamedFunctionSource(mainModuleRaw, "getChineseHourPickerState");
+
+  const watchDate = formatDate(2026, 4, 15);
+  const watchDateKey = "2026-04-15";
+  const lunarOnWatchDate = getLunarDateForSolarDate(2026, 4, 15);
+  const lunarOnWatchLabel = formatLunarCalendarLabel(lunarOnWatchDate);
+  const watchInputSnapshot = JSON.stringify(watchDate);
+  const watchLunar = getLunarDateForSolarDate(watchDate.year, watchDate.month, watchDate.day);
+  check("lunar-ux-watch-lookup-unchanged", watchInputSnapshot, JSON.stringify(watchDate));
+  check("lunar-ux-watch-lookup-date-authority", JSON.stringify(lunarOnWatchDate), JSON.stringify(watchLunar));
+  check("lunar-ux-watch-label-unchanged", "廿八", lunarOnWatchLabel);
+  check("lunar-ux-watch-calendar-label-unchanged", "廿八", queryCalendarDayDetail(2026, 3, 15, []).lunarLabel);
+
+  const trueSolarCrossNextContext = { civil: { localParts: watchDate } };
+  const trueSolarCrossNextLabel = dateSemanticsLabel("2026-04-16", trueSolarCrossNextContext);
+  check(
+    "lunar-ux-cross-next-effective-label",
+    "真太陽有效日：2026/04/16",
+    effectiveDayLabel("2026-04-16")
+  );
+  check(
+    "lunar-ux-cross-next-visible-distinction",
+    `手錶日期：2026/04/15｜農曆（手錶日期）：${lunarOnWatchLabel}`,
+    trueSolarCrossNextLabel
+  );
+  check("lunar-ux-cross-next-lunar-input-is-watch-date", true, trueSolarCrossNextLabel.includes(lunarOnWatchLabel) && !trueSolarCrossNextLabel.includes("2026/04/16"));
+  check("lunar-ux-cross-next-no-civil-wording", false, trueSolarCrossNextLabel.includes("民用時間"));
+
+  const sameDayLabel = dateSemanticsLabel("2026-08-10", {
+    civil: { localParts: formatDate(2026, 8, 10) },
+  });
+  check("lunar-ux-same-day-no-difference-note", "", sameDayLabel);
+  check("lunar-ux-same-day-effective-label-kept", "真太陽有效日：2026/08/10", effectiveDayLabel("2026-08-10"));
+  check("lunar-ux-same-day-no-warning-wording", false, sameDayLabel.includes("不同") || sameDayLabel.includes("跨日"));
+
+  const previousDayLabel = dateSemanticsLabel("2026-08-09", {
+    civil: { localParts: formatDate(2026, 8, 10) },
+  });
+  check(
+    "lunar-ux-cross-previous-visible-distinction",
+    `手錶日期：2026/08/10｜農曆（手錶日期）：${formatLunarCalendarLabel(getLunarDateForSolarDate(2026, 8, 10))}`,
+    previousDayLabel
+  );
+  check("lunar-ux-cross-previous-direction-neutral", false, previousDayLabel.includes("次一日") || previousDayLabel.includes("前一日"));
+  check("lunar-ux-cross-previous-effective-date-not-lunar-input", true, previousDayLabel.includes("手錶日期：2026/08/10") && !previousDayLabel.includes("農曆（手錶日期）：2026/08/09"));
+
+  check("lunar-ux-true-render-passes-context", true, trueSolarRendererSource.includes("updateWeekdayLabelForEffectiveDay(") && trueSolarRendererSource.includes("context"));
+  check("lunar-ux-effective-updater-builds-date-note", true, effectiveDayUpdaterSource.includes("formatTrueSolarDateSemanticsLabel(dateKey, displayContext)"));
+  check("lunar-ux-visible-note-has-aria", true, weekdayRendererSource.includes('dateSemanticsLine.setAttribute("aria-label", dateSemanticsLabel)'));
+  check("lunar-ux-visible-note-uses-watch-parts", true, mainModuleRaw.includes("getLunarDateForSolarDate(\n    watchLocalParts.year"));
+  check("lunar-ux-no-effective-day-lunar-lookup", false, extractNamedFunctionSource(mainModuleRaw, "formatTrueSolarDateSemanticsLabel").includes("getLunarDateForSolarDateFromEffective"));
+  check("lunar-ux-user-facing-no-civil-time", false, `${mainModuleRaw}${indexHtmlRaw}${mainCssRaw}`.includes("民用時間"));
+  check("lunar-ux-calendar-civil-ownership", true, calendarDetailSource.includes("getLunarDateForSolarDate(year, month + 1, day)"));
+  check("lunar-ux-calendar-aria-remains-short", "2026年4月15日，農曆二月廿八", queryCalendarDayDetail(2026, 3, 15, []).ariaLabel);
+  check("lunar-ux-calendar-no-effective-day-lookup", false, calendarDetailSource.includes("effectiveDayDateKey") || calendarDetailSource.includes("trueSolar"));
+  check("lunar-ux-selected-calendar-state-unchanged", true, mainModuleRaw.includes("selectedCalendarDate = calendarDate") && selectCalendarSource.includes("selectedCalendarDate = { year, month, day }"));
+  check("lunar-ux-picker-semantics-unchanged", true, selectHourSource.includes("resolveTrueSolarChineseHourDateTime") && selectHourSource.includes("syncSelectedCalendarDate: false"));
+  check("lunar-ux-picker-current-state-unchanged", true, pickerStateSource.includes("selectedIndex") && pickerStateSource.includes("currentIndex"));
+  check("lunar-ux-solar-term-display-unchanged", true, mainModuleRaw.includes("formatTermDateTime(currentTerm, displayContext)") && mainModuleRaw.includes("renderSolarTermDayPanel(getSelectedSolarTermDay(), context)"));
+  check("lunar-ux-72hou-display-unchanged", true, mainModuleRaw.includes("formatHouRangeDateTime(currentHou.start, displayContext)") && mainModuleRaw.includes("currentHou.end"));
+  check("lunar-ux-guideng-unchanged", true, mainModuleRaw.includes("createGuiDengDisplayModel") && mainModuleRaw.includes("refreshGuiDengForCurrentChartTime"));
+  check("lunar-ux-jinhan-unchanged", true, mainModuleRaw.includes("refreshJinhanForCurrentChartTime") && mainModuleRaw.includes("calculateJinhanFromChartTimeContext"));
+  check("lunar-ux-bazi-unchanged", true, mainModuleRaw.includes("calculateBaziFromChartTimeContext") && mainModuleRaw.includes("calculateBaziFromSolarTerms"));
+  check("lunar-ux-flying-unchanged", true, mainModuleRaw.includes("refreshFlyingStarsForCurrentChartTime") && mainModuleRaw.includes("calculateFlyingStarsFromBaziResult"));
+  check("lunar-ux-qimen-unchanged", true, mainModuleRaw.includes("奇門仍維持手錶時間") && !extractNamedFunctionSource(mainModuleRaw, "renderQimenSection").includes("formatTrueSolarDateSemanticsLabel"));
+  check("lunar-ux-timer-unchanged", 2, (mainModuleRaw.match(/setInterval\(/g) ?? []).length);
+  check("lunar-ux-storage-unchanged", false, /localStorage|sessionStorage/.test(mainModuleRaw));
+  const packageJson = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
+  check("lunar-ux-dependency-unchanged", "^1.9.0|^14.1.1", `${packageJson.dependencies?.suncalc}|${packageJson.devDependencies?.["http-server"]}`);
+  check("lunar-ux-doc-76-civil-contract", true, lunarSourceDocRaw.includes("臺灣標準時間 UTC+8") && lunarSourceDocRaw.includes("真太陽時是另一層邏輯"));
+}
+
 async function runAstronomicalDisplayTimeTests(solarTerms) {
   const check = (id, expected, actual) => {
     astronomicalDisplayTimeVerifiedCaseCount += 1;
@@ -15861,6 +15951,19 @@ function loadQueryCalendarDayDetailForTest(mainModuleRaw) {
 function loadEffectiveDayLabelForTest(mainModuleRaw) {
   const definition = extractNamedFunctionSource(mainModuleRaw, "formatEffectiveDayLabel");
   return Function(`${definition}\nreturn formatEffectiveDayLabel;`)();
+}
+
+function loadTrueSolarDateSemanticsLabelForTest(mainModuleRaw) {
+  const definitions = [
+    "formatTrueSolarDateSemanticsLabel",
+    "formatCalendarDateKey",
+    "formatCalendarDateLabel",
+  ].map((name) => extractNamedFunctionSource(mainModuleRaw, name)).join("\n\n");
+  return Function(
+    "getLunarDateForSolarDate",
+    "formatLunarCalendarLabel",
+    `${definitions}\nreturn formatTrueSolarDateSemanticsLabel;`
+  )(getLunarDateForSolarDate, formatLunarCalendarLabel);
 }
 
 function loadAstronomicalDisplayFormattersForTest(mainModuleRaw) {
