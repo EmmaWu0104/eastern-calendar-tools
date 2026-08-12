@@ -16,12 +16,14 @@ import {
 } from "./baziChartTimeAdapter.js";
 import { getEffectiveDateKeyFromLocalParts } from "./bazi.js";
 import { SEXAGENARY_CYCLE } from "./ganzhi.js";
-import { calculateTrueSolarTime } from "./trueSolarTime.js";
 import {
-  getZonedDateTimeParts,
   resolveLocalDateTimeInTimeZone,
   validateTimeZone,
 } from "./timeZone.js";
+import {
+  resolveTrueSolarLocalDateTimeToInstant as resolveTrueSolarClockLocalDateTimeToInstant,
+  TRUE_SOLAR_CLOCK_RESOLUTION_STATUS,
+} from "./trueSolarClock.js";
 
 export const GUIDENG_CHART_TIME_STATUS = Object.freeze({
   RESOLVED: "resolved",
@@ -95,110 +97,39 @@ export function resolveTrueSolarLocalDateTimeToInstant({
     };
   }
 
-  const target = normalizeLocalDateTimeParts(targetTrueSolarLocalParts);
-  if (!target) {
-    return {
-      status: GUIDENG_CHART_TIME_STATUS.UNSUPPORTED,
-      reason: "targetTrueSolarLocalParts invalid",
-    };
-  }
-
-  const tolerance = Number.isFinite(toleranceMs) && toleranceMs >= 0
-    ? toleranceMs
-    : TRUE_SOLAR_BOUNDARY_TOLERANCE_MS;
-  const iterations = Number.isInteger(maxIterations) && maxIterations > 0
-    ? Math.min(maxIterations, 32)
-    : TRUE_SOLAR_BOUNDARY_MAX_ITERATIONS;
   const timeZone = context.civil.timeZone;
-  const initialResolution = resolveLocalDateTimeInTimeZone({
-    localParts: target,
+  const resolved = resolveTrueSolarClockLocalDateTimeToInstant({
+    targetLocalParts: targetTrueSolarLocalParts,
     timeZone,
-    disambiguation: "earlier",
+    location: context.location,
+    initialInstantMs: context.civil.instantMs,
+    toleranceMs,
+    maxIterations,
   });
-  if (initialResolution.status !== "resolved") {
+  if (resolved.status !== TRUE_SOLAR_CLOCK_RESOLUTION_STATUS.RESOLVED) {
     return {
       status: GUIDENG_CHART_TIME_STATUS.UNSUPPORTED,
-      reason: `無法建立 true-solar boundary initial guess：${initialResolution.status}`,
-    };
-  }
-  if (initialResolution.candidates?.length > 1) {
-    return {
-      status: GUIDENG_CHART_TIME_STATUS.UNSUPPORTED,
-      reason: "true-solar boundary 落在 DST ambiguous local time",
+      reason: resolved.reason,
     };
   }
 
-  const initialDateStatus = resolveCivilDateOffset(formatDateKey(target), timeZone);
-  if (initialDateStatus.status !== "resolved") {
-    return initialDateStatus;
+  // GuiDeng solarEvents still has a fixed-offset day contract. Preserve its
+  // explicit DST-transition rejection while sharing the neutral solver.
+  for (const localParts of [resolved.targetLocalParts, resolved.civilLocalParts]) {
+    const dateStatus = resolveCivilDateOffset(formatDateKey(localParts), timeZone);
+    if (dateStatus.status !== "resolved") {
+      return dateStatus;
+    }
   }
-
-  const targetWallMs = localDateTimeToWallMs(target);
-  let guessMs = initialResolution.instant.getTime() + (target.millisecond ?? 0);
-  let lastProbe = null;
-
-  for (let iteration = 1; iteration <= iterations; iteration += 1) {
-    const probe = getZonedDateTimeParts(new Date(guessMs), timeZone);
-    if (!probe) {
-      return {
-        status: GUIDENG_CHART_TIME_STATUS.UNSUPPORTED,
-        reason: "無法取得 boundary guess 的 legal civil local parts",
-      };
-    }
-
-    const civilLocalParts = {
-      ...probe.localParts,
-      millisecond: getMillisecondsPart(guessMs),
-    };
-    const civilDateStatus = resolveCivilDateOffset(formatDateKey(civilLocalParts), timeZone);
-    if (civilDateStatus.status !== "resolved") {
-      return civilDateStatus;
-    }
-
-    let trueSolarResult;
-    try {
-      trueSolarResult = calculateTrueSolarTime({
-        date: createUtcDateFromLocalParts(civilLocalParts),
-        latitude: context.location.latitude,
-        longitude: context.location.longitude,
-        utcOffsetMinutes: probe.utcOffsetMinutes,
-        useUtcComponents: true,
-      });
-    } catch (error) {
-      return {
-        status: GUIDENG_CHART_TIME_STATUS.UNSUPPORTED,
-        reason: `true-solar boundary 計算失敗：${error instanceof Error ? error.message : String(error)}`,
-      };
-    }
-
-    const trueSolarLocalParts = { ...trueSolarResult.trueSolarParts };
-    const errorMs = targetWallMs - localDateTimeToWallMs(trueSolarLocalParts);
-    lastProbe = {
-      iteration,
-      civilLocalParts,
-      trueSolarLocalParts,
-      errorMs,
-    };
-    if (Math.abs(errorMs) <= tolerance) {
-      return {
-        status: GUIDENG_CHART_TIME_STATUS.RESOLVED,
-        instantMs: guessMs,
-        instant: new Date(guessMs),
-        targetTrueSolarLocalParts: target,
-        civilLocalParts,
-        trueSolarLocalParts,
-        errorMs,
-        iterations: iteration,
-      };
-    }
-
-    guessMs += errorMs;
-  }
-
   return {
-    status: GUIDENG_CHART_TIME_STATUS.UNSUPPORTED,
-    reason: `true-solar boundary inversion 未在 ${iterations} 次內收斂（誤差 ${lastProbe?.errorMs ?? "unknown"}ms）`,
-    lastProbe,
+    status: GUIDENG_CHART_TIME_STATUS.RESOLVED,
+    instantMs: resolved.instantMs,
+    instant: new Date(resolved.instantMs),
+    targetTrueSolarLocalParts: { ...resolved.targetLocalParts },
+    civilLocalParts: { ...resolved.civilLocalParts },
+    trueSolarLocalParts: { ...resolved.trueSolarLocalParts },
+    errorMs: resolved.errorSeconds * 1_000,
+    iterations: resolved.iterations,
   };
 }
 
@@ -619,56 +550,6 @@ function addDaysToDateKey(dateKey, days) {
 
 function formatDateKey(parts) {
   return `${String(parts.year).padStart(4, "0")}-${String(parts.month).padStart(2, "0")}-${String(parts.day).padStart(2, "0")}`;
-}
-
-function createUtcDateFromLocalParts(parts) {
-  return new Date(Date.UTC(
-    parts.year,
-    parts.month - 1,
-    parts.day,
-    parts.hour,
-    parts.minute,
-    parts.second,
-    parts.millisecond ?? 0,
-  ));
-}
-
-function localDateTimeToWallMs(parts) {
-  return createUtcDateFromLocalParts(parts).getTime();
-}
-
-function getMillisecondsPart(instantMs) {
-  return ((instantMs % 1_000) + 1_000) % 1_000;
-}
-
-function normalizeLocalDateTimeParts(value) {
-  if (!value || !Number.isInteger(value.year) || !Number.isInteger(value.month) || !Number.isInteger(value.day)
-    || !Number.isInteger(value.hour) || !Number.isInteger(value.minute) || !Number.isInteger(value.second)) {
-    return null;
-  }
-  const millisecond = value.millisecond ?? 0;
-  if (!Number.isInteger(millisecond) || millisecond < 0 || millisecond > 999) {
-    return null;
-  }
-  const date = createUtcDateFromLocalParts({ ...value, millisecond });
-  if (date.getUTCFullYear() !== value.year
-    || date.getUTCMonth() !== value.month - 1
-    || date.getUTCDate() !== value.day
-    || date.getUTCHours() !== value.hour
-    || date.getUTCMinutes() !== value.minute
-    || date.getUTCSeconds() !== value.second
-    || date.getUTCMilliseconds() !== millisecond) {
-    return null;
-  }
-  return {
-    year: value.year,
-    month: value.month,
-    day: value.day,
-    hour: value.hour,
-    minute: value.minute,
-    second: value.second,
-    millisecond,
-  };
 }
 
 function createUtcDateCarrier(dateKey) {

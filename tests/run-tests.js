@@ -153,6 +153,13 @@ const {
   parseCoordinateInput,
 } = await import("../src/trueSolarTime.js");
 const {
+  resolveTrueSolarLocalDateTimeToInstant: resolveTrueSolarClockLocalDateTimeToInstant,
+  TRUE_SOLAR_CLOCK_DEFAULT_MAX_ITERATIONS,
+  TRUE_SOLAR_CLOCK_MAX_ITERATIONS,
+  TRUE_SOLAR_CLOCK_MAX_SEARCH_DISTANCE_MS,
+  TRUE_SOLAR_CLOCK_RESOLUTION_STATUS,
+} = await import("../src/trueSolarClock.js");
+const {
   formatLunarCalendarAccessibleLabel,
   formatLunarCalendarLabel,
   getLunarDateForSolarDate,
@@ -383,6 +390,7 @@ let trueSolarTimeVerifiedCaseCount = 0;
 let trueSolarTimeUiVerifiedCaseCount = 0;
 let trueSolarPresentationLabelVerifiedCaseCount = 0;
 let astronomicalDisplayTimeVerifiedCaseCount = 0;
+let chineseHourActiveClockVerifiedCaseCount = 0;
 let solarEventsVerifiedCaseCount = 0;
 let timeZoneVerifiedCaseCount = 0;
 let timeZoneCatalogVerifiedCaseCount = 0;
@@ -817,6 +825,7 @@ runTrueSolarTimeTests();
 runTrueSolarTimeUiTests();
 await runTrueSolarPresentationLabelTests();
 await runAstronomicalDisplayTimeTests(solarTerms);
+await runChineseHourActiveClockTests(solarTerms);
 runChartDisplayModeTests();
   runChartTimeContextTests();
   runBaziChartTimeAdapterTests();
@@ -869,6 +878,7 @@ if (failures.length > 0) {
   console.log(`真太陽時 UI 測試通過：${trueSolarTimeUiVerifiedCaseCount} cases`);
   console.log(`真太陽時 presentation label 測試通過：${trueSolarPresentationLabelVerifiedCaseCount} cases`);
   console.log(`astronomical display-time mode-aware 測試通過：${astronomicalDisplayTimeVerifiedCaseCount} cases`);
+  console.log(`十二時辰 active chart clock 測試通過：${chineseHourActiveClockVerifiedCaseCount} cases`);
   console.log(`排盤顯示模式測試通過：${chartDisplayModeVerifiedCaseCount} cases`);
   console.log(`ChartTimeContext 核心測試通過：${chartTimeContextVerifiedCaseCount} cases`);
   console.log(`四柱 ChartTimeContext adapter 測試通過：${baziChartTimeAdapterVerifiedCaseCount} cases`);
@@ -10054,6 +10064,198 @@ async function runAstronomicalDisplayTimeTests(solarTerms) {
   check("astronomical-display-no-dependency", "^1.9.0|^14.1.1", `${packageJson.dependencies?.suncalc}|${packageJson.devDependencies?.["http-server"]}`);
 }
 
+async function runChineseHourActiveClockTests(solarTerms) {
+  const check = (id, expected, actual) => {
+    chineseHourActiveClockVerifiedCaseCount += 1;
+    assertEqual(id, "result", expected, actual);
+  };
+  const parts = (year, month, day, hour, minute = 0, second = 0, millisecond = 0) => ({
+    year, month, day, hour, minute, second, millisecond,
+  });
+  const formatValue = (value) => `${String(value.year).padStart(4, "0")}-${String(value.month).padStart(2, "0")}-${String(value.day).padStart(2, "0")}T${String(value.hour).padStart(2, "0")}:${String(value.minute).padStart(2, "0")}:${String(value.second).padStart(2, "0")}`;
+  const wallMs = (value) => Date.UTC(value.year, value.month - 1, value.day, value.hour, value.minute, value.second, value.millisecond ?? 0);
+  const makeContext = (civilLocalParts, location) => {
+    const civilResolution = resolveLocalDateTimeInTimeZone({
+      localParts: civilLocalParts,
+      timeZone: "Asia/Taipei",
+    });
+    const carrier = new Date(Date.UTC(
+      civilLocalParts.year,
+      civilLocalParts.month - 1,
+      civilLocalParts.day,
+      civilLocalParts.hour,
+      civilLocalParts.minute,
+      civilLocalParts.second,
+      civilLocalParts.millisecond ?? 0,
+    ));
+    const trueSolarResult = calculateTrueSolarTime({
+      date: carrier,
+      latitude: location.latitude,
+      longitude: location.longitude,
+      utcOffsetMinutes: civilResolution.utcOffsetMinutes,
+      useUtcComponents: true,
+    });
+    return createTrueSolarChartTimeContext({
+      source: "query",
+      civil: {
+        localParts: { ...civilResolution.localParts, millisecond: civilLocalParts.millisecond ?? 0 },
+        timeZone: civilResolution.timeZone,
+        utcOffsetMinutes: civilResolution.utcOffsetMinutes,
+        abbreviation: civilResolution.abbreviation,
+        instantMs: civilResolution.instant.getTime() + (civilLocalParts.millisecond ?? 0),
+      },
+      location,
+      trueSolarResult,
+      compatibility: { watchLocalDateTimeValue: formatValue(civilLocalParts) },
+      createdAtInstantMs: 0,
+    });
+  };
+  const picker = loadTrueSolarChineseHourHelpersForTest(mainModuleRaw);
+  const taipeiWest = { latitude: 25, longitude: 115, accuracy: null };
+  const taipeiEast = { latitude: 25, longitude: 127, accuracy: null };
+  const taipeiLocation = { latitude: 25.033964, longitude: 121.564468, accuracy: null };
+  const queryContext = makeContext(parts(2026, 8, 10, 12), taipeiWest);
+
+  check("active-clock-watch-shen-click", "2026-08-10T15:00:00", picker.build(2026, 7, 10, 9));
+  check("active-clock-shen-same-effective-day", "2026-08-10T15:00:00", picker.build(2026, 7, 10, 9));
+  check("active-clock-zi-effective-day-target", "2026-04-15T23:00:00", picker.build(2026, 3, 16, 1));
+
+  const fixtureA = picker.resolve({
+    selectedDate: { year: 2026, month: 7, day: 10 },
+    hourIndex: 9,
+    context: queryContext,
+  });
+  check("active-clock-fixture-a-resolved", TRUE_SOLAR_CLOCK_RESOLUTION_STATUS.RESOLVED, fixtureA.status);
+  check("active-clock-fixture-a-target", "2026-08-10T15:00:00", formatValue(fixtureA.targetLocalParts));
+  check("active-clock-fixture-a-watch-datetime", "2026-08-10T15:25:25", fixtureA.dateTimeValue);
+  check("active-clock-fixture-a-actual-instant", "2026-08-10T07:25:25.000Z", new Date(fixtureA.instantMs).toISOString());
+  check("active-clock-fixture-a-writes-civil-not-wall", false, fixtureA.dateTimeValue === formatValue(fixtureA.targetLocalParts));
+  check("active-clock-fixture-a-reverse-within-one-second", true, Math.abs(fixtureA.errorSeconds) <= 1);
+  check("active-clock-fixture-a-reverse-target", true, wallMs(fixtureA.trueSolarLocalParts) >= wallMs(fixtureA.targetLocalParts) && wallMs(fixtureA.trueSolarLocalParts) - wallMs(fixtureA.targetLocalParts) <= 1_000);
+  check("active-clock-fixture-a-second-preserved", 25, fixtureA.civilLocalParts.second);
+  check("active-clock-negative-correction-watch-later", true, fixtureA.civilLocalParts.hour === 15 && fixtureA.civilLocalParts.minute > 0);
+
+  const eastContext = makeContext(parts(2026, 8, 10, 12), taipeiEast);
+  const positiveCorrection = picker.resolve({
+    selectedDate: { year: 2026, month: 7, day: 10 },
+    hourIndex: 9,
+    context: eastContext,
+  });
+  check("active-clock-positive-correction-resolved", TRUE_SOLAR_CLOCK_RESOLUTION_STATUS.RESOLVED, positiveCorrection.status);
+  check("active-clock-positive-correction-watch-earlier", true, positiveCorrection.dateTimeValue < "2026-08-10T15:00:00");
+  check("active-clock-positive-correction-reverse", true, Math.abs(positiveCorrection.errorSeconds) <= 1);
+
+  const aprilContext = makeContext(parts(2026, 4, 16, 12), taipeiLocation);
+  const fixtureB = picker.resolve({
+    selectedDate: { year: 2026, month: 3, day: 16 },
+    hourIndex: 1,
+    context: aprilContext,
+  });
+  check("active-clock-fixture-b-zi-target", "2026-04-15T23:00:00", formatValue(fixtureB.targetLocalParts));
+  check("active-clock-fixture-b-watch-datetime", "2026-04-15T22:53:45", fixtureB.dateTimeValue);
+  check("active-clock-fixture-b-effective-day", "2026-04-16", getEffectiveDateKeyFromLocalParts(fixtureB.trueSolarLocalParts));
+  check("active-clock-fixture-b-selected-zi", 1, picker.indexFromParts(fixtureB.trueSolarLocalParts));
+  check("active-clock-fixture-b-reverse-within-one-second", true, Math.abs(fixtureB.errorSeconds) <= 1);
+
+  const oneOClock = picker.resolve({
+    selectedDate: { year: 2026, month: 3, day: 16 },
+    hourIndex: 2,
+    context: aprilContext,
+  });
+  check("active-clock-target-0100", "2026-04-16T01:00:00", formatValue(oneOClock.targetLocalParts));
+  check("active-clock-target-0100-selected-chou", 2, picker.indexFromParts(oneOClock.trueSolarLocalParts));
+  check("active-clock-target-0100-reverse", true, Math.abs(oneOClock.errorSeconds) <= 1);
+
+  const extremeContext = makeContext(parts(2026, 4, 16, 12), { latitude: 25, longitude: 180, accuracy: null });
+  const crossedCivilDate = picker.resolve({
+    selectedDate: { year: 2026, month: 3, day: 16 },
+    hourIndex: 2,
+    context: extremeContext,
+  });
+  check("active-clock-inversion-crosses-civil-midnight", true, crossedCivilDate.dateTimeValue.startsWith("2026-04-15T"));
+  check("active-clock-crossed-target-stays-true-date", "2026-04-16", formatValue(crossedCivilDate.targetLocalParts).slice(0, 10));
+
+  const resolvedAContext = makeContext(fixtureA.civilLocalParts, taipeiWest);
+  const baziA = calculateBaziFromChartTimeContext(resolvedAContext, solarTerms);
+  const flyingA = calculateFlyingStarsFromBaziResult(resolvedAContext, baziA);
+  const jinhanA = calculateJinhanFromChartTimeContext({ context: resolvedAContext, baziResult: baziA, solarTerms });
+  const guiDengA = await calculateGuiDengFromChartTimeContext({ context: resolvedAContext, baziResult: baziA });
+  check("active-clock-fixture-a-hour-pillar", "丙申", baziA.hourPillar);
+  check("active-clock-fixture-a-jinhan-hour", "申", jinhanA.chineseHour?.branch);
+  check("active-clock-bazi-uses-resolved-instant", fixtureA.instantMs, resolvedAContext.civil.instantMs);
+  check("active-clock-flying-uses-resolved-instant", "丙申", flyingA.debug.hourPillar);
+  check("active-clock-jinhan-uses-resolved-instant", fixtureA.instantMs, Date.parse(jinhanA.debug.queryInstant));
+  check("active-clock-guideng-resolved", GUIDENG_CHART_TIME_STATUS.RESOLVED, guiDengA.status);
+  check("active-clock-guideng-uses-resolved-instant", fixtureA.instantMs, guiDengA.queryInstantMs);
+  check("active-clock-term-follows-resolved-instant", "立秋|2026/08/07 19:16", `${baziA.currentTerm.name}|${formatDateTimeForChartMode({ instantMs: baziA.currentTerm.timeMs, context: resolvedAContext })}`);
+
+  const resolvedBContext = makeContext(fixtureB.civilLocalParts, taipeiLocation);
+  const baziB = calculateBaziFromChartTimeContext(resolvedBContext, solarTerms);
+  const jinhanB = calculateJinhanFromChartTimeContext({ context: resolvedBContext, baziResult: baziB, solarTerms });
+  check("active-clock-fixture-b-day-pillar", "庚申", baziB.dayPillar);
+  check("active-clock-fixture-b-hour-pillar", "丙子", baziB.hourPillar);
+  check("active-clock-fixture-b-jinhan-selected-zi", "子", jinhanB.chineseHour?.branch);
+
+  const fixedNowMs = Date.parse("2026-08-10T07:10:00Z");
+  const trueNowParts = getChartClockLocalPartsForInstant({ instantMs: fixedNowMs, context: queryContext, mode: "true-solar" });
+  const watchNowParts = getZonedDateTimeParts(new Date(fixedNowMs), "Asia/Taipei").localParts;
+  check("active-clock-true-current-highlight", 8, picker.indexFromParts(trueNowParts));
+  check("active-clock-watch-current-highlight", 9, picker.indexFromParts(watchNowParts));
+  check("active-clock-watch-selected-state", 9, picker.index("2026-08-10T15:25:25"));
+  check("active-clock-true-selected-state", 9, picker.indexFromParts(fixtureA.trueSolarLocalParts));
+
+  const pickerStateSource = extractNamedFunctionSource(mainModuleRaw, "getChineseHourPickerState");
+  const pickerRenderSource = extractNamedFunctionSource(mainModuleRaw, "renderChineseHourButtons");
+  const selectSource = extractNamedFunctionSource(mainModuleRaw, "selectChineseHour");
+  const modeSource = extractNamedFunctionSource(mainModuleRaw, "renderChartDisplayMode");
+  const calendarSource = extractNamedFunctionSource(mainModuleRaw, "selectQueryCalendarDate");
+  const manualSource = `${extractNamedFunctionSource(mainModuleRaw, "handleManualDateTimeInput")}\n${extractNamedFunctionSource(mainModuleRaw, "handleManualDateTimeChange")}`;
+  const sourceBC = `${extractNamedFunctionSource(mainModuleRaw, "renderTrueSolarTimeForDeviceNow")}\n${extractNamedFunctionSource(mainModuleRaw, "renderTrueSolarTimeForCustomInput")}`;
+  const autoClockSource = extractNamedFunctionSource(mainModuleRaw, "refreshQueryTimeFromAutoNowClock");
+  const autoNowSource = extractNamedFunctionSource(mainModuleRaw, "refreshFromCurrentTime");
+  check("active-clock-render-uses-mode-aware-state", true, pickerRenderSource.includes("getChineseHourPickerState()"));
+  check("active-clock-true-selected-no-watch-fallback", true, pickerStateSource.includes("currentTrueSolarChartContext.trueSolar?.localParts") && pickerStateSource.includes("return { selectedIndex: null, currentIndex: null }"));
+  check("active-clock-true-current-uses-now-instant", true, pickerStateSource.includes("instantMs: nowInstantMs") && pickerStateSource.includes('mode: "true-solar"'));
+  check("active-clock-mode-switch-rerenders-picker", true, modeSource.includes("renderChineseHourButtons()") && !/elements\.datetime\.value\s*=/.test(modeSource));
+  check("active-clock-click-pauses-auto-now", true, selectSource.indexOf("pauseAutoNowMode()") < selectSource.indexOf("resolveTrueSolarChineseHourDateTime"));
+  check("active-clock-failure-no-watch-fallback", true, selectSource.includes("trueSolarSelection?.status !== TRUE_SOLAR_CLOCK_RESOLUTION_STATUS.RESOLVED") && selectSource.includes("return;") && selectSource.includes("? trueSolarSelection.dateTimeValue"));
+  check("active-clock-failure-leaves-datetime", true, selectSource.indexOf('setMessage("真太陽時辰目前無法換算。"') < selectSource.indexOf("elements.datetime.value = dateTimeValue"));
+  check("active-clock-precise-input-remains-civil", false, manualSource.includes("resolveTrueSolarLocalDateTimeToInstant"));
+  check("active-clock-calendar-click-remains-civil", false, calendarSource.includes("resolveTrueSolarChineseHourDateTime"));
+  check("active-clock-source-b-isolated", false, sourceBC.includes("resolveTrueSolarChineseHourDateTime"));
+  check("active-clock-source-c-isolated", false, sourceBC.includes("resolveTrueSolarLocalDateTimeToInstant"));
+  check("active-clock-selected-date-preserved", true, selectSource.includes("syncSelectedCalendarDate: false"));
+  check("active-clock-auto-clock-rerenders-after-context", true, autoClockSource.indexOf("refreshBaziForCurrentChartTime") < autoClockSource.indexOf("renderChineseHourButtons()"));
+  check("active-clock-auto-now-rerenders-after-request", true, autoNowSource.indexOf("requestRenderDateTime") < autoNowSource.indexOf("renderChineseHourButtons()"));
+  check("active-clock-no-new-timer", 2, (mainModuleRaw.match(/setInterval\(/g) ?? []).length);
+  check("active-clock-no-storage", false, /localStorage|sessionStorage/.test(mainModuleRaw));
+  check("active-clock-qimen-watch-only", true, mainModuleRaw.includes("奇門仍維持手錶時間") && !extractNamedFunctionSource(mainModuleRaw, "renderQimenSection").includes("resolveTrueSolar"));
+  check("active-clock-lunar-unchanged", "廿八", formatLunarCalendarLabel(getLunarDateForSolarDate(2026, 8, 10)));
+
+  const invalidTarget = resolveTrueSolarClockLocalDateTimeToInstant({
+    targetLocalParts: parts(2026, 2, 30, 15),
+    timeZone: "Asia/Taipei",
+    location: taipeiWest,
+  });
+  const invalidLocation = resolveTrueSolarClockLocalDateTimeToInstant({
+    targetLocalParts: parts(2026, 8, 10, 15),
+    timeZone: "Asia/Taipei",
+    location: { latitude: 25, longitude: 181 },
+  });
+  check("active-clock-invalid-target", TRUE_SOLAR_CLOCK_RESOLUTION_STATUS.INVALID, invalidTarget.status);
+  check("active-clock-invalid-location", TRUE_SOLAR_CLOCK_RESOLUTION_STATUS.INVALID, invalidLocation.status);
+  check("active-clock-solver-default-bounded", 12, TRUE_SOLAR_CLOCK_DEFAULT_MAX_ITERATIONS);
+  check("active-clock-solver-hard-iteration-bound", 32, TRUE_SOLAR_CLOCK_MAX_ITERATIONS);
+  check("active-clock-solver-search-bound", 172_800_000, TRUE_SOLAR_CLOCK_MAX_SEARCH_DISTANCE_MS);
+  const solverRaw = await readFile(new URL("../src/trueSolarClock.js", import.meta.url), "utf8");
+  const adapterRaw = await readFile(new URL("../src/guidengChartTimeAdapter.js", import.meta.url), "utf8");
+  check("active-clock-single-inversion-authority", true, solverRaw.includes("for (let iteration = 1") && !adapterRaw.includes("for (let iteration = 1"));
+  check("active-clock-guideng-shared-solver", true, adapterRaw.includes('from "./trueSolarClock.js"') && adapterRaw.includes("resolveTrueSolarClockLocalDateTimeToInstant"));
+  check("active-clock-guideng-no-duplicated-formula", false, adapterRaw.includes("calculateTrueSolarTime"));
+  const packageJson = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
+  check("active-clock-no-dependency", "^1.9.0|^14.1.1", `${packageJson.dependencies?.suncalc}|${packageJson.devDependencies?.["http-server"]}`);
+}
+
 function runFrontendInputSecurityTests() {
   const check = (id, expected, actual) => {
     frontendInputSecurityVerifiedCaseCount += 1;
@@ -11029,7 +11231,7 @@ function runPreciseChartTimeInputTests(solarTerms) {
   check("precise-time-hour-shortcut-申", "2024-02-04T15:00:00", picker.buildDateTimeValueFromDateAndChineseHour(2024, 1, 4, 9));
   check("precise-time-hour-shortcut-酉", "2024-02-04T17:00:00", picker.buildDateTimeValueFromDateAndChineseHour(2024, 1, 4, 10));
   check("precise-time-hour-shortcut-keeps-no-seconds", true, picker.buildDateTimeValueFromDateAndChineseHour(2024, 1, 4, 9).endsWith("T15:00:00"));
-  check("precise-time-hour-render-reads-datetime", true, extractNamedFunctionSource(mainModuleRaw, "renderChineseHourButtons").includes("getChineseHourIndex(elements.datetime.value)"));
+  check("precise-time-hour-render-uses-active-clock-state", true, extractNamedFunctionSource(mainModuleRaw, "renderChineseHourButtons").includes("getChineseHourPickerState()"));
   check("precise-time-calendar-render-reads-datetime", true, extractNamedFunctionSource(mainModuleRaw, "renderMonthCalendarDays").includes("selectedCalendarDate"));
 
   check("precise-time-manual-input-pauses", true, manualInputSource.includes("pauseAutoNowMode()"));
@@ -14153,7 +14355,7 @@ async function runGuiDengChartTimeAdapterTests(solarTerms) {
   check("guideng-adapter-static-no-bazi-formula", false, /DAY_PILLAR_BASE|civilDateToEpochMs|firstHourStemIndex/.test(adapterRaw));
   check("guideng-adapter-static-no-true-solar-instant", false, /trueSolar[^\n]*new Date|new Date\([^\n]*trueSolar/.test(adapterRaw));
   check("guideng-adapter-static-uses-solar-events", true, adapterRaw.includes('from "./solarEvents.js"') && adapterRaw.includes("solarEventCalculator"));
-  check("guideng-adapter-static-uses-true-solar-core", true, adapterRaw.includes('from "./trueSolarTime.js"') && adapterRaw.includes("calculateTrueSolarTime") && adapterRaw.includes("resolveTrueSolarLocalDateTimeToInstant"));
+  check("guideng-adapter-static-uses-true-solar-core", true, adapterRaw.includes('from "./trueSolarClock.js"') && adapterRaw.includes("resolveTrueSolarClockLocalDateTimeToInstant") && !adapterRaw.includes("calculateTrueSolarTime"));
   check("guideng-adapter-static-no-eot-formula-copy", false, /equationMinutes|meanLongitude|calculateEquationOfTime|NOAA|Meeus/.test(adapterRaw));
   check("guideng-adapter-static-no-true-solar-direct-iana-answer", false, /localParts:\s*targetTrueSolarLocalParts/.test(adapterRaw));
   check("guideng-adapter-static-uses-civil-event-key", true, adapterRaw.includes("context.astronomy.solarEventCivilDateKey"));
@@ -15548,6 +15750,7 @@ function loadQueryPickerHelpersForTest(mainModuleRaw) {
     "buildDateTimeValueFromDateAndChineseHour",
     "getChineseHourStartHour",
     "getChineseHourIndex",
+    "getChineseHourIndexFromLocalParts",
     "clampQueryYear",
     "getSelectedCalendarDateFromDateTime",
     "parseDateTimeLocalValue",
@@ -15575,6 +15778,61 @@ function loadQueryPickerHelpersForTest(mainModuleRaw) {
     ${definitions}
     return { buildDateTimeValueFromDateAndChineseHour, getChineseHourIndex, getSelectedCalendarDateFromDateTime, parseDateTimeLocalValue, toLocalDatetimeValue };
   `)();
+}
+
+function loadTrueSolarChineseHourHelpersForTest(mainModuleRaw) {
+  const functionNames = [
+    "resolveTrueSolarChineseHourDateTime",
+    "getLocalPartsWallDifferenceSeconds",
+    "buildDateTimeValueFromDateAndChineseHour",
+    "getChineseHourStartHour",
+    "getChineseHourIndex",
+    "getChineseHourIndexFromLocalParts",
+    "clampQueryYear",
+    "parseDateTimeLocalValue",
+    "toLocalDatetimeValue",
+    "parseTrueSolarTimeCustomLocalParts",
+    "getLocalDateParts",
+    "parseTopQueryDateTimeLocalParts",
+    "formatDateTimeLocalParts",
+  ];
+  const definitions = functionNames.map((name) => extractNamedFunctionSource(mainModuleRaw, name)).join("\n\n");
+  return Function(
+    "resolveTrueSolarLocalDateTimeToInstant",
+    "TRUE_SOLAR_CLOCK_RESOLUTION_STATUS",
+    "getChartClockLocalPartsForInstant",
+    "getZonedDateTimeParts",
+    `
+      const QUERY_YEAR_MIN = 1900;
+      const QUERY_YEAR_MAX = 2100;
+      const CHINESE_HOUR_LABELS = Object.freeze([
+        Object.freeze({ index: 1, startHour: 23 }),
+        Object.freeze({ index: 2, startHour: 1 }),
+        Object.freeze({ index: 3, startHour: 3 }),
+        Object.freeze({ index: 4, startHour: 5 }),
+        Object.freeze({ index: 5, startHour: 7 }),
+        Object.freeze({ index: 6, startHour: 9 }),
+        Object.freeze({ index: 7, startHour: 11 }),
+        Object.freeze({ index: 8, startHour: 13 }),
+        Object.freeze({ index: 9, startHour: 15 }),
+        Object.freeze({ index: 10, startHour: 17 }),
+        Object.freeze({ index: 11, startHour: 19 }),
+        Object.freeze({ index: 12, startHour: 21 }),
+      ]);
+      ${definitions}
+      return {
+        resolve: resolveTrueSolarChineseHourDateTime,
+        build: buildDateTimeValueFromDateAndChineseHour,
+        index: getChineseHourIndex,
+        indexFromParts: getChineseHourIndexFromLocalParts,
+      };
+    `,
+  )(
+    resolveTrueSolarClockLocalDateTimeToInstant,
+    TRUE_SOLAR_CLOCK_RESOLUTION_STATUS,
+    getChartClockLocalPartsForInstant,
+    getZonedDateTimeParts,
+  );
 }
 
 function loadTopQueryDateTimeLocalPartsForTest(mainModuleRaw) {
