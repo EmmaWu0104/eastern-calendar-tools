@@ -2524,15 +2524,13 @@ function createJinhanDunTypeMockTerm(year, name, localDateTime) {
 function runQimenResponsiveOverflowTests() {
   const capMediaStart = mainCssRaw.indexOf("@media (min-width: 390px) and (max-width: 760px)");
   const max560Start = mainCssRaw.indexOf("@media (max-width: 560px)", capMediaStart);
-  const compactBadgeStart = mainCssRaw.indexOf("@media (min-width: 390px) and (max-width: 560px)");
-  const max680Start = mainCssRaw.indexOf("@media (max-width: 680px)", compactBadgeStart);
   const max760Start = mainCssRaw.indexOf("@media (max-width: 760px)");
+  const max680Start = mainCssRaw.indexOf("@media (max-width: 680px)", max560Start);
   const max420Start = mainCssRaw.indexOf("@media (max-width: 420px)");
   const specialStart = mainCssRaw.indexOf("@media (min-width: 390px) and (max-width: 430px)");
   const capMediaCss = mainCssRaw.slice(capMediaStart, max560Start);
   const max760Css = mainCssRaw.slice(max760Start, capMediaStart);
-  const max560Css = mainCssRaw.slice(max560Start, compactBadgeStart);
-  const compactBadgeCss = mainCssRaw.slice(compactBadgeStart, max680Start);
+  const max560Css = mainCssRaw.slice(max560Start, max680Start);
   const max420Css = mainCssRaw.slice(max420Start, specialStart);
   const specialCss = mainCssRaw.slice(specialStart, mainCssRaw.indexOf("ul {", specialStart));
   const check = (id, expected, actual) => {
@@ -2546,14 +2544,12 @@ function runQimenResponsiveOverflowTests() {
   check("qimen-rwd-wrapper-scroll-safety-preserved", true, /\.qimen-plate-grid-wrap\s*\{[\s\S]*?overflow-x:\s*auto;/.test(mainCssRaw));
   check("qimen-rwd-panel-shrink-preserved", true, /\.qimen-plate-panel\s*\{[\s\S]*?min-width:\s*0;/.test(mainCssRaw));
   check("qimen-rwd-palace-shrink-preserved", true, /\.qimen-palace-cell\s*\{[\s\S]*?min-width:\s*0;/.test(mainCssRaw));
-  check("qimen-rwd-520-nominal-preserved", true, /--qimen-grid-min-width:\s*520px;/.test(max760Css));
-  check("qimen-rwd-440-nominal-preserved", true, /--qimen-grid-min-width:\s*440px;/.test(max560Css));
-  check("qimen-rwd-400-nominal-preserved", true, /--qimen-grid-min-width:\s*400px;/.test(max420Css));
-  check("qimen-rwd-390-430-fluid-rule-preserved", true, /--qimen-grid-min-width:\s*100%;/.test(specialCss));
-  check("qimen-rwd-compact-left-badge-contained", true, /left:\s*-5px;/.test(compactBadgeCss));
-  check("qimen-rwd-compact-right-badge-contained", true, /right:\s*-5px;/.test(compactBadgeCss));
-  check("qimen-rwd-special-left-badge-contained", true, /left:\s*-1px;/.test(specialCss));
-  check("qimen-rwd-special-right-badge-contained", true, /right:\s*-1px;/.test(specialCss));
+  check("qimen-rwd-mobile-grid-fluid-width", true, /--qimen-grid-min-width:\s*0px;/.test(max760Css) && /--qimen-grid-min-width:\s*0px;/.test(max560Css) && /--qimen-grid-min-width:\s*0px;/.test(max420Css) && /--qimen-grid-min-width:\s*0px;/.test(specialCss));
+  check("qimen-rwd-mobile-wrapper-no-scrollbar", true, /\.qimen-plate-grid-wrap\s*\{[\s\S]*?overflow-x:\s*visible;[\s\S]*?overflow-y:\s*visible;/.test(max760Css));
+  check("qimen-rwd-mobile-spacing-compacted", true, /--qimen-grid-gap:\s*3px;/.test(max560Css) && /--qimen-cell-padding:\s*4px 4px 17px;/.test(max560Css) && /\.qimen-palace-cell\s*\{[\s\S]*?gap:\s*2px;/.test(max560Css));
+  check("qimen-rwd-boundary-horizontal-centered", true, /\.qimen-guxu-pos-xun-top,[\s\S]*?top:\s*0;[\s\S]*?transform:\s*translate\(-50%,\s*-50%\);/.test(mainCssRaw) && /\.qimen-guxu-pos-kan-bottom,[\s\S]*?bottom:\s*0;[\s\S]*?transform:\s*translate\(-50%,\s*50%\);/.test(mainCssRaw));
+  check("qimen-rwd-boundary-vertical-centered", true, /\.qimen-guxu-pos-gen-left,[\s\S]*?left:\s*0;[\s\S]*?transform:\s*translate\(-50%,\s*-50%\);/.test(mainCssRaw) && /\.qimen-guxu-pos-kun-right,[\s\S]*?right:\s*0;[\s\S]*?transform:\s*translate\(50%,\s*-50%\);/.test(mainCssRaw));
+  check("qimen-rwd-boundary-no-narrow-override", false, /\.qimen-(?:guxu|virtue-punishment)-pos-[^{]+\{[^}]*\b(?:left|right):\s*-\d+px;/.test(mainCssRaw));
   check("qimen-rwd-no-global-overflow-mask", false, /body\s*\{[^}]*overflow-x:\s*hidden;/.test(mainCssRaw));
   check("qimen-rwd-no-scale-workaround", false, /\.qimen-(?:plate|palace)[^{]*\{[^}]*transform:\s*scale\(/.test(mainCssRaw));
   check("qimen-rwd-no-zoom-workaround", false, /\.qimen-(?:plate|palace)[^{]*\{[^}]*\bzoom\s*:/.test(mainCssRaw));
@@ -2562,7 +2558,8 @@ function runQimenResponsiveOverflowTests() {
   check("qimen-rwd-manual-controls-wrap", true, /\.qimen-manual-control-row\s*\{[\s\S]*?flex-wrap:\s*wrap;/.test(mainCssRaw));
 
   const viewportExpectations = [
-    [389, true],
+    [360, false],
+    [389, false],
     [390, false],
     [420, false],
     [430, false],
@@ -2584,17 +2581,10 @@ function runQimenResponsiveOverflowTests() {
   ];
 
   for (const [viewportWidth, expectedOverflow] of viewportExpectations) {
-    const appWidth = Math.min(850, viewportWidth - 32);
-    const isSpecialWidth = viewportWidth >= 390 && viewportWidth <= 430;
-    const panelPadding = isSpecialWidth ? 3 : viewportWidth <= 760 ? 6 : 8;
-    const wrapperPadding = isSpecialWidth ? 1 : viewportWidth <= 560 ? 5 : 16;
-    const nominalGridMin = viewportWidth <= 420 ? 400 : viewportWidth <= 560 ? 440 : viewportWidth <= 760 ? 520 : 0;
-    const availableGridWidth = appWidth - (panelPadding * 2) - 2 - (wrapperPadding * 2);
-    const cappedGridMin = viewportWidth >= 390 && viewportWidth <= 760
-      ? Math.min(nominalGridMin, availableGridWidth)
-      : nominalGridMin;
-    const sideBadgeOutset = isSpecialWidth ? 1 : viewportWidth >= 390 && viewportWidth <= 560 ? 5 : 15;
-    const hasHorizontalOverflow = cappedGridMin > availableGridWidth || sideBadgeOutset > wrapperPadding;
+    const isMobileWidth = viewportWidth <= 760;
+    const wrapperPadding = viewportWidth >= 390 && viewportWidth <= 430 ? 9 : viewportWidth <= 560 ? 9 : 16;
+    const sideBadgeOutset = viewportWidth <= 560 ? 8 : 9;
+    const hasHorizontalOverflow = isMobileWidth && sideBadgeOutset > wrapperPadding;
 
     check(`qimen-rwd-viewport-${viewportWidth}`, expectedOverflow, hasHorizontalOverflow);
   }
@@ -7900,7 +7890,13 @@ function runQimenQiResponseTests() {
       && mainCssRaw.includes(".qimen-door-status-row")
       && mainCssRaw.includes("grid-auto-rows: minmax(var(--qimen-cell-min-height), 1fr)")
       && /\.qimen-palace-door\s*\{[^}]*position: relative;[^}]*z-index: 1;/.test(mainCssRaw)
-      && /\.qimen-door-status-row\s*\{[^}]*position: relative;[^}]*z-index: 2;[^}]*margin-top: -2px;/.test(mainCssRaw)
+      && /\.qimen-door-status-row\s*\{[^}]*position: absolute;[^}]*right: 0;[^}]*bottom: 0;[^}]*left: 0;[^}]*z-index: 2;/.test(mainCssRaw)
+      && /\.qimen-star-qi-response\s*\{[^}]*display: inline;[^}]*border: 0;[^}]*font-size: var\(--qimen-status-font-size\);/.test(mainCssRaw)
+      && /\.qimen-door-qi-response\s*\{[^}]*display: inline;[^}]*border: 0;[^}]*font-size: var\(--qimen-status-font-size\);/.test(mainCssRaw)
+      && /\.qimen-door-relation-marker\s*\{[^}]*margin-left: auto;/.test(mainCssRaw)
+      && /\.qimen-palace-deity-zhi-fu\s*\{[^}]*border: 0;[^}]*background: #eef2f6;/.test(mainCssRaw)
+      && /\.qimen-palace-star-tian-yi\s*\{[^}]*border: 0;[^}]*background: #eef2f6;/.test(mainCssRaw)
+      && /\.qimen-palace-door-zhi-shi\s*\{[^}]*border-width: 2px;/.test(mainCssRaw)
       && /\.qimen-door-block\s*\{[^}]*overflow: visible;/.test(mainCssRaw)
   );
 
@@ -7915,11 +7911,15 @@ function runQimenQiResponseTests() {
   qimenQiResponseVerifiedCaseCount += 1;
   assertEqual("qimen-qi-star-block-order", "children", "qimen-palace-star,qimen-star-qi-response", starBlock.childNodes.map((node) => node.className).join(","));
   qimenQiResponseVerifiedCaseCount += 1;
+  assertEqual("qimen-qi-star-state-preserved", "text", "廢", starBlock.childNodes[1].textContent);
+  qimenQiResponseVerifiedCaseCount += 1;
   assertEqual("qimen-qi-general-star-has-no-frame", "classes", "qimen-star-block", starBlock.className);
   qimenQiResponseVerifiedCaseCount += 1;
   assertEqual("qimen-qi-door-status-order", "children", "qimen-palace-door,qimen-door-status-row", doorBlock.childNodes.map((node) => node.className).join(","));
   qimenQiResponseVerifiedCaseCount += 1;
   assertEqual("qimen-qi-door-status-marker-order", "children", "qimen-door-qi-response,qimen-door-po-marker qimen-door-relation-marker", doorBlock.childNodes[1].childNodes.map((node) => node.className).join(","));
+  qimenQiResponseVerifiedCaseCount += 1;
+  assertEqual("qimen-qi-door-state-preserved", "text", "休", doorBlock.childNodes[1].childNodes[0].textContent);
 
   const qiAndGenerateContent = renderPalaceContent(
     { deity: "九地", star: "天任", door: "生", heavenStem: "丁", earthStem: "己" },
@@ -7946,10 +7946,22 @@ function runQimenQiResponseTests() {
     { starQiResponse: { state: "相" }, doorQiResponse: { state: "囚" } }
   );
   const tianYiStarBlock = tianYiContent.childNodes[0].childNodes[1];
+  const tianYiDeity = tianYiContent.childNodes[0].childNodes[0];
+  qimenQiResponseVerifiedCaseCount += 1;
+  assertEqual("qimen-qi-zhi-fu-deity-marker", "classes", "qimen-palace-deity qimen-palace-deity-zhi-fu", tianYiDeity.className);
   qimenQiResponseVerifiedCaseCount += 1;
   assertEqual("qimen-qi-tian-yi-frame-is-star-only", "classes", "qimen-star-block", tianYiStarBlock.className);
   qimenQiResponseVerifiedCaseCount += 1;
   assertEqual("qimen-qi-tian-yi-response-is-frame-sibling", "children", "qimen-palace-star qimen-palace-star-tian-yi,qimen-star-qi-response", tianYiStarBlock.childNodes.map((node) => node.className).join(","));
+
+  const zhiShiContent = renderPalaceContent(
+    { deity: "九天", star: "天心", door: "開", heavenStem: "庚", earthStem: "辛", isZhiShiPalace: true },
+    {},
+    false,
+    { doorQiResponse: { state: "胎" } }
+  );
+  qimenQiResponseVerifiedCaseCount += 1;
+  assertEqual("qimen-qi-zhi-shi-door-marker", "classes", "qimen-palace-door qimen-palace-door-zhi-shi", zhiShiContent.childNodes[1].childNodes[0].childNodes[0].className);
 
   const noQiContent = renderPalaceContent(
     { deity: "九地", star: "天柱", door: "杜", heavenStem: "庚", earthStem: "壬" },

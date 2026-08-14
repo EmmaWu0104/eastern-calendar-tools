@@ -1435,6 +1435,7 @@ dd {
   --qimen-header-font-size: 12px;
   --qimen-main-font-size: 15px;
   --qimen-small-font-size: 12px;
+  --qimen-status-font-size: 9px;
   --qimen-marker-font-size: 10px;
   --qimen-center-marker-min-width: 28px;
   --qimen-door-size: 34px;
@@ -1554,33 +1555,33 @@ dd {
 .qimen-guxu-pos-xun-top,
 .qimen-guxu-pos-li-top,
 .qimen-guxu-pos-kun-top {
-  top: -15px;
+  top: 0;
   left: 50%;
-  transform: translateX(-50%);
+  transform: translate(-50%, -50%);
 }
 
 .qimen-guxu-pos-kan-bottom,
 .qimen-guxu-pos-gen-bottom,
 .qimen-guxu-pos-qian-bottom {
-  bottom: -15px;
+  bottom: 0;
   left: 50%;
-  transform: translateX(-50%);
+  transform: translate(-50%, 50%);
 }
 
 .qimen-guxu-pos-gen-left,
 .qimen-guxu-pos-zhen-left,
 .qimen-guxu-pos-xun-left {
   top: 50%;
-  left: -15px;
-  transform: translateY(-50%);
+  left: 0;
+  transform: translate(-50%, -50%);
 }
 
 .qimen-guxu-pos-kun-right,
 .qimen-guxu-pos-dui-right,
 .qimen-guxu-pos-qian-right {
   top: 50%;
-  right: -15px;
-  transform: translateY(-50%);
+  right: 0;
+  transform: translate(50%, -50%);
 }
 
 .qimen-virtue-punishment-badge {
@@ -1610,30 +1611,30 @@ dd {
 
 .qimen-virtue-punishment-pos-li-top,
 .qimen-virtue-punishment-pos-kun-top {
-  top: -15px;
+  top: 0;
   left: 50%;
-  transform: translateX(-50%);
+  transform: translate(-50%, -50%);
 }
 
 .qimen-virtue-punishment-pos-kan-bottom,
 .qimen-virtue-punishment-pos-gen-bottom {
-  bottom: -15px;
+  bottom: 0;
   left: 50%;
-  transform: translateX(-50%);
+  transform: translate(-50%, 50%);
 }
 
 .qimen-virtue-punishment-pos-zhen-left,
 .qimen-virtue-punishment-pos-xun-left {
   top: 50%;
-  left: -15px;
-  transform: translateY(-50%);
+  left: 0;
+  transform: translate(-50%, -50%);
 }
 
 .qimen-virtue-punishment-pos-dui-right,
 .qimen-virtue-punishment-pos-qian-right {
   top: 50%;
-  right: -15px;
-  transform: translateY(-50%);
+  right: 0;
+  transform: translate(50%, -50%);
 }
 
 .qimen-virtue-punishment-pos-zhen-left.has-gu-xu-marker,
@@ -1756,9 +1757,11 @@ dd {
   width: fit-content;
   max-width: 100%;
   padding: 1px 5px 2px;
-  border: 1px solid #52616f;
+  border: 0;
   border-radius: 4px;
-  background: #ffffff;
+  background: #eef2f6;
+  color: #52616f;
+  font-weight: 700;
 }
 
 .qimen-palace-star {
@@ -1775,33 +1778,36 @@ dd {
   width: fit-content;
   max-width: 100%;
   padding: 1px 4px 2px;
-  border: 1px solid #1f2933;
+  border: 0;
   border-radius: 4px;
-  background: #ffffff;
-  color: #1f2933;
+  background: #eef2f6;
+  color: #52616f;
+  font-weight: 700;
 }
 
 .qimen-star-qi-response {
-  display: inline-grid;
-  width: 14px;
-  height: 14px;
-  place-items: center;
+  display: inline;
+  width: auto;
+  height: auto;
   box-sizing: border-box;
-  margin-top: 2px;
-  border: 1px solid #b8c2cc;
-  border-radius: 50%;
-  background: #ffffff;
-  color: #475569;
-  font-size: var(--qimen-marker-font-size);
-  font-weight: 850;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: #7b8794;
+  font-size: var(--qimen-status-font-size);
+  font-weight: 700;
   line-height: 1;
+  white-space: nowrap;
   pointer-events: none;
 }
 
 .qimen-star-block {
   display: flex;
-  flex-direction: column;
-  align-items: center;
+  flex-direction: row;
+  align-items: baseline;
+  gap: 3px;
+  flex-wrap: nowrap;
   width: fit-content;
   max-width: 100%;
 }
@@ -1829,23 +1835,28 @@ dd {
 }
 
 .qimen-door-block {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
+  min-width: var(--qimen-door-size);
   width: fit-content;
   max-width: 100%;
+  padding-bottom: 14px;
   overflow: visible;
 }
 
 .qimen-door-status-row {
-  position: relative;
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
   z-index: 2;
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   min-height: 14px;
-  margin-top: -2px;
-  gap: 4px;
+  gap: 2px;
 }
 
 .qimen-stem-wrap {
@@ -1885,13 +1896,12 @@ dd {
   color: #475569;
 }
 
-.qimen-door-qi-response,
 .qimen-door-relation-marker {
   display: inline-grid;
   place-items: center;
   min-width: 14px;
   min-height: 14px;
-  padding: 0 2px;
+  padding: 0 0px;
   border: 1px solid #b8c2cc;
   border-radius: 3px;
   background: #ffffff;
@@ -1899,6 +1909,25 @@ dd {
   font-size: var(--qimen-marker-font-size);
   font-weight: 850;
   line-height: 1;
+}
+
+.qimen-door-qi-response {
+  display: inline;
+  min-width: 0;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: #7b8794;
+  font-size: var(--qimen-status-font-size);
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.qimen-door-relation-marker {
+  margin-left: auto;
 }
 
 .qimen-center-heaven-stem-marker,
@@ -2457,8 +2486,18 @@ dd {
   }
 
   .qimen-plate-panel {
-    padding: 6px;
-    --qimen-grid-min-width: 520px;
+    padding: 5px;
+    --qimen-grid-min-width: 0px;
+    --qimen-grid-gap: 5px;
+    --qimen-cell-padding: 5px 6px 20px;
+    --qimen-zhi-cell-padding: 4px 5px 19px;
+    --qimen-cell-min-height: 118px;
+    --qimen-status-font-size: 9px;
+  }
+
+  .qimen-plate-grid-wrap {
+    overflow-x: visible;
+    overflow-y: visible;
   }
 }
 
@@ -2470,43 +2509,54 @@ dd {
 
 @media (max-width: 560px) {
   .qimen-plate-panel {
-    --qimen-grid-min-width: 440px;
-    --qimen-grid-gap: 4px;
-    --qimen-cell-padding: 5px 5px 21px;
-    --qimen-zhi-cell-padding: 4px 4px 20px;
-    --qimen-cell-min-height: 116px;
+    --qimen-grid-min-width: 0px;
+    --qimen-grid-gap: 2px;
+    --qimen-cell-padding: 4px 4px 17px;
+    --qimen-zhi-cell-padding: 3px 3px 16px;
+    --qimen-cell-min-height: 112px;
     --qimen-header-font-size: 11px;
     --qimen-main-font-size: 13px;
     --qimen-small-font-size: 11px;
+    --qimen-status-font-size: 9px;
     --qimen-marker-font-size: 9px;
     --qimen-center-marker-min-width: 25px;
-    --qimen-door-size: 30px;
+    --qimen-door-size: 29px;
     --qimen-door-font-size: 14px;
     --qimen-gua-font-size: 11px;
   }
 
   .qimen-plate-grid-wrap {
-    padding: 4px 5px 7px;
+    padding: 4px 9px 6px;
+  }
+
+  .qimen-palace-cell {
+    gap: 2px;
+  }
+
+  .qimen-guxu-badge,
+  .qimen-virtue-punishment-badge {
+    width: 16px;
+    height: 16px;
+    font-size: 9px;
   }
 
   .qimen-palace-content {
-    grid-template-columns: minmax(0, 1fr) minmax(27px, 0.58fr) minmax(38px, 0.7fr);
-    gap: 3px;
-    min-height: 58px;
+    grid-template-columns: minmax(31px, 1.15fr) minmax(24px, 0.72fr) minmax(26px, 0.8fr);
+    gap: 2px;
+    min-height: 56px;
   }
 
   .qimen-palace-center-main {
-    padding-top: 5px;
-    transform: translateX(-2px);
+    padding-top: 4px;
+    transform: translateX(-1px);
   }
 
   .qimen-palace-gua-corner {
-    left: 5px;
-    bottom: 4px;
+    left: 4px;
+    bottom: 3px;
   }
 
   .qimen-heaven-stem-marker,
-  .qimen-door-qi-response,
   .qimen-door-relation-marker,
   .qimen-palace-over-door-marker,
   .qimen-palace-generate-door-marker {
@@ -2514,27 +2564,38 @@ dd {
     min-height: 12px;
   }
 
-  .qimen-star-qi-response {
-    width: 12px;
-    height: 12px;
-  }
-}
-
-@media (min-width: 390px) and (max-width: 560px) {
-  .qimen-guxu-pos-gen-left,
-  .qimen-guxu-pos-zhen-left,
-  .qimen-guxu-pos-xun-left,
-  .qimen-virtue-punishment-pos-zhen-left,
-  .qimen-virtue-punishment-pos-xun-left {
-    left: -5px;
+  .qimen-door-block {
+    padding-bottom: 12px;
   }
 
-  .qimen-guxu-pos-kun-right,
-  .qimen-guxu-pos-dui-right,
-  .qimen-guxu-pos-qian-right,
-  .qimen-virtue-punishment-pos-dui-right,
-  .qimen-virtue-punishment-pos-qian-right {
-    right: -5px;
+  .qimen-door-status-row {
+    min-height: 12px;
+  }
+
+  .qimen-palace-header {
+    line-height: 1.1;
+  }
+
+  .qimen-palace-lines {
+    line-height: 1.25;
+  }
+
+  .qimen-palace-deity,
+  .qimen-palace-star {
+    line-height: 1.15;
+  }
+
+  .qimen-palace-star {
+    white-space: nowrap;
+  }
+
+  .qimen-palace-heaven-stem,
+  .qimen-palace-earth-stem {
+    line-height: 1.1;
+  }
+
+  .qimen-palace-note {
+    line-height: 1.25;
   }
 }
 
@@ -2649,37 +2710,42 @@ dd {
 
 @media (max-width: 420px) {
   .qimen-plate-panel {
-    --qimen-grid-min-width: 400px;
-    --qimen-cell-padding: 4px 4px 20px;
-    --qimen-zhi-cell-padding: 3px 3px 19px;
-    --qimen-cell-min-height: 110px;
+    --qimen-grid-min-width: 0px;
+    --qimen-cell-padding: 3px 3px 16px;
+    --qimen-zhi-cell-padding: 2px 2px 15px;
+    --qimen-cell-min-height: 106px;
     --qimen-header-font-size: 10px;
     --qimen-main-font-size: 12px;
     --qimen-small-font-size: 10px;
+    --qimen-status-font-size: 9px;
     --qimen-marker-font-size: 8px;
     --qimen-center-marker-min-width: 23px;
-    --qimen-door-size: 28px;
+    --qimen-door-size: 27px;
     --qimen-door-font-size: 13px;
     --qimen-gua-font-size: 10px;
   }
 
+  .qimen-plate-grid-wrap {
+    padding: 3px 9px 6px;
+  }
+
   .qimen-palace-content {
-    grid-template-columns: minmax(0, 1fr) minmax(25px, 0.54fr) minmax(36px, 0.68fr);
+    grid-template-columns: minmax(31px, 1.15fr) minmax(24px, 0.72fr) minmax(26px, 0.8fr);
   }
 
   .qimen-palace-door {
-    padding: 3px 4px;
+    padding: 2px 3px;
   }
 
   .qimen-palace-gua-corner {
-    left: 4px;
-    bottom: 4px;
+    left: 3px;
+    bottom: 3px;
   }
 }
 
 @media (min-width: 390px) and (max-width: 430px) {
   .qimen-plate-panel {
-    --qimen-grid-min-width: 100%;
+    --qimen-grid-min-width: 0px;
     padding: 3px;
   }
 
@@ -2689,28 +2755,12 @@ dd {
   }
 
   .qimen-plate-grid-wrap {
-    padding: 3px 1px 6px;
+    padding: 3px 9px 6px;
     overflow-x: visible;
   }
 
   .qimen-palace-content {
-    grid-template-columns: minmax(0, 1fr) minmax(25px, 0.54fr) minmax(36px, 0.68fr);
-  }
-
-  .qimen-guxu-pos-gen-left,
-  .qimen-guxu-pos-zhen-left,
-  .qimen-guxu-pos-xun-left,
-  .qimen-virtue-punishment-pos-zhen-left,
-  .qimen-virtue-punishment-pos-xun-left {
-    left: -1px;
-  }
-
-  .qimen-guxu-pos-kun-right,
-  .qimen-guxu-pos-dui-right,
-  .qimen-guxu-pos-qian-right,
-  .qimen-virtue-punishment-pos-dui-right,
-  .qimen-virtue-punishment-pos-qian-right {
-    right: -1px;
+    grid-template-columns: minmax(31px, 1.15fr) minmax(24px, 0.72fr) minmax(26px, 0.8fr);
   }
 }
 
