@@ -27,7 +27,7 @@ export const QIMEN_HEAVEN_STEM_MARKERS = Object.freeze({
   li: Object.freeze({ 辛: "刑" }),
   kun: Object.freeze({ 乙: "墓", 己: "刑", 癸: "刑" }),
   dui: Object.freeze({ 乙: "制" }),
-  qian: Object.freeze({ 乙: "制", 丙: "墓", 丁: "墓" }),
+  qian: Object.freeze({ 乙: "墓", 丙: "墓", 丁: "墓" }),
   center: Object.freeze({}),
 });
 
@@ -253,7 +253,11 @@ export function getQimenCenterStemPlacements(plate) {
   if (isNonEmptyString(center.heavenStem)) {
     const tianRuiPalaceKey = findQimenTianRuiPalaceKey(plate);
     if (tianRuiPalaceKey) {
-      centerHeavenStem = { palaceKey: tianRuiPalaceKey, value: center.heavenStem };
+      centerHeavenStem = {
+        palaceKey: tianRuiPalaceKey,
+        value: center.heavenStem,
+        marker: getQimenHeavenStemMarker(tianRuiPalaceKey, center.heavenStem),
+      };
     } else {
       diagnostics.push({ ...TIAN_RUI_PALACE_NOT_FOUND_DIAGNOSTIC });
     }
@@ -281,6 +285,9 @@ export function decorateQimenPlateMarkers(plate) {
       doorGeneratePalace: getQimenDoorOverPalaceGenerateMarker(palaceKey, palace?.door),
       centerHeavenStem: placements.centerHeavenStem?.palaceKey === palaceKey
         ? placements.centerHeavenStem.value
+        : null,
+      centerHeavenStemMarker: placements.centerHeavenStem?.palaceKey === palaceKey
+        ? placements.centerHeavenStem.marker
         : null,
       centerEarthStem: placements.centerEarthStem?.palaceKey === palaceKey
         ? placements.centerEarthStem.value

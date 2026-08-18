@@ -7005,7 +7005,10 @@ function runQimenPlateMarkersTests() {
   assertEqual("qimen-plate-markers-heaven-stem-kan-bing", "marker", "制", getQimenHeavenStemMarker("kan", "丙"));
   assertEqual("qimen-plate-markers-heaven-stem-kan-ding", "marker", "制", getQimenHeavenStemMarker("kan", "丁"));
   assertEqual("qimen-plate-markers-heaven-stem-gen-geng", "marker", "刑", getQimenHeavenStemMarker("gen", "庚"));
+  assertEqual("qimen-plate-markers-heaven-stem-qian-yi", "marker", "墓", getQimenHeavenStemMarker("qian", "乙"));
   assertEqual("qimen-plate-markers-heaven-stem-qian-bing", "marker", "墓", getQimenHeavenStemMarker("qian", "丙"));
+  assertEqual("qimen-plate-markers-heaven-stem-qian-ding", "marker", "墓", getQimenHeavenStemMarker("qian", "丁"));
+  assertEqual("qimen-plate-markers-heaven-stem-dui-yi", "marker", "制", getQimenHeavenStemMarker("dui", "乙"));
   assertEqual("qimen-plate-markers-heaven-stem-xun-gui", "marker", "刑", getQimenHeavenStemMarker("xun", "癸"));
   assertEqual("qimen-plate-markers-heaven-stem-no-match", "marker", null, getQimenHeavenStemMarker("kan", "戊"));
   assertEqual("qimen-plate-markers-heaven-stem-invalid-palace", "marker", null, getQimenHeavenStemMarker(null, "丙"));
@@ -7188,6 +7191,7 @@ function runQimenPlateMarkersTests() {
   assertEqual("qimen-plate-markers-center-placement-earth", "value", "己", placements.centerEarthStem?.value);
   assertEqual("qimen-plate-markers-center-placement-heaven", "palaceKey", "kun", placements.centerHeavenStem?.palaceKey);
   assertEqual("qimen-plate-markers-center-placement-heaven", "value", "戊", placements.centerHeavenStem?.value);
+  assertEqual("qimen-plate-markers-center-placement-heaven", "marker", null, placements.centerHeavenStem?.marker);
   assertEqual("qimen-plate-markers-center-placement-diagnostics", "length", 0, placements.diagnostics.length);
   assertEqual("qimen-plate-markers-center-placement-original-heaven", "center.heavenStem", "戊", placementPlate.palaces.center.heavenStem);
   assertEqual("qimen-plate-markers-center-placement-original-earth", "center.earthStem", "己", placementPlate.palaces.center.earthStem);
@@ -7223,10 +7227,32 @@ function runQimenPlateMarkersTests() {
   assertEqual("qimen-plate-markers-decorate-kun-door-po", "doorPo", "迫", markers.palaces.kun.doorPo);
   assertEqual("qimen-plate-markers-decorate-kun-center-earth", "centerEarthStem", "己", markers.palaces.kun.centerEarthStem);
   assertEqual("qimen-plate-markers-decorate-kun-center-heaven", "centerHeavenStem", "戊", markers.palaces.kun.centerHeavenStem);
+  assertEqual("qimen-plate-markers-decorate-kun-center-heaven-marker", "centerHeavenStemMarker", null, markers.palaces.kun.centerHeavenStemMarker);
   assertEqual("qimen-plate-markers-decorate-placements-earth", "palaceKey", "kun", markers.placements.centerEarthStem?.palaceKey);
   assertEqual("qimen-plate-markers-decorate-placements-heaven", "palaceKey", "kun", markers.placements.centerHeavenStem?.palaceKey);
   assertEqual("qimen-plate-markers-decorate-diagnostics-array", "isArray", true, Array.isArray(markers.diagnostics));
   assertEqual("qimen-plate-markers-decorate-no-pollution", "json", decoratedBefore, JSON.stringify(decoratedPlate));
+
+  const centerHeavenStemMarkerCases = [
+    ["yin-eight-bing-xin-li-punishment", "li", "辛", "刑"],
+    ["center-heaven-yi-qian-tomb", "qian", "乙", "墓"],
+    ["center-heaven-bing-qian-tomb", "qian", "丙", "墓"],
+    ["center-heaven-yi-dui-control", "dui", "乙", "制"],
+  ];
+  for (const [id, tianRuiPalaceKey, centerHeavenStem, expectedMarker] of centerHeavenStemMarkerCases) {
+    const centerMarkerPlate = createQimenCenterHeavenStemMarkerFixturePlate(tianRuiPalaceKey, centerHeavenStem);
+    const centerMarkerViewModel = decorateQimenPlateMarkers(centerMarkerPlate);
+    qimenPlateMarkersVerifiedCaseCount += 1;
+    assertEqual(`qimen-plate-markers-${id}`, "centerHeavenStem", centerHeavenStem, centerMarkerViewModel.palaces[tianRuiPalaceKey].centerHeavenStem);
+    assertEqual(`qimen-plate-markers-${id}`, "centerHeavenStemMarker", expectedMarker, centerMarkerViewModel.palaces[tianRuiPalaceKey].centerHeavenStemMarker);
+    assertEqual(`qimen-plate-markers-${id}`, "placementMarker", expectedMarker, centerMarkerViewModel.placements.centerHeavenStem?.marker);
+  }
+
+  const centerHeavenStemNoMarkerPlate = createQimenCenterHeavenStemMarkerFixturePlate("li", "戊");
+  const centerHeavenStemNoMarkerViewModel = decorateQimenPlateMarkers(centerHeavenStemNoMarkerPlate);
+  qimenPlateMarkersVerifiedCaseCount += 1;
+  assertEqual("qimen-plate-markers-center-heaven-no-match", "centerHeavenStem", "戊", centerHeavenStemNoMarkerViewModel.palaces.li.centerHeavenStem);
+  assertEqual("qimen-plate-markers-center-heaven-no-match", "centerHeavenStemMarker", null, centerHeavenStemNoMarkerViewModel.palaces.li.centerHeavenStemMarker);
 
   const generalZhiFuPlate = createQimenDisplayZhiFuFixturePlate({ zhiFuPalaceKey: "li" });
   const generalZhiFuBefore = JSON.stringify(generalZhiFuPlate);
@@ -7347,6 +7373,15 @@ function createQimenMarkerFixturePlate(options = {}) {
     zhiShiDoor: "休",
     palaces,
   };
+}
+
+function createQimenCenterHeavenStemMarkerFixturePlate(tianRuiPalaceKey, centerHeavenStem) {
+  const plate = createQimenMarkerFixturePlate({ centerHeavenStem });
+  for (const palaceKey of QIMEN_PALACE_KEYS) {
+    plate.palaces[palaceKey].star = "天任";
+  }
+  plate.palaces[tianRuiPalaceKey].star = "天芮";
+  return plate;
 }
 
 function runQimenOpenCloseTests() {
@@ -7885,9 +7920,14 @@ function runQimenQiResponseTests() {
       && mainModuleRaw.includes('"qimen-star-block"')
       && mainModuleRaw.includes('"qimen-door-block"')
       && mainModuleRaw.includes('"qimen-door-status-row"')
+      && mainModuleRaw.includes('palaceMarkers.centerHeavenStemMarker')
+      && mainModuleRaw.includes('"qimen-center-heaven-stem-group"')
+      && mainModuleRaw.includes('"qimen-heaven-stem-marker"')
       && !mainModuleRaw.includes('"is-inside-tian-yi-frame"')
       && mainCssRaw.includes(".qimen-star-block")
       && mainCssRaw.includes(".qimen-door-status-row")
+      && mainCssRaw.includes(".qimen-center-heaven-stem-group")
+      && mainCssRaw.includes("--qimen-cell-min-height: 124px")
       && mainCssRaw.includes("grid-auto-rows: minmax(var(--qimen-cell-min-height), 1fr)")
       && /\.qimen-palace-door\s*\{[^}]*position: relative;[^}]*z-index: 1;/.test(mainCssRaw)
       && /\.qimen-door-status-row\s*\{[^}]*position: absolute;[^}]*right: 0;[^}]*bottom: 0;[^}]*left: 0;[^}]*z-index: 2;/.test(mainCssRaw)

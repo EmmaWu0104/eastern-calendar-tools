@@ -1691,6 +1691,17 @@ dd {
   min-width: 0;
 }
 
+.qimen-center-heaven-stem-group {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 2px;
+  flex: 0 0 auto;
+  min-width: 0;
+  margin-left: auto;
+  white-space: nowrap;
+}
+
 .qimen-palace-lines {
   display: grid;
   gap: 3px;
@@ -1940,7 +1951,6 @@ dd {
 
 .qimen-center-heaven-stem-marker {
   flex: 0 0 auto;
-  margin-left: auto;
 }
 
 .qimen-center-earth-stem-marker {
@@ -2510,10 +2520,10 @@ dd {
 @media (max-width: 560px) {
   .qimen-plate-panel {
     --qimen-grid-min-width: 0px;
-    --qimen-grid-gap: 2px;
+    --qimen-grid-gap: 3px;
     --qimen-cell-padding: 4px 4px 17px;
     --qimen-zhi-cell-padding: 3px 3px 16px;
-    --qimen-cell-min-height: 112px;
+    --qimen-cell-min-height: 124px;
     --qimen-header-font-size: 11px;
     --qimen-main-font-size: 13px;
     --qimen-small-font-size: 11px;
@@ -2573,7 +2583,15 @@ dd {
   }
 
   .qimen-palace-header {
+    flex-wrap: wrap;
     line-height: 1.1;
+    row-gap: 2px;
+  }
+
+  .qimen-center-heaven-stem-group {
+    flex-basis: 100%;
+    justify-content: flex-end;
+    margin-left: 0;
   }
 
   .qimen-palace-lines {
@@ -2713,7 +2731,7 @@ dd {
     --qimen-grid-min-width: 0px;
     --qimen-cell-padding: 3px 3px 16px;
     --qimen-zhi-cell-padding: 2px 2px 15px;
-    --qimen-cell-min-height: 106px;
+    --qimen-cell-min-height: 118px;
     --qimen-header-font-size: 10px;
     --qimen-main-font-size: 12px;
     --qimen-small-font-size: 10px;

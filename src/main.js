@@ -3527,10 +3527,20 @@ function createQimenPalaceCell(
   header.append(headerLabel);
 
   if (palaceMarkers.centerHeavenStem) {
-    header.append(createQimenInlineMarker(
+    const centerHeavenStemGroup = document.createElement("span");
+    centerHeavenStemGroup.className = "qimen-center-heaven-stem-group";
+    centerHeavenStemGroup.append(createQimenInlineMarker(
       palaceMarkers.centerHeavenStem,
       "qimen-center-heaven-stem-marker"
     ));
+    if (palaceMarkers.centerHeavenStemMarker) {
+      centerHeavenStemGroup.append(createQimenInlineMarker(
+        palaceMarkers.centerHeavenStemMarker,
+        "qimen-heaven-stem-marker",
+        `中宮天盤干標記：${palaceMarkers.centerHeavenStemMarker}`
+      ));
+    }
+    header.append(centerHeavenStemGroup);
   }
 
   if (!palace) {
