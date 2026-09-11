@@ -277,7 +277,7 @@ const {
   resolveQimenStarQiResponse,
 } = await import("../src/qimenQiResponse.js");
 const {
-  QIMEN_FIVE_NOT_ENCOUNTER_HOUR_BY_DAY_STEM,
+  QIMEN_FIVE_NOT_ENCOUNTER_HOUR_STEM_BY_DAY_STEM,
   QIMEN_HOUR_STEM_ENTERS_TOMB_BY_DAY_STEM,
   normalizeQimenDayPillar,
   normalizeQimenPillar,
@@ -8040,23 +8040,65 @@ function runQimenTimeSpecialConditionsTests() {
   assertEqual("qimen-time-special-tian-wang-other", "contains", false, getConditionKeys(resolveQimenTimeSpecialConditions({ dayPillar: "乙巳", hourPillar: "丙午" })).includes("tianWangFourSpread"));
   assertEqual("qimen-time-special-tian-wang-ren", "contains", false, getConditionKeys(resolveQimenTimeSpecialConditions({ dayPillar: "乙巳", hourPillar: "壬辰" })).includes("tianWangFourSpread"));
 
-  const fiveNotEncounterPositiveCases = Object.entries(QIMEN_FIVE_NOT_ENCOUNTER_HOUR_BY_DAY_STEM);
-  for (const [dayStem, hourPillar] of fiveNotEncounterPositiveCases) {
+  const expectedFiveNotEncounterHourStemByDayStem = Object.freeze({
+    甲: "庚",
+    乙: "辛",
+    丙: "壬",
+    丁: "癸",
+    戊: "甲",
+    己: "乙",
+    庚: "丙",
+    辛: "丁",
+    壬: "戊",
+    癸: "己",
+  });
+  for (const [dayStem, expectedHourStem] of Object.entries(expectedFiveNotEncounterHourStemByDayStem)) {
+    qimenTimeSpecialConditionsVerifiedCaseCount += 1;
+    assertEqual(
+      `qimen-time-special-five-not-encounter-mapping-${dayStem}`,
+      "hourStem",
+      expectedHourStem,
+      QIMEN_FIVE_NOT_ENCOUNTER_HOUR_STEM_BY_DAY_STEM[dayStem]
+    );
+  }
+
+  const fiveNotEncounterPositiveCases = Object.entries(expectedFiveNotEncounterHourStemByDayStem);
+  for (const [dayStem, hourStem] of fiveNotEncounterPositiveCases) {
     const dayPillar = SEXAGENARY_CYCLE.find((pillar) => pillar[0] === dayStem);
+    const hourPillar = SEXAGENARY_CYCLE.find((pillar) => pillar[0] === hourStem);
     const result = resolveQimenTimeSpecialConditions({ dayPillar, hourPillar });
     qimenTimeSpecialConditionsVerifiedCaseCount += 1;
     assertEqual(`qimen-time-special-five-not-encounter-positive-${dayStem}`, "contains", true, getConditionKeys(result).includes("fiveNotEncounterHour"));
   }
 
   const fiveNotEncounterNegativeCases = [
-    ["甲", "庚申"], ["乙", "辛未"], ["丙", "壬午"], ["丁", "癸巳"], ["戊", "甲子"],
-    ["己", "乙卯"], ["庚", "丙寅"], ["辛", "丁卯"], ["壬", "戊午"], ["癸", "己酉"],
+    ["甲", "辛未"], ["乙", "庚申"], ["丙", "癸巳"], ["丁", "壬午"], ["戊", "乙亥"],
+    ["己", "甲子"], ["庚", "丁卯"], ["辛", "丙寅"], ["壬", "己酉"], ["癸", "戊午"],
   ];
   for (const [dayStem, hourPillar] of fiveNotEncounterNegativeCases) {
     const dayPillar = SEXAGENARY_CYCLE.find((pillar) => pillar[0] === dayStem);
     const result = resolveQimenTimeSpecialConditions({ dayPillar, hourPillar });
     qimenTimeSpecialConditionsVerifiedCaseCount += 1;
     assertEqual(`qimen-time-special-five-not-encounter-negative-${dayStem}`, "contains", false, getConditionKeys(result).includes("fiveNotEncounterHour"));
+  }
+
+  const fiveNotEncounterDifferentStemSameBranchCases = [
+    ["甲", "壬午"], ["乙", "癸巳"], ["丙", "甲辰"], ["丁", "乙卯"], ["戊", "丙寅"],
+    ["己", "丁丑"], ["庚", "戊子"], ["辛", "己酉"], ["壬", "庚申"], ["癸", "辛未"],
+  ];
+  for (const [dayStem, hourPillar] of fiveNotEncounterDifferentStemSameBranchCases) {
+    const result = resolveQimenTimeSpecialConditions({ dayPillar: dayStem, hourPillar });
+    qimenTimeSpecialConditionsVerifiedCaseCount += 1;
+    assertEqual(`qimen-time-special-five-not-encounter-different-stem-same-branch-${dayStem}-${hourPillar}`, "contains", false, getConditionKeys(result).includes("fiveNotEncounterHour"));
+  }
+
+  const fiveNotEncounterMultipleBranchCases = [
+    ["己", "乙丑"], ["己", "乙亥"], ["庚", "丙子"], ["庚", "丙戌"],
+  ];
+  for (const [dayPillar, hourPillar] of fiveNotEncounterMultipleBranchCases) {
+    const result = resolveQimenTimeSpecialConditions({ dayPillar: `${dayPillar}日`, hourPillar: `${hourPillar}時` });
+    qimenTimeSpecialConditionsVerifiedCaseCount += 1;
+    assertEqual(`qimen-time-special-five-not-encounter-multiple-branches-${dayPillar}-${hourPillar}`, "contains", true, getConditionKeys(result).includes("fiveNotEncounterHour"));
   }
 
   for (const [dayStem, hourPillars] of Object.entries(QIMEN_HOUR_STEM_ENTERS_TOMB_BY_DAY_STEM)) {

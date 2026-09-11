@@ -1,17 +1,17 @@
 import { HEAVENLY_STEMS, SEXAGENARY_CYCLE } from "./ganzhi.js";
 import { normalizeQimenDoorName, normalizeQimenStarName } from "./qimenPlateMarkers.js";
 
-export const QIMEN_FIVE_NOT_ENCOUNTER_HOUR_BY_DAY_STEM = Object.freeze({
-  甲: "庚午",
-  乙: "辛巳",
-  丙: "壬辰",
-  丁: "癸卯",
-  戊: "甲寅",
-  己: "乙丑",
-  庚: "丙子",
-  辛: "丁酉",
-  壬: "戊申",
-  癸: "己未",
+export const QIMEN_FIVE_NOT_ENCOUNTER_HOUR_STEM_BY_DAY_STEM = Object.freeze({
+  甲: "庚",
+  乙: "辛",
+  丙: "壬",
+  丁: "癸",
+  戊: "甲",
+  己: "乙",
+  庚: "丙",
+  辛: "丁",
+  壬: "戊",
+  癸: "己",
 });
 
 export const QIMEN_HOUR_STEM_ENTERS_TOMB_BY_DAY_STEM = Object.freeze({
@@ -71,7 +71,7 @@ export function resolveQimenTimeSpecialConditions({ dayPillar, hourPillar, plate
       }];
     }
     if (condition.key === "fiveNotEncounterHour") {
-      return QIMEN_FIVE_NOT_ENCOUNTER_HOUR_BY_DAY_STEM[dayStem] === normalizedHourPillar
+      return QIMEN_FIVE_NOT_ENCOUNTER_HOUR_STEM_BY_DAY_STEM[dayStem] === hourStem
         ? [condition]
         : [];
     }
