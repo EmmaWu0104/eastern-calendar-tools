@@ -2145,6 +2145,7 @@ dd {
 }
 
 .qimen-export-date-field {
+  position: relative;
   display: grid;
   gap: 4px;
   min-width: 0;
@@ -2157,10 +2158,175 @@ dd {
   font-weight: 800;
 }
 
+.qimen-export-date-control {
+  display: flex;
+  gap: 0;
+  min-width: 0;
+}
+
 .qimen-export-date-input {
+  flex: 1 1 auto;
   width: 100%;
   min-width: 0;
   box-sizing: border-box;
+  border-radius: 6px 0 0 6px;
+}
+
+.qimen-export-date-picker-toggle {
+  display: inline-grid;
+  flex: 0 0 auto;
+  width: 38px;
+  min-width: 38px;
+  min-height: 40px;
+  padding: 0;
+  place-items: center;
+  border: 1px solid #b8c2cc;
+  border-left: 0;
+  border-radius: 0 6px 6px 0;
+  color: #52616f;
+  background: #ffffff;
+}
+
+.qimen-export-date-picker-toggle:hover,
+.qimen-export-date-picker-toggle:focus-visible {
+  border-color: #7b8794;
+  color: #1f2933;
+  background: #f6f8fa;
+}
+
+.qimen-export-date-picker-icon {
+  position: relative;
+  display: block;
+  width: 14px;
+  height: 13px;
+  border: 1.5px solid currentColor;
+  border-radius: 2px;
+}
+
+.qimen-export-date-picker-icon::before {
+  position: absolute;
+  top: 3px;
+  right: -1.5px;
+  left: -1.5px;
+  border-top: 1.5px solid currentColor;
+  content: "";
+}
+
+.qimen-export-date-picker-icon::after {
+  position: absolute;
+  top: -4px;
+  left: 3px;
+  width: 6px;
+  height: 4px;
+  border-right: 1.5px solid currentColor;
+  border-left: 1.5px solid currentColor;
+  content: "";
+}
+
+.qimen-export-date-popover {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 4px);
+  left: 0;
+  width: min(292px, calc(100vw - 32px));
+  box-sizing: border-box;
+  padding: 8px;
+  border: 1px solid #cbd5df;
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 8px 24px rgb(15 23 42 / 18%);
+}
+
+.qimen-export-date-picker-header {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr) 32px;
+  gap: 4px;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.qimen-export-date-picker-nav {
+  display: inline-grid;
+  width: 28px;
+  min-width: 28px;
+  min-height: 28px;
+  padding: 0;
+  place-items: center;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  color: #52616f;
+  background: transparent;
+  font-size: 20px;
+  line-height: 1.2;
+}
+
+.qimen-export-date-picker-nav:hover,
+.qimen-export-date-picker-nav:focus-visible {
+  border-color: #d8dee6;
+  color: #1f2933;
+  background: #f6f8fa;
+}
+
+.qimen-export-date-picker-month {
+  color: #334e68;
+  font-size: 13px;
+  text-align: center;
+}
+
+.qimen-export-date-picker-weekdays,
+.qimen-export-date-picker-days {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 3px;
+}
+
+.qimen-export-date-picker-weekdays {
+  margin-bottom: 3px;
+  color: #627d98;
+  font-size: 11px;
+  font-weight: 800;
+  text-align: center;
+}
+
+.qimen-export-date-picker-day {
+  min-width: 0;
+  min-height: 30px;
+  padding: 3px 2px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  color: #1f2933;
+  background: transparent;
+  font-size: 13px;
+}
+
+.qimen-export-date-picker-day.is-blank {
+  min-height: 30px;
+  border-color: transparent;
+  background: transparent;
+  pointer-events: none;
+}
+
+.qimen-export-date-picker-day.is-today {
+  border-color: #7b8794;
+}
+
+.qimen-export-date-picker-day:hover,
+.qimen-export-date-picker-day:focus-visible {
+  border-color: #d8dee6;
+  background: #f6f8fa;
+}
+
+.qimen-export-date-picker-day.is-selected {
+  border-color: #1f6feb;
+  background: #1f6feb;
+  color: #ffffff;
+}
+
+.qimen-export-date-picker-day.is-selected:hover,
+.qimen-export-date-picker-day.is-selected:focus-visible {
+  border-color: #1f6feb;
+  background: #1f6feb;
+  color: #ffffff;
 }
 
 .qimen-export-download {

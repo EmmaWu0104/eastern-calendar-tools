@@ -18,6 +18,11 @@ import {
   validateQimenExportDateRange,
 } from "../src/qimenExport.js";
 import { getDayPillarFromLocalParts, getHourPillarFromLocalParts } from "../src/ganzhi.js";
+import {
+  createMondayFirstCalendarCells,
+  getDaysInCalendarMonth,
+  getMondayFirstCalendarOffset,
+} from "../src/calendarDateMath.js";
 import { getQimenPlate } from "../src/qimenPlateLookup.js";
 import { resolveQimenJuFromFullTermCycleDraft } from "../src/qimenResolver.js";
 import { QIMEN_DUN_TYPES, QIMEN_HOUR_PILLARS } from "../src/qimenPlateValidation.js";
@@ -123,6 +128,32 @@ check("跨月、跨年及閏年日期區間", () => {
   assert.equal(yearRows.length, 24);
   assert.equal(yearRows[0][0], "2023/12/31");
   assert.equal(yearRows.at(-1)[0], "2024/01/01");
+});
+
+check("匯出日期月曆固定週一開始且日期不偏移", () => {
+  assert.equal(getMondayFirstCalendarOffset(2026, 9), 3);
+  const october = createMondayFirstCalendarCells(2026, 9);
+  assert.deepEqual(october.slice(0, 7), [null, null, null, 1, 2, 3, 4]);
+  assert.equal(october.indexOf(1), 3);
+  assert.equal(october.indexOf(31), 33);
+
+  const sundayFirstMonth = createMondayFirstCalendarCells(2023, 0);
+  assert.equal(getMondayFirstCalendarOffset(2023, 0), 6);
+  assert.equal(sundayFirstMonth.indexOf(1), 6);
+});
+
+check("匯出日期月曆跨月、跨年及閏年排列正確", () => {
+  const december = createMondayFirstCalendarCells(2023, 11);
+  const january = createMondayFirstCalendarCells(2024, 0);
+  const leapFebruary = createMondayFirstCalendarCells(2024, 1);
+
+  assert.equal(getDaysInCalendarMonth(2023, 11), 31);
+  assert.equal(december.indexOf(1), 4);
+  assert.equal(january.indexOf(1), 0);
+  assert.equal(getDaysInCalendarMonth(2024, 1), 29);
+  assert.equal(leapFebruary.indexOf(1), 3);
+  assert.equal(leapFebruary.indexOf(29), 31);
+  assert.ok(december.length >= 31);
 });
 
 check("每筆固定 44 欄，宮位及欄位順序正確", () => {
@@ -249,7 +280,20 @@ await checkAsync("日期選擇器、下載按鈕及錯誤／重複點擊狀態�
   assert.match(mainModule, /qimenElements\.exportButton\.disabled = true/u);
   assert.match(mainModule, /QIMEN_EXPORT_MAX_RANGE_MESSAGE/u);
   assert.match(mainModule, /單次最多 3 個月/u);
+  assert.match(mainModule, /input\.type = "text"/u);
+  assert.doesNotMatch(mainModule, /input\.type = "date"/u);
+  assert.match(mainModule, /qimen-export-date-picker-weekdays/u);
+  assert.match(mainModule, /createMondayFirstCalendarCells/u);
+  assert.match(mainModule, /input\.value = formatQimenExportDateInput/u);
+  assert.match(mainModule, /qimen-export-date-picker-icon/u);
+  assert.match(indexHtml, /一.*二.*三.*四.*五.*六.*日/u);
   assert.match(mainModule, /setQimenExportStatus\(/u);
+  assert.match(mainCss, /\.qimen-export-date-picker-day \{[\s\S]*?background: transparent;[\s\S]*?color: #1f2933;/u);
+  assert.match(mainCss, /\.qimen-export-date-picker-day\.is-selected \{[\s\S]*?background: #1f6feb;[\s\S]*?color: #ffffff;/u);
+  assert.match(mainCss, /\.qimen-export-date-picker-day\.is-today \{[\s\S]*?border-color:/u);
+  assert.match(mainCss, /\.qimen-export-date-picker-toggle \{[\s\S]*?background: #ffffff;/u);
+  assert.match(mainCss, /\.qimen-export-date-picker-weekdays/u);
+  assert.match(mainCss, /width: min\(292px, calc\(100vw - 32px\)\)/u);
   assert.match(mainCss, /@media \(max-width: 560px\)[\s\S]*?\.qimen-export-controls/u);
 });
 

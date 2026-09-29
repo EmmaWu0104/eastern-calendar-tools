@@ -78,6 +78,11 @@ import {
   isTrueSolarDisplayMode,
 } from "./chartDisplayMode.js";
 import { searchTimeZones } from "./timeZoneCatalog.js";
+import {
+  createMondayFirstCalendarCells,
+  getDaysInCalendarMonth,
+  getMondayFirstCalendarOffset,
+} from "./calendarDateMath.js";
 import { getQimenPlate } from "./qimenPlateLookup.js";
 import { createQimenOpenCloseViewModel } from "./qimenOpenClose.js";
 import {
@@ -680,8 +685,8 @@ function renderQueryPicker() {
 function renderMonthCalendarDays() {
   const selectedDate = selectedCalendarDate;
   const today = new Date();
-  const firstWeekday = (new Date(visibleCalendarYear, visibleCalendarMonth, 1).getDay() + 6) % 7;
-  const daysInMonth = new Date(visibleCalendarYear, visibleCalendarMonth + 1, 0).getDate();
+  const firstWeekday = getMondayFirstCalendarOffset(visibleCalendarYear, visibleCalendarMonth);
+  const daysInMonth = getDaysInCalendarMonth(visibleCalendarYear, visibleCalendarMonth);
   const solarTermsByDay = getSolarTermsByDayInVisibleMonth();
   const cells = [];
 
@@ -2504,22 +2509,222 @@ function createQimenExportPanel() {
 }
 
 function createQimenExportDateField(labelText, inputId) {
-  const field = document.createElement("label");
+  const field = document.createElement("div");
   field.className = "qimen-export-date-field";
 
-  const label = document.createElement("span");
+  const label = document.createElement("label");
   label.className = "qimen-export-date-label";
+  label.htmlFor = inputId;
   label.textContent = labelText;
+
+  const control = document.createElement("div");
+  control.className = "qimen-export-date-control";
 
   const input = document.createElement("input");
   input.id = inputId;
-  input.type = "date";
+  input.type = "text";
+  input.inputMode = "numeric";
   input.className = "qimen-export-date-input";
   input.required = true;
+  input.placeholder = "YYYY-MM-DD";
+  input.autocomplete = "off";
+  input.spellcheck = false;
   input.setAttribute("aria-label", labelText);
 
-  field.append(label, input);
+  const toggle = document.createElement("button");
+  toggle.type = "button";
+  toggle.className = "qimen-export-date-picker-toggle";
+  const toggleIcon = document.createElement("span");
+  toggleIcon.className = "qimen-export-date-picker-icon";
+  toggleIcon.setAttribute("aria-hidden", "true");
+  toggle.append(toggleIcon);
+  toggle.setAttribute("aria-label", `開啟${labelText}月曆`);
+  toggle.setAttribute("aria-haspopup", "dialog");
+  toggle.setAttribute("aria-expanded", "false");
+  toggle.setAttribute("aria-controls", `${inputId}-calendar`);
+
+  control.append(input, toggle);
+  field.append(label, control);
+  createQimenExportDatePicker({ field, input, inputId, labelText, toggle });
   return { field, input };
+}
+
+function createQimenExportDatePicker({ field, input, inputId, labelText, toggle }) {
+  const weekdayLabels = ["一", "二", "三", "四", "五", "六", "日"];
+  const currentDate = new Date();
+  let visibleYear = currentDate.getFullYear();
+  let visibleMonth = currentDate.getMonth();
+
+  const popover = document.createElement("div");
+  popover.id = `${inputId}-calendar`;
+  popover.className = "qimen-export-date-popover";
+  popover.setAttribute("role", "dialog");
+  popover.setAttribute("aria-label", `${labelText}月曆`);
+  popover.hidden = true;
+
+  const header = document.createElement("div");
+  header.className = "qimen-export-date-picker-header";
+
+  const previousButton = document.createElement("button");
+  previousButton.type = "button";
+  previousButton.className = "qimen-export-date-picker-nav";
+  previousButton.textContent = "‹";
+  previousButton.setAttribute("aria-label", "上一月");
+
+  const monthLabel = document.createElement("strong");
+  monthLabel.className = "qimen-export-date-picker-month";
+  monthLabel.setAttribute("aria-live", "polite");
+
+  const nextButton = document.createElement("button");
+  nextButton.type = "button";
+  nextButton.className = "qimen-export-date-picker-nav";
+  nextButton.textContent = "›";
+  nextButton.setAttribute("aria-label", "下一月");
+
+  header.append(previousButton, monthLabel, nextButton);
+
+  const weekdays = document.createElement("div");
+  weekdays.className = "qimen-export-date-picker-weekdays";
+  weekdays.setAttribute("aria-hidden", "true");
+  for (const weekdayLabel of weekdayLabels) {
+    const weekday = document.createElement("span");
+    weekday.textContent = weekdayLabel;
+    weekdays.append(weekday);
+  }
+
+  const days = document.createElement("div");
+  days.className = "qimen-export-date-picker-days";
+  days.setAttribute("role", "grid");
+  days.setAttribute("aria-label", "日期");
+
+  popover.append(header, weekdays, days);
+  field.append(popover);
+
+  function render() {
+    monthLabel.textContent = `${visibleYear}年${visibleMonth + 1}月`;
+    const selectedDate = parseQimenExportDateInput(input.value);
+    const today = new Date();
+    const cells = createMondayFirstCalendarCells(visibleYear, visibleMonth).map((day) => {
+      if (day === null) {
+        const blank = document.createElement("span");
+        blank.className = "qimen-export-date-picker-day is-blank";
+        blank.setAttribute("aria-hidden", "true");
+        return blank;
+      }
+
+      const button = document.createElement("button");
+      const isSelected = selectedDate
+        && selectedDate.year === visibleYear
+        && selectedDate.monthIndex === visibleMonth
+        && selectedDate.day === day;
+      const isToday = today.getFullYear() === visibleYear
+        && today.getMonth() === visibleMonth
+        && today.getDate() === day;
+      button.type = "button";
+      button.className = [
+        "qimen-export-date-picker-day",
+        isSelected ? "is-selected" : "",
+        isToday ? "is-today" : "",
+      ].filter(Boolean).join(" ");
+      button.textContent = String(day);
+      button.setAttribute("role", "gridcell");
+      button.setAttribute("aria-label", `${visibleYear}年${visibleMonth + 1}月${day}日`);
+      button.setAttribute("aria-selected", String(Boolean(isSelected)));
+      if (isToday) {
+        button.setAttribute("aria-current", "date");
+      }
+      button.addEventListener("click", () => selectDate(visibleYear, visibleMonth, day));
+      return button;
+    });
+
+    days.replaceChildren(...cells);
+  }
+
+  function selectDate(year, monthIndex, day) {
+    input.value = formatQimenExportDateInput(year, monthIndex, day);
+    input.dispatchEvent(new Event("change", { bubbles: true }));
+    close();
+  }
+
+  function shiftMonth(offset) {
+    const nextMonth = new Date(visibleYear, visibleMonth + offset, 1);
+    visibleYear = nextMonth.getFullYear();
+    visibleMonth = nextMonth.getMonth();
+    render();
+  }
+
+  function open() {
+    const selectedDate = parseQimenExportDateInput(input.value);
+    if (selectedDate) {
+      visibleYear = selectedDate.year;
+      visibleMonth = selectedDate.monthIndex;
+    }
+    render();
+    popover.hidden = false;
+    toggle.setAttribute("aria-expanded", "true");
+  }
+
+  function close() {
+    popover.hidden = true;
+    toggle.setAttribute("aria-expanded", "false");
+  }
+
+  previousButton.addEventListener("click", () => shiftMonth(-1));
+  nextButton.addEventListener("click", () => shiftMonth(1));
+  toggle.addEventListener("click", () => {
+    if (popover.hidden) {
+      open();
+    } else {
+      close();
+    }
+  });
+  input.addEventListener("input", () => {
+    const selectedDate = parseQimenExportDateInput(input.value);
+    if (selectedDate) {
+      visibleYear = selectedDate.year;
+      visibleMonth = selectedDate.monthIndex;
+      if (!popover.hidden) {
+        render();
+      }
+    }
+  });
+  document.addEventListener("click", (event) => {
+    if (!field.contains(event.target)) {
+      close();
+    }
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && !popover.hidden) {
+      close();
+    }
+  });
+
+  render();
+}
+
+function parseQimenExportDateInput(value) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/u.exec(String(value ?? ""));
+  if (!match) {
+    return null;
+  }
+
+  const year = Number(match[1]);
+  const monthIndex = Number(match[2]) - 1;
+  const day = Number(match[3]);
+  const date = new Date(year, monthIndex, day);
+  if (
+    date.getFullYear() !== year
+    || date.getMonth() !== monthIndex
+    || date.getDate() !== day
+  ) {
+    return null;
+  }
+
+  return { year, monthIndex, day };
+}
+
+function formatQimenExportDateInput(year, monthIndex, day) {
+  return `${String(year).padStart(4, "0")}-${String(monthIndex + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 }
 
 function insertQimenSection(section) {
