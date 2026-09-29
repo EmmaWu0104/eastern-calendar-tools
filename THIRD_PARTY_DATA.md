@@ -55,3 +55,13 @@ The device and custom true-solar-time query modes use the browser's built-in `In
 The available rules depend on the browser and operating system's included IANA data. Future government policy changes are therefore not guaranteed to appear immediately. Coordinates do not infer a time zone; the selected device or custom IANA zone remains the source of the clock offset.
 
 The time-zone picker uses `Intl.supportedValuesOf("timeZone")` when it is available, with a limited project-maintained fallback for older environments. Its Chinese and city-name aliases are project-authored UI assistance data, not a third-party city database; they only select an IANA zone and never infer or modify latitude/longitude.
+
+## write-excel-file browser bundle
+
+The date-range Qimen export uses the locally served `write-excel-file` browser bundle at `src/vendor/write-excel-file.min.js` to generate a `.xlsx` Blob in the browser. It does not call an external conversion service.
+
+- Project: write-excel-file
+- Version: 4.1.1
+- Repository: https://gitlab.com/catamphetamine/write-excel-file
+- Package documentation: https://www.npmjs.com/package/write-excel-file
+- License: MIT; the accompanying notice is `src/vendor/write-excel-file.LICENSE.txt`

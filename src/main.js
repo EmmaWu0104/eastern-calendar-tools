@@ -87,6 +87,14 @@ import {
   getQimenGuXuByHourBranch,
 } from "./qimenPlateMarkers.js";
 import { createQimenQiResponseViewModel } from "./qimenQiResponse.js";
+import {
+  createQimenExportFileName,
+  createQimenExportBlob,
+  createQimenExportRowsAsync,
+  downloadQimenExportBlob,
+  QIMEN_EXPORT_MAX_RANGE_MESSAGE,
+  validateQimenExportDateRange,
+} from "./qimenExport.js";
 import { resolveQimenJuFromFullTermCycleDraft } from "./qimenResolver.js";
 import {
   createQimenSolarTermVirtuePunishmentViewModel,
@@ -294,6 +302,7 @@ let qimenManualOverride = {
   dunType: "",
   ju: null,
 };
+let isQimenExporting = false;
 let trueSolarTimeLocation = null;
 const trueSolarTimeQueryLocations = {
   [TRUE_SOLAR_TIME_SOURCE.DEVICE]: undefined,
@@ -395,6 +404,9 @@ qimenElements.manualToggle.addEventListener("change", handleQimenManualToggleCha
 qimenElements.manualDunSelect.addEventListener("change", handleQimenManualDunChange);
 qimenElements.manualJuSelect.addEventListener("change", handleQimenManualJuChange);
 qimenElements.manualRestore.addEventListener("click", restoreQimenAutoPlateLookup);
+qimenElements.exportButton.addEventListener("click", () => {
+  void handleQimenExportClick();
+});
 
 initializeQueryPicker();
 initializeChartDisplayMode();
@@ -2422,11 +2434,12 @@ function createQimenSection() {
   fallback.setAttribute("aria-live", "polite");
 
   const plateSection = createQimenPlateSection();
+  const exportPanel = createQimenExportPanel();
 
   summaryPanel.append(summary);
   infoCard.append(heading, summaryPanel);
   platePanel.append(manualControls, plateSection, fallback);
-  body.append(infoCard, platePanel);
+  body.append(infoCard, platePanel, exportPanel.section);
   section.append(body);
 
   return {
@@ -2440,7 +2453,73 @@ function createQimenSection() {
     manualRestore,
     manualHint,
     fallback,
+    exportStartDate: exportPanel.startDate,
+    exportEndDate: exportPanel.endDate,
+    exportButton: exportPanel.button,
+    exportStatus: exportPanel.status,
   };
+}
+
+function createQimenExportPanel() {
+  const section = document.createElement("section");
+  section.className = "panel qimen-export-panel";
+  section.setAttribute("aria-labelledby", "qimen-export-title");
+
+  const title = document.createElement("h3");
+  title.id = "qimen-export-title";
+  title.textContent = "日期區間 Excel 匯出";
+
+  const note = document.createElement("p");
+  note.className = "qimen-export-note";
+  note.textContent = "依手錶日期逐日輸出十二時辰；不套用真太陽時或目前頁面的手動盤局覆寫；單次最多 3 個月。";
+
+  const controls = document.createElement("div");
+  controls.className = "qimen-export-controls";
+
+  const startField = createQimenExportDateField("起始日期", "qimen-export-start-date");
+  const endField = createQimenExportDateField("結束日期", "qimen-export-end-date");
+
+  const button = document.createElement("button");
+  button.id = "qimen-export-download";
+  button.type = "button";
+  button.className = "qimen-export-download";
+  button.textContent = "下載 Excel";
+
+  controls.append(startField.field, endField.field, button);
+
+  const status = document.createElement("p");
+  status.id = "qimen-export-status";
+  status.className = "qimen-export-status";
+  status.setAttribute("role", "status");
+  status.setAttribute("aria-live", "polite");
+
+  section.append(title, note, controls, status);
+  return {
+    section,
+    startDate: startField.input,
+    endDate: endField.input,
+    button,
+    status,
+  };
+}
+
+function createQimenExportDateField(labelText, inputId) {
+  const field = document.createElement("label");
+  field.className = "qimen-export-date-field";
+
+  const label = document.createElement("span");
+  label.className = "qimen-export-date-label";
+  label.textContent = labelText;
+
+  const input = document.createElement("input");
+  input.id = inputId;
+  input.type = "date";
+  input.className = "qimen-export-date-input";
+  input.required = true;
+  input.setAttribute("aria-label", labelText);
+
+  field.append(label, input);
+  return { field, input };
 }
 
 function insertQimenSection(section) {
@@ -3380,6 +3459,51 @@ function handleQimenManualJuChange() {
 function restoreQimenAutoPlateLookup() {
   qimenManualOverride.enabled = false;
   rerenderCurrentQimenSection();
+}
+
+async function handleQimenExportClick() {
+  if (isQimenExporting) {
+    return;
+  }
+
+  const startDate = qimenElements.exportStartDate.value;
+  const endDate = qimenElements.exportEndDate.value;
+
+  try {
+    const range = validateQimenExportDateRange(startDate, endDate);
+    isQimenExporting = true;
+    qimenElements.exportButton.disabled = true;
+    qimenElements.exportButton.textContent = "產生中…";
+    setQimenExportStatus(`正在計算 ${range.totalDays} 天、共 ${range.totalDays * 12} 筆盤局…`, "busy");
+
+    const rows = await createQimenExportRowsAsync({
+      startDate: range.startDate,
+      endDate: range.endDate,
+      onProgress: ({ completedDays, totalDays, rowCount }) => {
+        setQimenExportStatus(`正在計算… ${completedDays} / ${totalDays} 天（${rowCount} 筆）`, "busy");
+      },
+    });
+    const blob = await createQimenExportBlob({ rows });
+    const fileName = createQimenExportFileName(range.startDate, range.endDate);
+    downloadQimenExportBlob(blob, fileName);
+    setQimenExportStatus(`已下載 ${fileName}，共 ${rows.length} 筆盤局。`, "success");
+  } catch (error) {
+    console.error("奇門遁甲 Excel 匯出失敗", error);
+    const message = error instanceof Error ? error.message : "未知錯誤";
+    setQimenExportStatus(
+      message === QIMEN_EXPORT_MAX_RANGE_MESSAGE ? message : `匯出失敗：${message}`,
+      "error"
+    );
+  } finally {
+    isQimenExporting = false;
+    qimenElements.exportButton.disabled = false;
+    qimenElements.exportButton.textContent = "下載 Excel";
+  }
+}
+
+function setQimenExportStatus(message, type = "") {
+  qimenElements.exportStatus.textContent = message;
+  qimenElements.exportStatus.dataset.state = type;
 }
 
 function rerenderCurrentQimenSection() {

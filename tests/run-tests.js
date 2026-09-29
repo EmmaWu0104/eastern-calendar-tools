@@ -12498,7 +12498,11 @@ async function runTrueSolarLocationOwnershipFixTests(solarTerms) {
   check("location-owner-no-new-timer", 2, (mainModuleRaw.match(/setInterval\(/g) ?? []).length);
   check("location-owner-no-storage", false, /localStorage|sessionStorage/.test(mainModuleRaw));
   const packageJson = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
-  check("location-owner-dependency-unchanged", JSON.stringify({ suncalc: "^1.9.0" }), JSON.stringify(packageJson.dependencies));
+  check(
+    "location-owner-dependency-contract",
+    JSON.stringify({ suncalc: "^1.9.0", "write-excel-file": "^4.1.1" }),
+    JSON.stringify(packageJson.dependencies)
+  );
 }
 
 function runTrueSolarBaziPriorityBugFixTests(solarTerms) {

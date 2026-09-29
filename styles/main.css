@@ -2117,6 +2117,74 @@ dd {
   color: #b42318;
 }
 
+.qimen-export-panel {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.qimen-export-panel h3 {
+  margin: 0;
+  color: #1f2933;
+  font-size: 16px;
+}
+
+.qimen-export-note {
+  margin: 0;
+  color: #52616f;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.qimen-export-controls {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) auto;
+  gap: 10px;
+  align-items: end;
+  min-width: 0;
+}
+
+.qimen-export-date-field {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  margin: 0;
+}
+
+.qimen-export-date-label {
+  color: #52616f;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.qimen-export-date-input {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.qimen-export-download {
+  min-width: 120px;
+  white-space: nowrap;
+}
+
+.qimen-export-status {
+  min-height: 1.4em;
+  margin: 0;
+  color: #52616f;
+  font-size: 13px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.qimen-export-status[data-state="error"] {
+  color: #b42318;
+}
+
+.qimen-export-status[data-state="success"] {
+  color: #166534;
+}
+
 .jinhan-summary {
   display: grid;
   grid-template-columns: 1fr;
@@ -2518,6 +2586,14 @@ dd {
 }
 
 @media (max-width: 560px) {
+  .qimen-export-controls {
+    grid-template-columns: 1fr;
+  }
+
+  .qimen-export-download {
+    width: 100%;
+  }
+
   .qimen-plate-panel {
     --qimen-grid-min-width: 0px;
     --qimen-grid-gap: 3px;
