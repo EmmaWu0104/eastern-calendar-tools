@@ -67,6 +67,7 @@ export function createBaziCalculationInputFromChartTimeContext(context) {
     termLookupYear: context.civil.localParts.year,
     clockLocalParts,
     effectiveDayDateKey: getEffectiveDateKeyFromLocalParts(clockLocalParts),
+    timeZone: context.civil.timeZone,
   });
 }
 

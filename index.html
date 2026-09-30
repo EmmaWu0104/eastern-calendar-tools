@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>東方玄學排盤｜手錶時間</title>
     <link rel="icon" href="data:,">
-    <link rel="stylesheet" href="./styles/main.css?v=20260818">
+    <link rel="stylesheet" href="./styles/main.css?v=20260930">
   </head>
   <body>
     <main class="app">
@@ -13,18 +13,45 @@
 
       <section class="panel query-panel" aria-labelledby="query-title">
         <h2 id="query-title">查詢</h2>
-        <div class="query-time-summary" aria-live="polite">
-          <div class="query-time-summary-heading">
-            <span class="query-time-summary-label">排盤時間</span>
-            <strong id="chart-query-time-value" class="query-time-summary-value">時間初始化中…</strong>
+        <details id="query-time-settings" class="query-time-settings">
+          <summary id="query-time-settings-summary" class="query-time-settings-summary" aria-controls="query-time-settings-panel" aria-expanded="false">
+            <span class="query-time-summary" aria-live="polite">
+              <span class="query-time-summary-heading">
+                <span class="query-time-summary-label">排盤時間</span>
+                <strong id="chart-query-time-value" class="query-time-summary-value">時間初始化中…</strong>
+              </span>
+              <span id="chart-query-time-mode-status" class="query-time-mode-status" role="status">● 跟隨現在時間</span>
+              <span id="general-time-zone-summary" class="query-time-zone-summary">時區：初始化中…</span>
+            </span>
+            <span class="query-time-settings-summary-action">調整時間／時區</span>
+          </summary>
+          <div id="query-time-settings-panel" class="query-time-settings-panel">
+            <div id="precise-chart-time-control" class="precise-chart-time-control">
+              <label for="datetime">精確排盤時間</label>
+              <input id="datetime" class="precise-chart-time-input" type="datetime-local" step="1" aria-label="精確排盤時間" aria-describedby="precise-chart-time-note">
+              <p id="precise-chart-time-note" class="precise-chart-time-note">供交節、換日與時辰邊界精確查詢</p>
+            </div>
+            <div id="general-time-zone-control" class="general-time-zone-control">
+              <label for="general-time-zone">一般模式 IANA 時區</label>
+              <div id="general-time-zone-picker" class="general-time-zone-picker">
+                <input id="general-time-zone" type="text" maxlength="128" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="general-time-zone-search-results" autocomplete="off" spellcheck="false" placeholder="輸入城市、國家或 IANA 時區" aria-describedby="general-time-zone-status">
+                <button id="general-time-zone-current-device" type="button">使用裝置時區</button>
+                <p id="general-time-zone-current-device-label" class="general-time-zone-current-device"></p>
+                <p id="general-time-zone-search-status" class="general-time-zone-search-status" role="status" aria-live="polite"></p>
+                <div id="general-time-zone-search-results" class="general-time-zone-search-results" role="listbox" hidden></div>
+              </div>
+              <p id="general-time-zone-status" class="section-message" role="status" aria-live="polite"></p>
+              <fieldset id="general-time-zone-disambiguation" class="general-time-zone-disambiguation" hidden>
+                <legend>重複時間</legend>
+                <div class="general-time-zone-disambiguation-options">
+                  <label class="general-time-zone-disambiguation-option"><input id="general-time-zone-disambiguation-earlier" type="radio" name="general-time-zone-disambiguation" value="earlier"><span id="general-time-zone-disambiguation-earlier-label">第一次</span></label>
+                  <label class="general-time-zone-disambiguation-option"><input id="general-time-zone-disambiguation-later" type="radio" name="general-time-zone-disambiguation" value="later"><span id="general-time-zone-disambiguation-later-label">第二次</span></label>
+                </div>
+                <p id="general-time-zone-disambiguation-selected" class="general-time-zone-disambiguation-selected" hidden></p>
+              </fieldset>
+            </div>
           </div>
-          <p id="chart-query-time-mode-status" class="query-time-mode-status" role="status">● 跟隨現在時間</p>
-        </div>
-        <div id="precise-chart-time-control" class="precise-chart-time-control">
-          <label for="datetime">精確排盤時間</label>
-          <input id="datetime" class="precise-chart-time-input" type="datetime-local" step="1" aria-label="精確排盤時間" aria-describedby="precise-chart-time-note">
-          <p id="precise-chart-time-note" class="precise-chart-time-note">供交節、換日與時辰邊界精確查詢</p>
-        </div>
+        </details>
         <div class="query-picker">
           <section class="query-calendar" aria-label="日期月曆" aria-describedby="query-calendar-lunar-note">
             <div class="query-calendar-header">
@@ -160,10 +187,11 @@
         <section class="panel" aria-labelledby="rules-title">
           <h2 id="rules-title">規格說明</h2>
           <ul id="rule-notes">
-            <li>立春換年</li>
-            <li>12 節換月</li>
-            <li>23:00 起換日</li>
-            <li>預設使用手錶時間排盤；可於真太陽時頁籤手動套用或恢復。</li>
+            <li>一般模式預設使用裝置時區，也可手動指定 IANA 時區。</li>
+            <li>節氣交接依 solar_terms_1899_2101.json 的絕對瞬間判定，再按所選時區顯示當地日期與時間。</li>
+            <li>一般排盤使用所選時區的手錶時間；立春換年、12 節換月、23:00 起換日。</li>
+            <li>真太陽時頁面維持獨立設定；奇門日期區間 Excel 依奇門曆日產生，不受一般顯示時區影響。</li>
+            <li>農曆維持既有 CWA Taiwan civil date 契約。</li>
           </ul>
         </section>
       </div>
@@ -213,6 +241,6 @@
     </main>
 
     <script src="./src/vendor/write-excel-file.min.js?v=20260929"></script>
-    <script type="module" src="./src/main.js?v=20260929"></script>
+    <script type="module" src="./src/main.js?v=20260930"></script>
   </body>
 </html>

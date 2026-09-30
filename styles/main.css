@@ -136,15 +136,50 @@ label {
   border: 0;
 }
 
+.query-time-settings {
+  min-width: 0;
+  margin: 0 0 12px;
+}
+
+.query-time-settings-summary {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 4px 10px;
+  align-items: center;
+  min-width: 0;
+  padding: 4px 0;
+  color: inherit;
+  cursor: pointer;
+  list-style: none;
+}
+
+.query-time-settings-summary::-webkit-details-marker {
+  display: none;
+}
+
+.query-time-settings-summary::before {
+  content: "▸";
+  color: #627d98;
+  font-size: 14px;
+  line-height: 1;
+}
+
+.query-time-settings[open] > .query-time-settings-summary::before {
+  content: "▾";
+}
+
+.query-time-settings-summary:focus-visible {
+  outline: 2px solid #1f6feb;
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
 .query-time-summary {
   display: grid;
   gap: 3px;
   min-width: 0;
-  margin: 0 0 12px;
-  padding: 10px 12px;
-  border: 1px solid #d8dee6;
-  border-radius: 8px;
-  background: #fbfcfe;
+  margin: 0;
+  padding: 0;
 }
 
 .query-time-summary-heading {
@@ -177,6 +212,33 @@ label {
 .query-time-mode-status[data-mode="auto-now"] { color: #1f6f43; }
 .query-time-mode-status[data-mode="manual"] { color: #8a5a00; }
 
+.query-time-zone-summary {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: #52616f;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.query-time-settings-summary-action {
+  justify-self: end;
+  color: #1f6feb;
+  font-size: 13px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.query-time-settings-panel {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  margin-top: 8px;
+  padding: 12px;
+  border-top: 1px solid #d8dee6;
+  border-radius: 0 0 6px 6px;
+  background: #fbfcfe;
+}
+
 .precise-chart-time-control {
   display: grid;
   gap: 5px;
@@ -202,6 +264,158 @@ label {
   font-size: 12px;
   line-height: 1.4;
   overflow-wrap: anywhere;
+}
+
+.general-time-zone-control {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+  margin: 0 0 12px;
+}
+
+.general-time-zone-control > label {
+  margin: 0;
+  color: #334e68;
+  font-weight: 800;
+}
+
+.general-time-zone-picker {
+  display: grid;
+  gap: 6px;
+  width: min(100%, 520px);
+  min-width: 0;
+}
+
+.general-time-zone-picker input {
+  width: 100%;
+  min-width: 0;
+}
+
+.general-time-zone-picker > button {
+  justify-self: start;
+  min-height: 32px;
+  padding: 5px 9px;
+  border-color: #b8c2cc;
+  color: #52616f;
+  background: #ffffff;
+  font-size: 13px;
+}
+
+.general-time-zone-picker > button:hover,
+.general-time-zone-picker > button:focus-visible {
+  border-color: #7b8794;
+  color: #1f2933;
+  background: #f6f8fa;
+}
+
+.general-time-zone-current-device,
+.general-time-zone-search-status,
+.general-time-zone-note {
+  margin: 0;
+  color: #52616f;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.general-time-zone-note {
+  color: #627d98;
+  font-weight: 500;
+}
+
+.general-time-zone-search-results {
+  display: grid;
+  gap: 4px;
+  max-height: 45vh;
+  overflow-y: auto;
+  min-width: 0;
+  padding: 4px;
+  border: 1px solid #b8c2cc;
+  border-radius: 6px;
+  background: #ffffff;
+}
+
+.general-time-zone-search-results[hidden],
+.general-time-zone-disambiguation[hidden] {
+  display: none !important;
+}
+
+.general-time-zone-option {
+  display: grid;
+  gap: 2px;
+  width: 100%;
+  min-height: 44px;
+  padding: 7px 9px;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  color: #1f2933;
+  background: #f6f8fa;
+  text-align: left;
+}
+
+.general-time-zone-option:hover,
+.general-time-zone-option[aria-selected="true"] {
+  border-color: #1f6feb;
+  background: #eaf2ff;
+}
+
+.general-time-zone-option-label {
+  font-weight: 800;
+  overflow-wrap: anywhere;
+}
+
+.general-time-zone-option-name,
+.general-time-zone-option-offset {
+  color: #52616f;
+  font-size: 12px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.general-time-zone-disambiguation {
+  display: grid;
+  gap: 8px;
+  width: min(100%, 520px);
+  margin: 0;
+  padding: 10px;
+  border: 1px solid #b8c2cc;
+  border-radius: 6px;
+}
+
+.general-time-zone-disambiguation legend {
+  font-weight: 800;
+}
+
+.general-time-zone-disambiguation-options {
+  display: grid;
+  gap: 6px;
+}
+
+.general-time-zone-disambiguation-option {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  line-height: 1.4;
+}
+
+.general-time-zone-disambiguation-option input[type="radio"] {
+  width: auto;
+  min-width: 0;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  flex: 0 0 auto;
+}
+
+.general-time-zone-disambiguation-selected {
+  margin: 6px 0 0;
+  color: #52616f;
+  font-size: 13px;
+  font-weight: 700;
 }
 
 .query-picker {
@@ -2891,6 +3105,15 @@ dd {
 }
 
 @media (max-width: 460px) {
+  .query-time-settings-summary {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .query-time-settings-summary-action {
+    grid-column: 2;
+    justify-self: start;
+  }
+
   .combined-palace-cell {
     min-height: 104px;
     padding-right: 4px;

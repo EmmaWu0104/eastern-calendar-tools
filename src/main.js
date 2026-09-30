@@ -1,10 +1,7 @@
 import {
   createFlyingStarAfflictionViewModel,
 } from "./annualAfflictions.js";
-import {
-  calculateBaziFromSolarTerms,
-  getEffectiveDateKeyFromLocalParts,
-} from "./bazi.js";
+import { getEffectiveDateKeyFromLocalParts } from "./bazi.js";
 import { calculateBaziFromChartTimeContext } from "./baziChartTimeAdapter.js";
 import {
   createTrueSolarChartTimeContext,
@@ -12,7 +9,6 @@ import {
 } from "./chartTimeContext.js";
 import { getDailyGodsByStem } from "./dailyGods.js";
 import {
-  formatBaziDailySummary,
   formatBaziDailySummaryFromDateKey,
   getClashingZodiacByBranch,
   getDailyDaHuangDao,
@@ -100,17 +96,28 @@ import {
   QIMEN_EXPORT_MAX_RANGE_MESSAGE,
   validateQimenExportDateRange,
 } from "./qimenExport.js";
-import { resolveQimenJuFromFullTermCycleDraft } from "./qimenResolver.js";
+import {
+  resolveQimenJuFromChartTimeContext,
+  resolveQimenJuFromFullTermCycleDraft,
+} from "./qimenResolver.js";
 import {
   createQimenSolarTermVirtuePunishmentViewModel,
 } from "./qimenSolarTermVirtuePunishment.js";
 import { resolveQimenTimeSpecialConditions } from "./qimenTimeSpecialConditions.js";
 import {
   formatSolarTermDateTime,
-  getSolarTermOnDate,
-  getSolarTermsInMonth,
+  getSolarTermOnDateForTimeZone,
+  getSolarTermsInMonthForTimeZone,
   loadSolarTerms,
 } from "./solarTerms.js";
+import {
+  createWatchChartTimeContextFromDateTime,
+  createWatchChartTimeContextFromInstant,
+  getWatchDateTimeValueForInstant,
+  getWatchLocalPartsForInstant,
+  normalizeWatchDateTimeValue,
+  parseWatchDateTimeLocalParts,
+} from "./watchChartTime.js";
 import {
   formatLunarCalendarAccessibleLabel,
   formatLunarCalendarLabel,
@@ -120,7 +127,8 @@ import {
 const AUTO_NOW_REFRESH_MS = 30_000;
 const TRUE_SOLAR_TIME_CLOCK_REFRESH_MS = 1_000;
 const TRUE_SOLAR_TIME_ZONE_SEARCH_DEBOUNCE_MS = 200;
-// 上方查詢時間維持臺灣 UTC+8；裝置／自訂來源另外以 IANA 時區解析。
+const GENERAL_TIME_ZONE_SEARCH_DEBOUNCE_MS = 200;
+// 真太陽時 Source A 保留既有臺灣 UTC+8 契約；一般手錶時間另有獨立 IANA state。
 const TAIPEI_UTC_OFFSET_MINUTES = 480;
 const TRUE_SOLAR_TIME_SOURCE = Object.freeze({ QUERY: "query", DEVICE: "device", CUSTOM: "custom" });
 const CHART_TIME_MODE = Object.freeze({ WATCH: "watch", TRUE_SOLAR: "true-solar" });
@@ -259,7 +267,23 @@ const elements = {
   chartTimeModeBanner: getElement("#chart-time-mode-banner"), chartTimeModeTitle: getElement("#chart-time-mode-title"), chartTimeModeDescription: getElement("#chart-time-mode-description"), chartTimeModeSwitchLink: getElement("#chart-time-mode-switch-link"),
   trueSolarTimeQueryOnlyNote: getElement("#true-solar-time-query-only-note"),
   chartQueryTimeValue: getElement("#chart-query-time-value"), chartQueryTimeModeStatus: getElement("#chart-query-time-mode-status"),
+  queryTimeSettings: getElement("#query-time-settings"),
+  queryTimeSettingsSummary: getElement("#query-time-settings-summary"),
+  generalTimeZoneSummary: getElement("#general-time-zone-summary"),
   datetime: getElement("#datetime"),
+  generalTimeZone: getElement("#general-time-zone"),
+  generalTimeZonePicker: getElement("#general-time-zone-picker"),
+  generalTimeZoneCurrentDevice: getElement("#general-time-zone-current-device"),
+  generalTimeZoneCurrentDeviceLabel: getElement("#general-time-zone-current-device-label"),
+  generalTimeZoneSearchStatus: getElement("#general-time-zone-search-status"),
+  generalTimeZoneSearchResults: getElement("#general-time-zone-search-results"),
+  generalTimeZoneStatus: getElement("#general-time-zone-status"),
+  generalTimeZoneDisambiguation: getElement("#general-time-zone-disambiguation"),
+  generalTimeZoneDisambiguationEarlier: getElement("#general-time-zone-disambiguation-earlier"),
+  generalTimeZoneDisambiguationLater: getElement("#general-time-zone-disambiguation-later"),
+  generalTimeZoneDisambiguationEarlierLabel: getElement("#general-time-zone-disambiguation-earlier-label"),
+  generalTimeZoneDisambiguationLaterLabel: getElement("#general-time-zone-disambiguation-later-label"),
+  generalTimeZoneDisambiguationSelected: getElement("#general-time-zone-disambiguation-selected"),
   useNow: getElement("#use-now"),
   calendarPrevious: getElement("#calendar-previous"),
   calendarNext: getElement("#calendar-next"),
@@ -300,8 +324,17 @@ let pendingDateTimeValue = null;
 let latestBaziRenderRequestId = 0;
 let currentDateTimeValue = null;
 let selectedCalendarDate = null;
-let visibleCalendarYear = new Date().getFullYear();
-let visibleCalendarMonth = new Date().getMonth();
+let generalTimeZone = getDeviceTimeZone() || "UTC";
+let generalTimeZoneDisambiguation = null;
+let generalTimeZoneSearchResults = [];
+let generalTimeZoneSearchActiveIndex = -1;
+let generalTimeZoneSearchDebounceTimerId = null;
+let currentGeneralWatchChartTimeContext = null;
+let currentGeneralWatchChartTimeContextKey = null;
+const initialGeneralLocalParts = getWatchLocalPartsForInstant(Date.now(), generalTimeZone)
+  ?? getWatchLocalPartsForInstant(Date.now(), "UTC");
+let visibleCalendarYear = initialGeneralLocalParts?.year ?? new Date().getFullYear();
+let visibleCalendarMonth = (initialGeneralLocalParts?.month ?? (new Date().getMonth() + 1)) - 1;
 let qimenManualOverride = {
   enabled: false,
   dunType: "",
@@ -366,10 +399,19 @@ elements.datetime.addEventListener("keydown", (event) => {
     handleManualDateTimeChange();
   }
 });
+elements.queryTimeSettings.addEventListener("toggle", syncQueryTimeSettingsAccessibility);
+elements.generalTimeZone.addEventListener("input", handleGeneralTimeZoneInput);
+elements.generalTimeZone.addEventListener("change", handleGeneralTimeZoneChange);
+elements.generalTimeZone.addEventListener("keydown", handleGeneralTimeZoneKeydown);
+elements.generalTimeZone.addEventListener("focus", renderGeneralTimeZoneSearchResults);
+elements.generalTimeZoneCurrentDevice.addEventListener("click", useDeviceTimeZoneForGeneralMode);
+elements.generalTimeZoneDisambiguationEarlier.addEventListener("change", handleGeneralTimeZoneDisambiguationChange);
+elements.generalTimeZoneDisambiguationLater.addEventListener("change", handleGeneralTimeZoneDisambiguationChange);
 window.addEventListener("pagehide", () => {
   stopAutoNowRefresh();
   stopTrueSolarTimeClockRefresh();
   clearTrueSolarTimeTimeZoneSearchDebounce();
+  clearGeneralTimeZoneSearchDebounce();
 });
 window.addEventListener("popstate", syncChartDisplayModeFromLocation);
 elements.jinhanDunType.addEventListener("change", () => {
@@ -402,6 +444,7 @@ elements.trueSolarTimeTimeZone.addEventListener("keydown", handleTrueSolarTimeTi
 elements.trueSolarTimeTimeZone.addEventListener("focus", renderTrueSolarTimeTimeZoneSearchResults);
 elements.trueSolarTimeTimeZoneCurrentDevice.addEventListener("click", useDeviceTimeZoneForCustomInput);
 document.addEventListener("click", handleTrueSolarTimeTimeZoneDocumentClick);
+document.addEventListener("click", handleGeneralTimeZoneDocumentClick);
 elements.trueSolarTimeDisambiguationEarlier.addEventListener("change", handleTrueSolarTimeDisambiguationChange);
 elements.trueSolarTimeDisambiguationLater.addEventListener("change", handleTrueSolarTimeDisambiguationChange);
 elements.chartTimeRestore.addEventListener("click", () => restoreWatchChartTime());
@@ -413,9 +456,269 @@ qimenElements.exportButton.addEventListener("click", () => {
   void handleQimenExportClick();
 });
 
+initializeQueryTimeSettings();
+initializeGeneralTimeZoneControl();
 initializeQueryPicker();
 initializeChartDisplayMode();
 startAutoNowMode();
+
+function initializeQueryTimeSettings() {
+  elements.queryTimeSettings.open = false;
+  syncQueryTimeSettingsAccessibility();
+}
+
+function syncQueryTimeSettingsAccessibility() {
+  elements.queryTimeSettingsSummary.setAttribute(
+    "aria-expanded",
+    String(elements.queryTimeSettings.open)
+  );
+}
+
+function expandQueryTimeSettings() {
+  elements.queryTimeSettings.open = true;
+  syncQueryTimeSettingsAccessibility();
+}
+
+function initializeGeneralTimeZoneControl() {
+  generalTimeZone = validateTimeZone(generalTimeZone) ? generalTimeZone : "UTC";
+  elements.generalTimeZone.value = generalTimeZone;
+  elements.generalTimeZoneCurrentDeviceLabel.textContent = `目前裝置：${getDeviceTimeZone() || "UTC"}`;
+  elements.generalTimeZoneSearchStatus.textContent = "可輸入城市、國家或完整 IANA 名稱搜尋。";
+  setGeneralTimeZoneStatus(`目前使用：${generalTimeZone}`, "");
+  renderGeneralTimeZoneSearchResults();
+  closeGeneralTimeZoneSearch();
+}
+
+function setGeneralTimeZoneStatus(message, type = "") {
+  elements.generalTimeZoneStatus.textContent = message;
+  elements.generalTimeZoneStatus.className = `section-message ${type ? `section-message-${type}` : ""}`.trim();
+  if (type === "error") {
+    expandQueryTimeSettings();
+  }
+}
+
+function clearGeneralTimeZoneSearchDebounce() {
+  if (generalTimeZoneSearchDebounceTimerId !== null) {
+    window.clearTimeout(generalTimeZoneSearchDebounceTimerId);
+    generalTimeZoneSearchDebounceTimerId = null;
+  }
+}
+
+function handleGeneralTimeZoneInput() {
+  generalTimeZoneDisambiguation = null;
+  clearGeneralTimeZoneDisambiguation();
+  clearGeneralTimeZoneSearchDebounce();
+  const rawTimeZone = typeof elements.generalTimeZone.value === "string"
+    ? elements.generalTimeZone.value
+    : "";
+  if (rawTimeZone.length > MAX_TIME_ZONE_INPUT_LENGTH) {
+    closeGeneralTimeZoneSearch();
+    setGeneralTimeZoneStatus("時區輸入過長，請縮短後再搜尋。", "error");
+    return;
+  }
+  renderGeneralTimeZoneSearchResults();
+  if (rawTimeZone.trim()) {
+    setGeneralTimeZoneStatus("請從建議中選擇正式時區。", "error");
+  }
+  generalTimeZoneSearchDebounceTimerId = window.setTimeout(() => {
+    generalTimeZoneSearchDebounceTimerId = null;
+    applyGeneralTimeZoneInput();
+  }, GENERAL_TIME_ZONE_SEARCH_DEBOUNCE_MS);
+}
+
+function handleGeneralTimeZoneChange() {
+  clearGeneralTimeZoneSearchDebounce();
+  applyGeneralTimeZoneInput();
+}
+
+function applyGeneralTimeZoneInput() {
+  const rawTimeZone = typeof elements.generalTimeZone.value === "string"
+    ? elements.generalTimeZone.value
+    : "";
+  if (rawTimeZone.length > MAX_TIME_ZONE_INPUT_LENGTH) {
+    setGeneralTimeZoneStatus("時區輸入過長，請縮短後再搜尋。", "error");
+    return;
+  }
+
+  renderGeneralTimeZoneSearchResults();
+  const timeZone = rawTimeZone.trim();
+  if (!timeZone || !validateTimeZone(timeZone)) {
+    setGeneralTimeZoneStatus(
+      timeZone
+        ? generalTimeZoneSearchResults.length
+          ? "請從建議中選擇正式時區。"
+          : "找不到符合的時區；可輸入完整 IANA 名稱，例如 America/Los_Angeles。"
+        : "請輸入 IANA 時區，或從建議中選擇。",
+      "error"
+    );
+    return;
+  }
+
+  const autoNowInstantMs = isAutoNowMode ? Date.now() : null;
+  generalTimeZone = timeZone;
+  elements.generalTimeZone.value = timeZone;
+  generalTimeZoneDisambiguation = null;
+  clearGeneralTimeZoneDisambiguation();
+  closeGeneralTimeZoneSearch();
+  setGeneralTimeZoneStatus(`目前使用：${generalTimeZone}`, "");
+  renderSpecNotes();
+  if (isAutoNowMode) {
+    refreshFromCurrentTime(autoNowInstantMs);
+  } else {
+    syncQueryPickerFromDateTime(elements.datetime.value, { syncVisibleMonth: true });
+  }
+  if (!isAutoNowMode && elements.datetime.value) {
+    requestRenderDateTime(elements.datetime.value);
+  }
+  renderGeneralTimeZoneSummary();
+}
+
+function handleGeneralTimeZoneKeydown(event) {
+  if (event.key === "Escape") {
+    clearGeneralTimeZoneSearchDebounce();
+    closeGeneralTimeZoneSearch();
+    return;
+  }
+  if (!["ArrowDown", "ArrowUp", "Enter"].includes(event.key)) return;
+  if (generalTimeZoneSearchDebounceTimerId !== null) {
+    clearGeneralTimeZoneSearchDebounce();
+    applyGeneralTimeZoneInput();
+  }
+  if (generalTimeZoneSearchResults.length === 0) {
+    renderGeneralTimeZoneSearchResults();
+  }
+  if (generalTimeZoneSearchResults.length === 0) return;
+  event.preventDefault();
+  if (event.key === "Enter") {
+    selectGeneralTimeZone(generalTimeZoneSearchResults[Math.max(0, generalTimeZoneSearchActiveIndex)]?.timeZone);
+    return;
+  }
+  const direction = event.key === "ArrowDown" ? 1 : -1;
+  generalTimeZoneSearchActiveIndex = generalTimeZoneSearchActiveIndex < 0
+    ? direction > 0 ? 0 : generalTimeZoneSearchResults.length - 1
+    : (generalTimeZoneSearchActiveIndex + direction + generalTimeZoneSearchResults.length) % generalTimeZoneSearchResults.length;
+  renderGeneralTimeZoneSearchResults();
+}
+
+function useDeviceTimeZoneForGeneralMode() {
+  clearGeneralTimeZoneSearchDebounce();
+  selectGeneralTimeZone(getDeviceTimeZone() || "UTC");
+}
+
+function selectGeneralTimeZone(timeZone) {
+  clearGeneralTimeZoneSearchDebounce();
+  if (!timeZone || !validateTimeZone(timeZone)) return;
+  elements.generalTimeZone.value = timeZone;
+  applyGeneralTimeZoneInput();
+}
+
+function renderGeneralTimeZoneSearchResults() {
+  const query = typeof elements.generalTimeZone.value === "string"
+    ? elements.generalTimeZone.value
+    : "";
+  if (query.length > MAX_TIME_ZONE_INPUT_LENGTH) {
+    closeGeneralTimeZoneSearch();
+    return;
+  }
+
+  generalTimeZoneSearchResults = searchTimeZones(query, { limit: 12 });
+  if (generalTimeZoneSearchActiveIndex >= generalTimeZoneSearchResults.length) {
+    generalTimeZoneSearchActiveIndex = -1;
+  }
+  const isEmptyQuery = query.trim() === "";
+  elements.generalTimeZoneSearchStatus.textContent = isEmptyQuery
+    ? "常用時區"
+    : generalTimeZoneSearchResults.length
+      ? `找到 ${generalTimeZoneSearchResults.length} 個時區`
+      : "找不到符合的時區；可輸入完整 IANA 名稱，例如 America/Los_Angeles。";
+  elements.generalTimeZoneSearchResults.replaceChildren(
+    ...generalTimeZoneSearchResults.map((entry, index) => createGeneralTimeZoneSearchOption(entry, index))
+  );
+  const isOpen = generalTimeZoneSearchResults.length > 0;
+  elements.generalTimeZoneSearchResults.hidden = !isOpen;
+  elements.generalTimeZone.setAttribute("aria-expanded", String(isOpen));
+  elements.generalTimeZone.setAttribute(
+    "aria-activedescendant",
+    generalTimeZoneSearchActiveIndex >= 0 ? `general-time-zone-option-${generalTimeZoneSearchActiveIndex}` : ""
+  );
+}
+
+function createGeneralTimeZoneSearchOption(entry, index) {
+  const option = document.createElement("button");
+  option.type = "button";
+  option.id = `general-time-zone-option-${index}`;
+  option.className = "general-time-zone-option";
+  option.setAttribute("role", "option");
+  option.setAttribute("aria-selected", String(index === generalTimeZoneSearchActiveIndex));
+  option.append(
+    createBlockSpan(entry.label || entry.timeZone, "general-time-zone-option-label"),
+    createBlockSpan(entry.timeZone, "general-time-zone-option-name"),
+    createBlockSpan(formatGeneralTimeZoneSearchOffset(entry.timeZone), "general-time-zone-option-offset")
+  );
+  option.addEventListener("click", () => selectGeneralTimeZone(entry.timeZone));
+  return option;
+}
+
+function formatGeneralTimeZoneSearchOffset(timeZone) {
+  const localParts = parseWatchDateTimeLocalParts(elements.datetime.value)
+    ?? getWatchLocalPartsForInstant(Date.now(), timeZone);
+  const resolved = resolveLocalDateTimeInTimeZone({ localParts, timeZone });
+  return resolved.status === "resolved"
+    ? `指定日期：${formatUtcOffset(resolved.utcOffsetMinutes)}`
+    : resolved.status === "ambiguous"
+      ? `需選擇重複時間：${resolved.candidates.map((candidate) => formatUtcOffset(candidate.utcOffsetMinutes)).join(" / ")}`
+      : resolved.status === "nonexistent"
+        ? "指定日期時間不存在"
+        : "請先輸入有效日期時間";
+}
+
+function closeGeneralTimeZoneSearch() {
+  generalTimeZoneSearchResults = [];
+  generalTimeZoneSearchActiveIndex = -1;
+  elements.generalTimeZoneSearchResults.replaceChildren();
+  elements.generalTimeZoneSearchResults.hidden = true;
+  elements.generalTimeZone.setAttribute("aria-expanded", "false");
+  elements.generalTimeZone.setAttribute("aria-activedescendant", "");
+}
+
+function handleGeneralTimeZoneDocumentClick(event) {
+  if (!elements.generalTimeZonePicker.contains(event.target)) {
+    closeGeneralTimeZoneSearch();
+  }
+}
+
+function handleGeneralTimeZoneDisambiguationChange(event) {
+  if (!event.target.checked) return;
+  generalTimeZoneDisambiguation = event.target.value;
+  requestRenderDateTime(elements.datetime.value);
+}
+
+function configureGeneralTimeZoneDisambiguation(candidates, selected = null) {
+  const [earlier, later] = candidates;
+  elements.generalTimeZoneDisambiguationEarlierLabel.textContent = `第一次：${formatUtcOffset(earlier.utcOffsetMinutes)}`;
+  elements.generalTimeZoneDisambiguationLaterLabel.textContent = `第二次：${formatUtcOffset(later.utcOffsetMinutes)}`;
+  elements.generalTimeZoneDisambiguationEarlier.checked = selected === "earlier";
+  elements.generalTimeZoneDisambiguationLater.checked = selected === "later";
+  const selectedCandidate = candidates.find((candidate, index) => (index === 0 ? selected === "earlier" : selected === "later"));
+  elements.generalTimeZoneDisambiguationSelected.textContent = selectedCandidate
+    ? `目前選擇：${selected === "earlier" ? "第一次" : "第二次"}（${formatUtcOffset(selectedCandidate.utcOffsetMinutes)}）`
+    : "";
+  elements.generalTimeZoneDisambiguationSelected.hidden = !selectedCandidate;
+  elements.generalTimeZoneDisambiguation.hidden = false;
+}
+
+function clearGeneralTimeZoneDisambiguation() {
+  elements.generalTimeZoneDisambiguationEarlier.checked = false;
+  elements.generalTimeZoneDisambiguationLater.checked = false;
+  elements.generalTimeZoneDisambiguationSelected.textContent = "";
+  elements.generalTimeZoneDisambiguationSelected.hidden = true;
+  elements.generalTimeZoneDisambiguation.hidden = true;
+}
+
+function resetGeneralTimeZoneDisambiguation() {
+  generalTimeZoneDisambiguation = null;
+  clearGeneralTimeZoneDisambiguation();
+}
 
 function initializeChartDisplayMode() {
   resetLegacyChartTimeState();
@@ -471,11 +774,21 @@ function renderChartDisplayMode() {
     renderActiveTrueSolarTime();
   }
   if (currentCalendarResult && currentSolarTerms) {
-    renderBaziForActiveDisplayMode();
-    refreshFlyingStarsForCurrentChartTime(requestId);
-    void refreshJinhanForCurrentChartTime(requestId);
+    const needsGeneralTimeZoneRefresh = !isTrueSolar
+      && (!currentGeneralWatchChartTimeContext
+        || currentGeneralWatchChartTimeContext.civil?.timeZone !== generalTimeZone);
+    if (needsGeneralTimeZoneRefresh && elements.datetime.value) {
+      currentGeneralWatchChartTimeContext = null;
+      currentGeneralWatchChartTimeContextKey = null;
+      requestRenderDateTime(elements.datetime.value);
+    } else {
+      renderBaziForActiveDisplayMode();
+      refreshFlyingStarsForCurrentChartTime(requestId);
+      void refreshJinhanForCurrentChartTime(requestId);
+    }
   }
   renderChineseHourButtons();
+  renderChartQueryTimeModeStatus();
   renderChartTimeStatus();
 }
 
@@ -569,12 +882,23 @@ function refreshQueryTimeFromAutoNowClock() {
     return;
   }
 
-  const dateTimeValue = toLocalDatetimeValue(new Date());
-  if (dateTimeValue === elements.datetime.value) {
+  const chartTimeContext = getActiveWatchChartTimeContextFromInstant(Date.now());
+  const dateTimeValue = chartTimeContext?.compatibility?.watchLocalDateTimeValue ?? "";
+  if (!chartTimeContext || !dateTimeValue) {
+    setGeneralTimeZoneStatus("目前無法讀取所選時區的時間。", "error");
+    return;
+  }
+  const previousContext = currentGeneralWatchChartTimeContext;
+  const sameResolvedWatchTime = dateTimeValue === elements.datetime.value
+    && previousContext?.civil?.timeZone === chartTimeContext.civil.timeZone
+    && previousContext?.civil?.utcOffsetMinutes === chartTimeContext.civil.utcOffsetMinutes;
+  if (sameResolvedWatchTime) {
     return;
   }
 
+  rememberAutoNowGeneralWatchChartTimeContext(chartTimeContext);
   elements.datetime.value = dateTimeValue;
+  resetGeneralTimeZoneDisambiguation();
   chartTimeState.watchDateTimeValue = dateTimeValue;
   chartTimeState.effectiveDateTimeValue = dateTimeValue;
   renderChartQueryTimeModeStatus();
@@ -586,7 +910,11 @@ function refreshQueryTimeFromAutoNowClock() {
   }
   if (currentSolarTerms) {
     const requestId = ++latestBaziRenderRequestId;
-    refreshBaziForCurrentChartTime(dateTimeValue, requestId);
+    refreshBaziForCurrentChartTime(
+      dateTimeValue,
+      requestId,
+      chartTimeContext
+    );
     renderChineseHourButtons();
   }
   if (isTrueSolarDisplayMode(chartDisplayMode)) {
@@ -599,23 +927,33 @@ function refreshQueryTimeFromAutoNowClock() {
   renderChartTimeStatus();
 }
 
-function refreshFromCurrentTime() {
+function refreshFromCurrentTime(instantMs = Date.now()) {
   if (!isAutoNowMode) {
     return;
   }
 
-  elements.datetime.value = toLocalDatetimeValue(new Date());
+  const chartTimeContext = getActiveWatchChartTimeContextFromInstant(instantMs);
+  const dateTimeValue = chartTimeContext?.compatibility?.watchLocalDateTimeValue ?? "";
+  if (!chartTimeContext || !dateTimeValue) {
+    setGeneralTimeZoneStatus("目前無法讀取所選時區的時間。", "error");
+    return;
+  }
+  rememberAutoNowGeneralWatchChartTimeContext(chartTimeContext);
+  resetGeneralTimeZoneDisambiguation();
+  elements.datetime.value = dateTimeValue;
   renderChartQueryTimeModeStatus();
   syncQueryPickerFromDateTime(elements.datetime.value, { syncVisibleMonth: true });
-  requestRenderDateTime(elements.datetime.value);
+  requestRenderDateTime(elements.datetime.value, chartTimeContext);
   renderChineseHourButtons();
 }
 
 function handleManualDateTimeInput() {
   pauseAutoNowMode();
   invalidateCurrentTrueSolarChartContext();
+  resetGeneralTimeZoneDisambiguation();
 
   if (!readDateTimeInput()) {
+    setGeneralTimeZoneStatus("請輸入有效的當地日期與時間。", "error");
     return;
   }
 
@@ -626,8 +964,10 @@ function handleManualDateTimeInput() {
 function handleManualDateTimeChange() {
   pauseAutoNowMode();
   invalidateCurrentTrueSolarChartContext();
+  resetGeneralTimeZoneDisambiguation();
 
   if (!readDateTimeInput()) {
+    setGeneralTimeZoneStatus("請輸入有效的當地日期與時間。", "error");
     return;
   }
 
@@ -636,7 +976,7 @@ function handleManualDateTimeChange() {
 }
 
 function readDateTimeInput() {
-  return parseDateTimeLocalValue(elements.datetime.value);
+  return parseWatchDateTimeLocalParts(elements.datetime.value);
 }
 
 function initializeQueryPicker() {
@@ -684,7 +1024,10 @@ function renderQueryPicker() {
 
 function renderMonthCalendarDays() {
   const selectedDate = selectedCalendarDate;
-  const today = new Date();
+  const todayParts = getWatchLocalPartsForInstant(Date.now(), getActiveWatchTimeZone());
+  const today = todayParts
+    ? { year: todayParts.year, month: todayParts.month - 1, day: todayParts.day }
+    : null;
   const firstWeekday = getMondayFirstCalendarOffset(visibleCalendarYear, visibleCalendarMonth);
   const daysInMonth = getDaysInCalendarMonth(visibleCalendarYear, visibleCalendarMonth);
   const solarTermsByDay = getSolarTermsByDayInVisibleMonth();
@@ -752,8 +1095,17 @@ function getSolarTermsByDayInVisibleMonth() {
     return termsByDay;
   }
 
-  for (const term of getSolarTermsInMonth(currentSolarTerms, visibleCalendarYear, visibleCalendarMonth + 1)) {
-    const day = Number(term.asia_taipei.slice(8, 10));
+  const timeZone = getActiveWatchTimeZone();
+  for (const term of getSolarTermsInMonthForTimeZone(
+    currentSolarTerms,
+    visibleCalendarYear,
+    visibleCalendarMonth + 1,
+    timeZone
+  )) {
+    const day = getWatchLocalPartsForInstant(term.timeMs, timeZone)?.day;
+    if (!Number.isInteger(day)) {
+      continue;
+    }
     const terms = termsByDay.get(day) ?? [];
     terms.push(term);
     termsByDay.set(day, terms);
@@ -788,13 +1140,13 @@ function renderChineseHourButtons() {
 }
 
 function shiftVisibleCalendarMonth(delta) {
-  const next = new Date(visibleCalendarYear, visibleCalendarMonth + delta, 1);
-  if (next.getFullYear() < QUERY_YEAR_MIN || next.getFullYear() > QUERY_YEAR_MAX) {
+  const next = new Date(Date.UTC(visibleCalendarYear, visibleCalendarMonth + delta, 1));
+  if (next.getUTCFullYear() < QUERY_YEAR_MIN || next.getUTCFullYear() > QUERY_YEAR_MAX) {
     return;
   }
 
-  visibleCalendarYear = next.getFullYear();
-  visibleCalendarMonth = next.getMonth();
+  visibleCalendarYear = next.getUTCFullYear();
+  visibleCalendarMonth = next.getUTCMonth();
   renderQueryPicker();
 }
 
@@ -806,7 +1158,7 @@ function handleCalendarYearChange() {
 
 function selectQueryCalendarDate(year, month, day) {
   const hourIndex = getChineseHourIndex(elements.datetime.value)
-    ?? getChineseHourIndex(toLocalDatetimeValue(new Date()))
+    ?? getChineseHourIndex(getActiveWatchDateTimeValueForInstant(Date.now()))
     ?? 1;
   const dateTimeValue = buildDateTimeValueFromDateAndChineseHour(year, month, day, hourIndex);
   if (!dateTimeValue) {
@@ -814,6 +1166,7 @@ function selectQueryCalendarDate(year, month, day) {
   }
 
   pauseAutoNowMode();
+  resetGeneralTimeZoneDisambiguation();
   selectedCalendarDate = { year, month, day };
   elements.datetime.value = dateTimeValue;
   syncQueryPickerFromDateTime(dateTimeValue, { syncSelectedCalendarDate: false });
@@ -822,9 +1175,10 @@ function selectQueryCalendarDate(year, month, day) {
 
 function selectChineseHour(hourIndex) {
   pauseAutoNowMode();
+  resetGeneralTimeZoneDisambiguation();
   const selectedDate = selectedCalendarDate
     ?? getSelectedCalendarDateFromDateTime(elements.datetime.value)
-    ?? getSelectedCalendarDateFromDateTime(toLocalDatetimeValue(new Date()));
+    ?? getSelectedCalendarDateFromDateTime(getActiveWatchDateTimeValueForInstant(Date.now()));
   if (!selectedDate) {
     return;
   }
@@ -969,21 +1323,25 @@ function buildDateTimeValueFromDateAndChineseHour(year, month, day, hourIndex) {
     return null;
   }
 
-  const calendarDate = new Date(year, month, day);
+  const calendarDate = new Date(Date.UTC(year, month, day));
   if (
-    calendarDate.getFullYear() !== year
-    || calendarDate.getMonth() !== month
-    || calendarDate.getDate() !== day
+    calendarDate.getUTCFullYear() !== year
+    || calendarDate.getUTCMonth() !== month
+    || calendarDate.getUTCDate() !== day
   ) {
     return null;
   }
 
-  const date = new Date(year, month, day, startHour, 0, 0);
+  let date = new Date(Date.UTC(year, month, day, startHour, 0, 0));
   if (hourIndex === 1) {
-    date.setDate(date.getDate() - 1);
+    date = new Date(date.getTime() - 24 * 60 * 60 * 1000);
   }
 
-  return toLocalDatetimeValue(date);
+  const yearText = String(date.getUTCFullYear()).padStart(4, "0");
+  const monthText = String(date.getUTCMonth() + 1).padStart(2, "0");
+  const dayText = String(date.getUTCDate()).padStart(2, "0");
+  const hourText = String(date.getUTCHours()).padStart(2, "0");
+  return `${yearText}-${monthText}-${dayText}T${hourText}:00:00`;
 }
 
 function getChineseHourStartHour(hourIndex) {
@@ -1006,9 +1364,16 @@ function isSameCalendarDate(date, year, month, day) {
   return date?.year === year && date?.month === month && date?.day === day;
 }
 
-function requestRenderDateTime(dateTimeValue) {
-  dateTimeValue = normalizeLocalDateTimeValueWithSeconds(dateTimeValue);
+function requestRenderDateTime(dateTimeValue, chartTimeContext = null) {
+  dateTimeValue = normalizeWatchDateTimeValue(dateTimeValue);
   if (!dateTimeValue) {
+    setGeneralTimeZoneStatus("請輸入有效的當地日期與時間。", "error");
+    return;
+  }
+
+  const resolvedChartTimeContext = chartTimeContext
+    ?? getWatchChartTimeContextForActiveMode(dateTimeValue, { updateStatus: true });
+  if (!resolvedChartTimeContext) {
     return;
   }
 
@@ -1016,41 +1381,45 @@ function requestRenderDateTime(dateTimeValue) {
   invalidateCurrentTrueSolarChartContext();
   renderChartQueryTimeModeStatus();
   if (chartTimeState.mode === CHART_TIME_MODE.TRUE_SOLAR) restoreWatchChartTime("手錶時間已變更，已恢復使用手錶時間排盤；請確認後重新套用真太陽時。", false);
-  refreshBaziForCurrentChartTime(dateTimeValue, requestId);
+  refreshBaziForCurrentChartTime(dateTimeValue, requestId, resolvedChartTimeContext);
   if (isCalculating) {
     pendingDateTimeValue = dateTimeValue;
     return;
   }
 
-  void renderByDateTime(dateTimeValue);
+  void renderByDateTime(dateTimeValue, requestId, resolvedChartTimeContext);
 }
 
-function refreshBaziForCurrentChartTime(dateTimeValue, requestId) {
-  dateTimeValue = normalizeLocalDateTimeValueWithSeconds(dateTimeValue);
+function refreshBaziForCurrentChartTime(dateTimeValue, requestId, chartTimeContext = null) {
+  dateTimeValue = normalizeWatchDateTimeValue(dateTimeValue);
   if (!currentSolarTerms || !dateTimeValue) {
     return false;
   }
 
   try {
-    const effectiveDateTimeValue = resolveEffectiveChartDateTimeValue(dateTimeValue);
+    const context = chartTimeContext ?? getGeneralWatchChartTimeContext(dateTimeValue, { updateStatus: true });
+    if (!context) {
+      return false;
+    }
     // Keep the legacy/watch snapshot civil even while the active display is
     // true-solar; the formal true-solar result is rebuilt from its context
     // below and must not leak into Guideng/Qimen watch-only consumers.
-    const result = calculateBaziFromSolarTerms(dateTimeValue, currentSolarTerms);
+    const result = calculateBaziFromChartTimeContext(context, currentSolarTerms);
     if (!isLatestBaziRenderRequest(requestId)) {
       return false;
     }
 
     currentCalendarResult = result;
     currentWatchBaziResult = result;
-    currentDateTimeValue = effectiveDateTimeValue;
+    currentGeneralWatchChartTimeContext = context;
+    currentDateTimeValue = dateTimeValue;
     chartTimeState.watchDateTimeValue = dateTimeValue;
-    chartTimeState.effectiveDateTimeValue = effectiveDateTimeValue;
+    chartTimeState.effectiveDateTimeValue = dateTimeValue;
     isJinhanDunTypeManuallyOverridden = false;
     if (isTrueSolarDisplayMode(chartDisplayMode)) {
       renderFormalTrueSolarChartTime();
     } else {
-      renderResult(result, effectiveDateTimeValue);
+      renderResult(result, dateTimeValue);
     }
     refreshFlyingStarsForCurrentChartTime(requestId);
     void refreshJinhanForCurrentChartTime(requestId);
@@ -1064,8 +1433,12 @@ function isLatestBaziRenderRequest(requestId) {
   return requestId === latestBaziRenderRequestId;
 }
 
-async function renderByDateTime(dateTimeValue, requestId = latestBaziRenderRequestId) {
-  dateTimeValue = normalizeLocalDateTimeValueWithSeconds(dateTimeValue);
+async function renderByDateTime(
+  dateTimeValue,
+  requestId = latestBaziRenderRequestId,
+  chartTimeContext = null
+) {
+  dateTimeValue = normalizeWatchDateTimeValue(dateTimeValue);
   if (!dateTimeValue) {
     return;
   }
@@ -1077,32 +1450,37 @@ async function renderByDateTime(dateTimeValue, requestId = latestBaziRenderReque
     if (!isLatestBaziRenderRequest(requestId)) {
       return;
     }
-    const effectiveDateTimeValue = resolveEffectiveChartDateTimeValue(dateTimeValue);
+    chartTimeContext = chartTimeContext
+      ?? getWatchChartTimeContextForActiveMode(dateTimeValue, { updateStatus: true });
+    if (!chartTimeContext) {
+      return;
+    }
     // `currentCalendarResult` remains the civil/watch compatibility snapshot;
     // true-solar Bazi is authoritative only through ChartTimeContext.
-    const result = calculateBaziFromSolarTerms(dateTimeValue, solarTerms);
+    const result = calculateBaziFromChartTimeContext(chartTimeContext, solarTerms);
     if (!isLatestBaziRenderRequest(requestId)) {
       return;
     }
     currentCalendarResult = result;
     currentWatchBaziResult = result;
     currentSolarTerms = solarTerms;
-    currentDateTimeValue = effectiveDateTimeValue;
+    currentGeneralWatchChartTimeContext = chartTimeContext;
+    currentDateTimeValue = dateTimeValue;
     chartTimeState.watchDateTimeValue = dateTimeValue;
-    chartTimeState.effectiveDateTimeValue = effectiveDateTimeValue;
+    chartTimeState.effectiveDateTimeValue = dateTimeValue;
     isJinhanDunTypeManuallyOverridden = false;
     if (isTrueSolarDisplayMode(chartDisplayMode)) {
       renderFormalTrueSolarChartTime();
     } else {
-      renderResult(result, effectiveDateTimeValue);
+      renderResult(result, dateTimeValue);
     }
     renderQueryPicker();
     refreshFlyingStarsForCurrentChartTime(requestId);
-    await renderJinhanYujing(result, effectiveDateTimeValue, requestId);
+    await renderJinhanYujing(result, dateTimeValue, requestId);
     if (!isLatestBaziRenderRequest(requestId)) {
       return;
     }
-    renderQimenSection(effectiveDateTimeValue);
+    renderQimenSection(chartTimeContext);
     renderActiveTrueSolarTime();
     renderBaziForActiveDisplayMode();
     renderChartTimeStatus();
@@ -1136,15 +1514,21 @@ async function renderByDateTime(dateTimeValue, requestId = latestBaziRenderReque
 
 function renderResult(result, dateTimeValue) {
   elements.baziTimeBasis.hidden = true;
-  const displayContext = createCurrentWatchChartTimeContext(
-    chartTimeState.watchDateTimeValue ?? elements.datetime.value
-  );
+  const displayContext = currentGeneralWatchChartTimeContext
+    ?? getGeneralWatchChartTimeContext(
+      chartTimeState.watchDateTimeValue ?? elements.datetime.value,
+      { updateStatus: false }
+    )
+    ?? createCurrentWatchChartTimeContext(chartTimeState.watchDateTimeValue ?? elements.datetime.value);
   const dailyDaHuangDao = getDailyDaHuangDao(result.monthBranch, result.dayPillar?.[1]);
   renderPillar(elements.yearPillar, result.yearPillar, undefined, undefined, true);
   renderPillar(elements.monthPillar, result.monthPillar, undefined, undefined, true);
   renderPillar(elements.dayPillar, result.dayPillar, undefined, undefined, true);
   renderPillar(elements.hourPillar, result.hourPillar, undefined, undefined, true);
-  renderSolarTermDayPanel(getSelectedSolarTermDay(), displayContext);
+  renderSolarTermDayPanel(
+    getSelectedSolarTermDay(displayContext?.civil?.timeZone ?? generalTimeZone),
+    displayContext
+  );
   renderPillarExtraPanel(result.jianchu, dailyDaHuangDao, result.dailyInfo);
   updateWeekdayLabel(dateTimeValue, result.dayPillar, result.jianchu, result.dailyInfo);
   renderSeasonInfo(result, displayContext);
@@ -1195,7 +1579,7 @@ function renderTrueSolarBaziResult(result, context) {
     safeTrueSolarDailyInfo,
     context
   );
-  renderSolarTermDayPanel(getSelectedSolarTermDay(), context);
+  renderSolarTermDayPanel(getSelectedSolarTermDay(context?.civil?.timeZone ?? generalTimeZone), context);
   renderSeasonInfo(result, context);
   elements.baziTimeBasis.hidden = false;
   elements.baziTimeBasis.textContent = "☀ 真太陽時";
@@ -1234,6 +1618,8 @@ function clearResult() {
   currentCalendarResult = null;
   currentWatchBaziResult = null;
   currentSolarTerms = null;
+  currentGeneralWatchChartTimeContext = null;
+  currentGeneralWatchChartTimeContextKey = null;
   elements.baziTimeBasis.hidden = true;
   updateWeekdayLabel("");
   for (const element of [
@@ -1253,12 +1639,12 @@ function clearResult() {
   clearQimenSection();
 }
 
-function getSelectedSolarTermDay() {
+function getSelectedSolarTermDay(timeZone = getActiveWatchTimeZone()) {
   if (!currentSolarTerms || !selectedCalendarDate) {
     return [];
   }
 
-  return getSolarTermOnDate(currentSolarTerms, selectedCalendarDate);
+  return getSolarTermOnDateForTimeZone(currentSolarTerms, selectedCalendarDate, timeZone);
 }
 
 function renderDongGongDaySelection(result) {
@@ -1455,7 +1841,12 @@ function formatSeasonHouVariantLine(hou, variantKey) {
 
 function renderSpecNotes() {
   const notes = [
-    "本工具使用 Asia/Taipei 標準時間；立春換年、節令換月、23:00 換日。",
+    `一般模式預設使用裝置時區，也可手動指定 IANA 時區（目前：${generalTimeZone}）。`,
+    "節氣交接依 solar_terms_1899_2101.json 的絕對瞬間判定，再按所選時區顯示當地日期與時間。",
+    "一般排盤使用所選時區的手錶時間；立春換年、12 節換月、23:00 起換日。",
+    "真太陽時頁面維持獨立設定，不受一般模式時區切換影響。",
+    "奇門日期區間 Excel 依奇門曆日產生，不受一般顯示時區影響。",
+    "農曆維持既有 CWA Taiwan civil date 契約。",
     "節氣資料來自 solar_terms_1899_2101.json；七十二候以節氣區間三等分。",
     "九宮飛星提供運、年、月、日、時盤，畫面合併運年月；金函玉鏡使用日盤資料表。",
     "預設使用手錶時間排盤；可於真太陽時頁籤輸入座標後手動套用，並可恢復手錶時間。",
@@ -1776,7 +2167,8 @@ function refreshFlyingStarsForCurrentChartTime(requestId = latestBaziRenderReque
     const watchDateTimeValue = chartTimeState.watchDateTimeValue
       ?? elements.datetime.value
       ?? currentDateTimeValue;
-    context = createCurrentWatchChartTimeContext(watchDateTimeValue);
+    context = currentGeneralWatchChartTimeContext
+      ?? getGeneralWatchChartTimeContext(watchDateTimeValue, { updateStatus: false });
     if (!context || !baziResult) {
       clearFlyingStars();
       return false;
@@ -1801,6 +2193,38 @@ function refreshFlyingStarsForCurrentChartTime(requestId = latestBaziRenderReque
   }
 }
 
+function getActiveWatchDateTimeValueForInstant(instantMs) {
+  return getWatchDateTimeValueForInstant(instantMs, getActiveWatchTimeZone());
+}
+
+function getActiveWatchTimeZone() {
+  return isTrueSolarDisplayMode(chartDisplayMode) ? "Asia/Taipei" : generalTimeZone;
+}
+
+function getActiveWatchChartTimeContextFromInstant(instantMs) {
+  return createWatchChartTimeContextFromInstant({
+    instantMs,
+    timeZone: getActiveWatchTimeZone(),
+    source: TRUE_SOLAR_TIME_SOURCE.QUERY,
+  });
+}
+
+function rememberAutoNowGeneralWatchChartTimeContext(chartTimeContext) {
+  if (chartTimeContext?.civil?.timeZone !== generalTimeZone) {
+    return;
+  }
+  currentGeneralWatchChartTimeContext = chartTimeContext;
+  currentGeneralWatchChartTimeContextKey = null;
+}
+
+function getWatchChartTimeContextForActiveMode(dateTimeValue, { updateStatus = false } = {}) {
+  if (isTrueSolarDisplayMode(chartDisplayMode)) {
+    return createCurrentWatchChartTimeContext(dateTimeValue, { timeZone: "Asia/Taipei" });
+  }
+
+  return getGeneralWatchChartTimeContext(dateTimeValue, { updateStatus });
+}
+
 function getFormalChartLocationSnapshot() {
   const location = trueSolarTimeLocation;
   if (!location
@@ -1821,6 +2245,68 @@ function getFormalChartLocationSnapshot() {
   };
 }
 
+function getGeneralWatchChartTimeContext(dateTimeValue, { updateStatus = false } = {}) {
+  const normalizedDateTimeValue = normalizeWatchDateTimeValue(dateTimeValue);
+  if (!normalizedDateTimeValue) {
+    if (updateStatus) {
+      setGeneralTimeZoneStatus("請輸入有效的當地日期與時間。", "error");
+    }
+    return null;
+  }
+
+  const cacheKey = [
+    generalTimeZone,
+    generalTimeZoneDisambiguation ?? "",
+    normalizedDateTimeValue,
+  ].join("|");
+  if (cacheKey === currentGeneralWatchChartTimeContextKey && currentGeneralWatchChartTimeContext) {
+    return currentGeneralWatchChartTimeContext;
+  }
+
+  const resolved = createWatchChartTimeContextFromDateTime({
+    dateTimeValue: normalizedDateTimeValue,
+    timeZone: generalTimeZone,
+    disambiguation: generalTimeZoneDisambiguation,
+    source: TRUE_SOLAR_TIME_SOURCE.QUERY,
+  });
+  if (resolved.status === "ambiguous") {
+    configureGeneralTimeZoneDisambiguation(resolved.resolution.candidates, generalTimeZoneDisambiguation);
+    if (updateStatus) {
+      setGeneralTimeZoneStatus("此當地時間出現兩次，請選擇實際使用的時間。", "error");
+    }
+    return null;
+  }
+  if (resolved.status === "nonexistent") {
+    clearGeneralTimeZoneDisambiguation();
+    if (updateStatus) {
+      setGeneralTimeZoneStatus("此當地時間因日光節約時間切換而不存在，請選擇其他時間。", "error");
+    }
+    return null;
+  }
+  if (resolved.status !== "resolved" || !resolved.context) {
+    clearGeneralTimeZoneDisambiguation();
+    if (updateStatus) {
+      setGeneralTimeZoneStatus(
+        resolved.status === "invalid-time-zone"
+          ? "請輸入有效的 IANA 時區。"
+          : "請輸入有效的當地日期與時間。",
+        "error"
+      );
+    }
+    return null;
+  }
+
+  currentGeneralWatchChartTimeContext = resolved.context;
+  currentGeneralWatchChartTimeContextKey = cacheKey;
+  if (updateStatus) {
+    setGeneralTimeZoneStatus(
+      `目前使用：${resolved.context.civil.timeZone}（${formatUtcOffset(resolved.context.civil.utcOffsetMinutes)}）`,
+      ""
+    );
+  }
+  return resolved.context;
+}
+
 function createCurrentWatchChartTimeContext(dateTimeValue, options) {
   options = options ?? {};
   const { location = null } = options;
@@ -1832,9 +2318,17 @@ function createCurrentWatchChartTimeContext(dateTimeValue, options) {
   if (!localParts) {
     return null;
   }
+  const selectedGeneralTimeZone = typeof generalTimeZone === "string" ? generalTimeZone : "Asia/Taipei";
+  const timeZone = options.timeZone ?? selectedGeneralTimeZone;
+  const disambiguation = options.disambiguation
+    ?? (timeZone === selectedGeneralTimeZone
+      && typeof generalTimeZoneDisambiguation === "string"
+      ? generalTimeZoneDisambiguation
+      : null);
   const civilResolution = resolveLocalDateTimeInTimeZone({
     localParts,
-    timeZone: "Asia/Taipei",
+    timeZone,
+    disambiguation,
   });
   if (civilResolution.status !== "resolved") {
     return null;
@@ -1847,9 +2341,10 @@ function createCurrentWatchChartTimeContext(dateTimeValue, options) {
       utcOffsetMinutes: civilResolution.utcOffsetMinutes,
       abbreviation: civilResolution.abbreviation,
       instantMs: civilResolution.instant.getTime(),
+      disambiguation,
     },
     compatibility: {
-      taipeiLegacyDateTimeValue: dateTimeValue,
+      taipeiLegacyDateTimeValue: timeZone === "Asia/Taipei" ? dateTimeValue : null,
     },
     location,
     createdAtInstantMs: Date.now(),
@@ -1930,12 +2425,13 @@ async function refreshJinhanForCurrentChartTime(requestId = latestBaziRenderRequ
   const isTrueSolar = isTrueSolarDisplayMode(chartDisplayMode);
   const context = isTrueSolar
     ? currentTrueSolarChartContext
-    : createCurrentWatchChartTimeContext(
-      chartTimeState.watchDateTimeValue
-        ?? currentDateTimeValue
-        ?? elements.datetime.value,
-      { location: getFormalChartLocationSnapshot() }
-    );
+    : currentGeneralWatchChartTimeContext
+      ?? getGeneralWatchChartTimeContext(
+        chartTimeState.watchDateTimeValue
+          ?? currentDateTimeValue
+          ?? elements.datetime.value,
+        { updateStatus: false }
+      );
   const baziResult = isTrueSolar
     ? currentTrueSolarBaziResult
     : currentWatchBaziResult ?? currentCalendarResult;
@@ -2083,12 +2579,13 @@ async function refreshGuiDengForCurrentChartTime(requestId = latestBaziRenderReq
   const isTrueSolar = isTrueSolarDisplayMode(chartDisplayMode);
   const context = snapshotInput?.context ?? (isTrueSolar
     ? currentTrueSolarChartContext
-    : createCurrentWatchChartTimeContext(
-      chartTimeState.watchDateTimeValue
-        ?? currentDateTimeValue
-        ?? elements.datetime.value,
-      { location: getFormalChartLocationSnapshot() }
-    ));
+    : currentGeneralWatchChartTimeContext
+      ?? getGeneralWatchChartTimeContext(
+        chartTimeState.watchDateTimeValue
+          ?? currentDateTimeValue
+          ?? elements.datetime.value,
+        { updateStatus: false }
+      ));
   const baziResult = snapshotInput?.baziResult ?? (isTrueSolar
     ? currentTrueSolarBaziResult
     : currentWatchBaziResult ?? currentCalendarResult);
@@ -2476,7 +2973,7 @@ function createQimenExportPanel() {
 
   const note = document.createElement("p");
   note.className = "qimen-export-note";
-  note.textContent = "依手錶日期逐日輸出十二時辰；不套用真太陽時或目前頁面的手動盤局覆寫；單次最多 3 個月。";
+  note.textContent = "依奇門曆日逐日輸出十二時辰；區間匯出不受顯示時區影響；不套用真太陽時或目前頁面的手動盤局覆寫；單次最多 3 個月。";
 
   const controls = document.createElement("div");
   controls.className = "qimen-export-controls";
@@ -3063,6 +3560,7 @@ function renderFormalTrueSolarChartTime() {
   if (!canonicalDateTimeValue || !localParts || !formalLocation) {
     renderBaziForActiveDisplayMode();
     renderChineseHourButtons();
+    renderChartQueryTimeModeStatus();
     renderChartTimeStatus();
     return;
   }
@@ -3101,11 +3599,13 @@ function renderFormalTrueSolarChartTime() {
     currentTrueSolarChartContext = createCurrentTrueSolarChartContext();
     renderBaziForActiveDisplayMode();
     renderChineseHourButtons();
+    renderChartQueryTimeModeStatus();
     renderChartTimeStatus();
   } catch {
     clearCurrentTrueSolarChartContext();
     renderBaziForActiveDisplayMode();
     renderChineseHourButtons();
+    renderChartQueryTimeModeStatus();
     renderChartTimeStatus();
   }
 }
@@ -3534,13 +4034,106 @@ function parseTopQueryDateTimeLocalParts(dateTimeValue) {
   return parts ? { ...parts, millisecond: 0 } : null;
 }
 function formatChartTimeStatusDateTime(dateTimeValue) {
-  const date = parseDateTimeLocalValue(dateTimeValue);
-  return date ? formatDateTimeParts(getLocalDateParts(date)) : "時間初始化中…";
+  if (typeof dateTimeValue !== "string") {
+    return "時間初始化中…";
+  }
+  const match = dateTimeValue.trim().match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?$/);
+  if (!match) {
+    return "時間初始化中…";
+  }
+  const [, yearText, monthText, dayText, hourText, minuteText, secondText = "0"] = match;
+  const parts = {
+    year: Number(yearText),
+    month: Number(monthText),
+    day: Number(dayText),
+    hour: Number(hourText),
+    minute: Number(minuteText),
+    second: Number(secondText),
+  };
+  const carrier = new Date(Date.UTC(
+    parts.year,
+    parts.month - 1,
+    parts.day,
+    parts.hour,
+    parts.minute,
+    parts.second,
+  ));
+  if (
+    carrier.getUTCFullYear() !== parts.year
+    || carrier.getUTCMonth() !== parts.month - 1
+    || carrier.getUTCDate() !== parts.day
+    || carrier.getUTCHours() !== parts.hour
+    || carrier.getUTCMinutes() !== parts.minute
+    || carrier.getUTCSeconds() !== parts.second
+  ) {
+    return "時間初始化中…";
+  }
+  return formatDateTimeParts(parts);
 }
+
+function getEffectiveQueryTimeSummaryValue() {
+  if (typeof currentTrueSolarChartContext !== "undefined") {
+    const trueSolarLocalParts = currentTrueSolarChartContext?.trueSolar?.localParts;
+    if (trueSolarLocalParts) {
+      return formatDateTimeParts(trueSolarLocalParts);
+    }
+  }
+  if (
+    typeof chartTimeState !== "undefined"
+    && chartTimeState?.mode === "true-solar"
+    && chartTimeState.effectiveDateTimeValue
+  ) {
+    return formatChartTimeStatusDateTime(chartTimeState.effectiveDateTimeValue);
+  }
+  return null;
+}
+
+function getGeneralTimeZoneSummaryText() {
+  if (
+    isAutoNowMode
+    && currentGeneralWatchChartTimeContext?.civil?.timeZone === generalTimeZone
+    && Number.isInteger(currentGeneralWatchChartTimeContext?.civil?.utcOffsetMinutes)
+  ) {
+    return `時區：${generalTimeZone}（${formatUtcOffset(currentGeneralWatchChartTimeContext.civil.utcOffsetMinutes)}）`;
+  }
+
+  const localParts = parseWatchDateTimeLocalParts(elements.datetime.value);
+  const resolved = localParts
+    ? resolveLocalDateTimeInTimeZone({
+      localParts,
+      timeZone: generalTimeZone,
+      disambiguation: generalTimeZoneDisambiguation,
+    })
+    : null;
+  if (resolved?.status === "resolved") {
+    return `時區：${generalTimeZone}（${formatUtcOffset(resolved.utcOffsetMinutes)}）`;
+  }
+  if (resolved?.status === "ambiguous") {
+    return `時區：${generalTimeZone}（請選 earlier / later）`;
+  }
+  if (resolved?.status === "nonexistent") {
+    return `時區：${generalTimeZone}（當地時間不存在）`;
+  }
+
+  const current = getZonedDateTimeParts(new Date(), generalTimeZone);
+  return current
+    ? `時區：${generalTimeZone}（${formatUtcOffset(current.utcOffsetMinutes)}）`
+    : `時區：${generalTimeZone}`;
+}
+
+function renderGeneralTimeZoneSummary() {
+  elements.generalTimeZoneSummary.textContent = getGeneralTimeZoneSummaryText();
+}
+
 function renderChartQueryTimeModeStatus() {
   elements.chartQueryTimeModeStatus.textContent = isAutoNowMode ? "● 跟隨現在時間" : "○ 手動查詢時間";
   elements.chartQueryTimeValue.textContent = formatChartTimeStatusDateTime(elements.datetime.value);
+  const effectiveTime = getEffectiveQueryTimeSummaryValue();
+  if (effectiveTime) {
+    elements.chartQueryTimeValue.textContent = effectiveTime;
+  }
   elements.chartQueryTimeModeStatus.dataset.mode = isAutoNowMode ? "auto-now" : "manual";
+  renderGeneralTimeZoneSummary();
 }
 function setTrueSolarTimeStatus(message, type) { elements.trueSolarTimeStatus.textContent = message; elements.trueSolarTimeStatus.className = `section-message ${type ? `section-message-${type}` : ""}`.trim(); }
 function formatDateTimeLocalParts(parts) { return parts && Number.isInteger(parts.year) ? `${String(parts.year).padStart(4, "0")}-${String(parts.month).padStart(2, "0")}-${String(parts.day).padStart(2, "0")}T${String(parts.hour).padStart(2, "0")}:${String(parts.minute).padStart(2, "0")}:${String(parts.second).padStart(2, "0")}` : null; }
@@ -3583,7 +4176,13 @@ function renderChartTimeStatus() {
       : "真太陽時：尚未就緒";
     elements.chartTimeStatusDetail.replaceChildren(watchLine, trueSolarLine);
   } else {
-    elements.chartTimeStatusDetail.textContent = formatChartTimeStatusDateTime(elements.datetime.value);
+    const watchLine = document.createElement("span");
+    const timeZoneLine = document.createElement("span");
+    watchLine.className = "chart-time-status-detail-line";
+    timeZoneLine.className = "chart-time-status-detail-line";
+    watchLine.textContent = formatChartTimeStatusDateTime(elements.datetime.value);
+    timeZoneLine.textContent = `時區：${generalTimeZone}`;
+    elements.chartTimeStatusDetail.replaceChildren(watchLine, timeZoneLine);
   }
   elements.chartTimeRestore.hidden = true;
 }
@@ -3600,9 +4199,11 @@ function setActiveTab(panelId) {
   });
 }
 
-function renderQimenSection(dateTimeText) {
+function renderQimenSection(chartTimeContextOrDateTime) {
   try {
-    const qimen = resolveQimenJuFromFullTermCycleDraft(dateTimeText);
+    const qimen = chartTimeContextOrDateTime?.civil
+      ? resolveQimenJuFromChartTimeContext(chartTimeContextOrDateTime)
+      : resolveQimenJuFromFullTermCycleDraft(chartTimeContextOrDateTime);
     syncQimenManualControlsWithAuto(qimen);
     const effective = resolveQimenPlateLookupInput(qimen, qimenManualOverride);
     qimenElements.summary.replaceChildren(...createQimenSummaryRows(qimen));
@@ -3712,11 +4313,18 @@ function setQimenExportStatus(message, type = "") {
 }
 
 function rerenderCurrentQimenSection() {
-  if (!currentDateTimeValue) {
+  const dateTimeValue = currentDateTimeValue ?? elements.datetime.value;
+  if (!dateTimeValue && !currentGeneralWatchChartTimeContext) {
     return;
   }
 
-  renderQimenSection(currentDateTimeValue);
+  const context = isTrueSolarDisplayMode(chartDisplayMode)
+    ? getWatchChartTimeContextForActiveMode(dateTimeValue)
+    : currentGeneralWatchChartTimeContext
+      ?? getWatchChartTimeContextForActiveMode(dateTimeValue);
+  if (context) {
+    renderQimenSection(context);
+  }
 }
 
 function syncQimenManualControlsWithAuto(qimen) {
@@ -5051,13 +5659,14 @@ function renderWeekdayLabel(summary, dailyInfo, effectiveDayLabel = "", dateSema
 }
 
 function formatWeekdayLabel(dateTimeValue, dayPillar, jianchu, dailyInfo) {
-  const date = parseDateTimeLocalValue(dateTimeValue);
-  if (!date) {
+  const localParts = parseWatchDateTimeLocalParts(dateTimeValue);
+  const dateKey = formatCalendarDateKey(localParts);
+  if (!dateKey) {
     return "--";
   }
 
-  return formatBaziDailySummary({
-    date,
+  return formatBaziDailySummaryFromDateKey({
+    dateKey,
     dayBranch: dayPillar?.[1],
     clashZodiac: dailyInfo?.clash?.zodiac,
     jianchuName: jianchu?.fullName,
@@ -5105,12 +5714,14 @@ function formatClothingLine(icon, item) {
 }
 
 function getChineseHourIndex(dateTimeValue) {
-  const date = parseDateTimeLocalValue(dateTimeValue);
-  if (!date) {
+  if (typeof dateTimeValue !== "string") {
     return null;
   }
-
-  return getChineseHourIndexFromLocalParts({ hour: date.getHours() });
+  const match = dateTimeValue.trim().match(/^\d{4}-\d{2}-\d{2}T(\d{2}):\d{2}(?::\d{2})?$/);
+  if (!match) {
+    return null;
+  }
+  return getChineseHourIndexFromLocalParts({ hour: Number(match[1]) });
 }
 
 function getChineseHourIndexFromLocalParts(localParts) {
@@ -5129,7 +5740,7 @@ function getChineseHourPickerState(nowInstantMs = Date.now()) {
   if (!isTrueSolarDisplayMode(chartDisplayMode)) {
     return {
       selectedIndex: getChineseHourIndex(elements.datetime.value),
-      currentIndex: getChineseHourIndex(toLocalDatetimeValue(new Date(nowInstantMs))),
+      currentIndex: getChineseHourIndex(getWatchDateTimeValueForInstant(nowInstantMs, generalTimeZone)),
     };
   }
   if (!currentTrueSolarChartContext) {
@@ -5162,19 +5773,34 @@ function getCurrentChineseHourInfo(dateTimeValue) {
 }
 
 function getSelectedCalendarDateFromDateTime(dateTimeValue) {
-  const date = parseDateTimeLocalValue(dateTimeValue);
-  if (!date) {
+  if (typeof dateTimeValue !== "string") {
     return null;
   }
-
-  if (date.getHours() >= 23) {
-    date.setDate(date.getDate() + 1);
+  const match = dateTimeValue.trim().match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(?:\d{2})(?::\d{2})?$/);
+  if (!match) {
+    return null;
   }
-
+  const [, yearText, monthText, dayText, hourText] = match;
+  const year = Number(yearText);
+  const month = Number(monthText);
+  const day = Number(dayText);
+  const hour = Number(hourText);
+  const carrier = new Date(Date.UTC(year, month - 1, day, hour));
+  if (
+    carrier.getUTCFullYear() !== year
+    || carrier.getUTCMonth() !== month - 1
+    || carrier.getUTCDate() !== day
+    || carrier.getUTCHours() !== hour
+  ) {
+    return null;
+  }
+  if (hour >= 23) {
+    carrier.setUTCDate(carrier.getUTCDate() + 1);
+  }
   return {
-    year: date.getFullYear(),
-    month: date.getMonth(),
-    day: date.getDate(),
+    year: carrier.getUTCFullYear(),
+    month: carrier.getUTCMonth(),
+    day: carrier.getUTCDate(),
   };
 }
 

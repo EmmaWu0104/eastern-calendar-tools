@@ -1,3 +1,5 @@
+import { getZonedDateTimeParts } from "./timeZone.js";
+
 export const SOLAR_TERMS_URL = new URL("../data/solar_terms_1899_2101.json", import.meta.url);
 
 export const MONTH_BRANCH_BY_TERM = Object.freeze({
@@ -176,6 +178,22 @@ export function getSolarTermsInMonth(solarTerms, year, month) {
   });
 }
 
+/**
+ * Returns terms whose absolute instant falls in the requested month after it
+ * is projected into an explicit IANA timezone.  The legacy helper above
+ * intentionally keeps its Asia/Taipei data-file contract for old callers.
+ */
+export function getSolarTermsInMonthForTimeZone(solarTerms, year, month, timeZone) {
+  if (!Number.isInteger(year) || !Number.isInteger(month) || month < 1 || month > 12) {
+    return [];
+  }
+
+  return normalizeIfNeeded(solarTerms).filter((term) => {
+    const date = getSolarTermDatePartsInTimeZone(term, timeZone);
+    return date?.year === year && date.month === month;
+  });
+}
+
 export function getSolarTermOnDate(solarTerms, dateLike) {
   const date = normalizeCivilDate(dateLike);
   if (!date) {
@@ -186,6 +204,29 @@ export function getSolarTermOnDate(solarTerms, dateLike) {
     const termDate = getSolarTermDateParts(term);
     return termDate?.day === date.day;
   });
+}
+
+export function getSolarTermOnDateForTimeZone(solarTerms, dateLike, timeZone) {
+  const date = normalizeCivilDate(dateLike);
+  if (!date) {
+    return [];
+  }
+
+  return getSolarTermsInMonthForTimeZone(solarTerms, date.year, date.month, timeZone)
+    .filter((term) => getSolarTermDatePartsInTimeZone(term, timeZone)?.day === date.day);
+}
+
+export function getSolarTermDatePartsInTimeZone(term, timeZone) {
+  if (!Number.isFinite(term?.timeMs)) {
+    return null;
+  }
+
+  const zoned = getZonedDateTimeParts(new Date(term.timeMs), timeZone);
+  if (!zoned) {
+    return null;
+  }
+
+  return { ...zoned.localParts };
 }
 
 export function formatSolarTermDateTime(term) {

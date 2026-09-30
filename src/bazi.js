@@ -23,6 +23,10 @@ import {
   getCurrentHouBySolarTermRange,
   getNextHouBySolarTermRange,
 } from "./seventyTwoHou.js";
+import {
+  getZonedDateTimeParts,
+  validateTimeZone,
+} from "./timeZone.js";
 
 export const RULE_NOTES = Object.freeze([
   "年柱以立春切換。",
@@ -66,6 +70,7 @@ export function calculateBaziFromSeparatedTimeInputs({
   clockLocalParts,
   effectiveDayDateKey,
   solarTerms,
+  timeZone = "Asia/Taipei",
 } = {}) {
   if (!Number.isFinite(termComparisonInstantMs)) {
     throw new TypeError("termComparisonInstantMs 必須是有限數字");
@@ -99,6 +104,7 @@ export function calculateBaziFromSeparatedTimeInputs({
     hourPillar,
     solarTerms,
     dailyInfoDateKey: resolvedEffectiveDayDateKey,
+    timeZone,
   });
 }
 
@@ -111,6 +117,7 @@ function calculateBaziFromResolvedInputs({
   hourPillar,
   solarTerms,
   dailyInfoDateKey,
+  timeZone,
 }) {
   const currentHou = getCurrentHouFromTermContext(termContext);
   const nextHou = getNextHouFromTermContext(termContext, solarTerms);
@@ -121,6 +128,7 @@ function calculateBaziFromResolvedInputs({
     yearPillar: yearPillar.pillar,
     dayPillar: dayPillar.pillar,
     dateKeyOverride: dailyInfoDateKey,
+    timeZone,
     seasonOverride: dailyInfoDateKey !== undefined
       ? getSeasonByMonthBranch(monthBranch.branch)
       : undefined,
@@ -161,16 +169,21 @@ function getJianchuFromBranches(monthBranch, dayPillar) {
   return getJianchuByBranches(monthBranch, dayBranch);
 }
 
-function getDailyInfoFromContext({ termContext, solarTerms, yearPillar, dayPillar, dateKeyOverride, seasonOverride }) {
+function getDailyInfoFromContext({ termContext, solarTerms, yearPillar, dayPillar, dateKeyOverride, timeZone, seasonOverride }) {
   const targetTimeMs = termContext?.dateTime?.timeMs;
   const hasExplicitDateKey = typeof dateKeyOverride === "string";
+  const explicitDateKeyTimeZone = hasExplicitDateKey && validateTimeZone(timeZone)
+    ? timeZone
+    : null;
   const dateKey = hasExplicitDateKey
     ? dateKeyOverride
     : Number.isFinite(targetTimeMs) ? getEffectiveDateKeyByTimeMs(targetTimeMs) : "";
   const targetYear = getYearFromDateKey(dateKey);
   const nextTerm = termContext?.nextTerm;
   const upcomingTermDateKey = hasExplicitDateKey
-    ? getTaipeiEffectiveDateKeyByTimeMs(nextTerm?.timeMs)
+    ? (explicitDateKeyTimeZone
+      ? getEffectiveDateKeyByTimeZone(nextTerm?.timeMs, explicitDateKeyTimeZone)
+      : getTaipeiEffectiveDateKeyByTimeMs(nextTerm?.timeMs))
     : "";
 
   return getDailyInfoByBranches({
@@ -185,7 +198,13 @@ function getDailyInfoFromContext({ termContext, solarTerms, yearPillar, dayPilla
     season: seasonOverride ?? getSeasonByCurrentTermName(termContext?.currentTerm?.name),
     dateKey,
     sanfuDateKeys: Number.isFinite(targetYear)
-      ? getSanfuDateKeysForYear(targetYear, solarTerms, { useTaipeiDateBasis: hasExplicitDateKey })
+      ? getSanfuDateKeysForYear(
+        targetYear,
+        solarTerms,
+        explicitDateKeyTimeZone
+          ? { timeZone: explicitDateKeyTimeZone }
+          : { useTaipeiDateBasis: hasExplicitDateKey }
+      )
       : null,
   });
 }
@@ -315,13 +334,19 @@ function getSanfuDateKeysForYear(targetYear, solarTerms, options = {}) {
     return null;
   }
 
-  const dateKeyFromTerm = options.useTaipeiDateBasis
-    ? getTaipeiEffectiveDateKeyByTimeMs
-    : getEffectiveDateKeyByTimeMs;
+  const timeZone = validateTimeZone(options.timeZone) ? options.timeZone : null;
+  const dateKeyFromTerm = timeZone
+    ? (timeMs) => getEffectiveDateKeyByTimeZone(timeMs, timeZone)
+    : options.useTaipeiDateBasis
+      ? getTaipeiEffectiveDateKeyByTimeMs
+      : getEffectiveDateKeyByTimeMs;
+  const dateKeyOptions = timeZone
+    ? { ...options, dateKeyIncrement: addDaysToDateKeyUtc }
+    : options;
   const summerSolsticeDateKey = dateKeyFromTerm(summerSolstice.timeMs);
   const liqiuDateKey = dateKeyFromTerm(liqiu.timeMs);
-  const summerGengDays = findGengDateKeysFrom(summerSolsticeDateKey, 4, options);
-  const liqiuGengDays = findGengDateKeysFrom(liqiuDateKey, 1, options);
+  const summerGengDays = findGengDateKeysFrom(summerSolsticeDateKey, 4, dateKeyOptions);
+  const liqiuGengDays = findGengDateKeysFrom(liqiuDateKey, 1, dateKeyOptions);
 
   if (summerGengDays.length < 4 || liqiuGengDays.length < 1) {
     return null;
@@ -336,7 +361,9 @@ function getSanfuDateKeysForYear(targetYear, solarTerms, options = {}) {
   if (sanfuDateKeys["中伏"] === sanfuDateKeys["末伏"]) {
     // 本工具第一版採用「提前十日補一伏」：中伏與末伏同日時，中伏取末伏前 10 日。
     // 後續若要對照通勝，需另開校驗資料與案例。
-    sanfuDateKeys["中伏"] = addDaysToDateKey(sanfuDateKeys["末伏"], -10);
+    const addDateKey = dateKeyOptions.dateKeyIncrement
+      ?? (dateKeyOptions.useTaipeiDateBasis ? addDaysToDateKeyUtc : addDaysToDateKey);
+    sanfuDateKeys["中伏"] = addDateKey(sanfuDateKeys["末伏"], -10);
   }
 
   return sanfuDateKeys;
@@ -359,6 +386,8 @@ function findTermForYear(solarTerms, termName, termYear) {
 function findGengDateKeysFrom(startDateKey, requiredCount, options = {}) {
   const gengDateKeys = [];
   let currentDateKey = startDateKey;
+  const addDateKey = options.dateKeyIncrement
+    ?? (options.useTaipeiDateBasis ? addDaysToDateKeyUtc : addDaysToDateKey);
 
   for (let offset = 0; offset < 80 && gengDateKeys.length < requiredCount; offset += 1) {
     const dayPillar = getDayPillarFromLocalParts({
@@ -374,9 +403,7 @@ function findGengDateKeysFrom(startDateKey, requiredCount, options = {}) {
       gengDateKeys.push(currentDateKey);
     }
 
-    currentDateKey = options.useTaipeiDateBasis
-      ? addDaysToDateKeyUtc(currentDateKey, 1)
-      : addDaysToDateKey(currentDateKey, 1);
+    currentDateKey = addDateKey(currentDateKey, 1);
   }
 
   return gengDateKeys;
@@ -407,6 +434,17 @@ function getTaipeiEffectiveDateKeyByTimeMs(timeMs) {
     millisecond: date.getUTCMilliseconds(),
   };
   return getEffectiveDateKeyFromLocalParts(localParts);
+}
+
+function getEffectiveDateKeyByTimeZone(timeMs, timeZone) {
+  if (!Number.isFinite(timeMs) || !validateTimeZone(timeZone)) {
+    return "";
+  }
+
+  const zoned = getZonedDateTimeParts(new Date(timeMs), timeZone);
+  return getEffectiveDateKeyFromLocalParts(zoned?.localParts
+    ? { ...zoned.localParts, millisecond: 0 }
+    : null);
 }
 
 /** Returns the 23:00-effective date for a wall-clock component snapshot. */

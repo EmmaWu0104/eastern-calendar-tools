@@ -2368,7 +2368,7 @@ function runJinhanChartTimeRuntimeTests(solarTerms) {
   check("jinhan-runtime-single-helper", 1, (mainModuleRaw.match(/function refreshJinhanForCurrentChartTime\(/g) ?? []).length);
   check("jinhan-runtime-single-renderer", 1, (mainModuleRaw.match(/function renderJinhanYujing\(/g) ?? []).length);
   check("jinhan-runtime-helper-calls-adapter", true, helperSource.includes("calculateJinhanFromChartTimeContext({"));
-  check("jinhan-runtime-watch-context", true, helperSource.includes("createCurrentWatchChartTimeContext(") && helperSource.includes("currentWatchBaziResult ?? currentCalendarResult"));
+  check("jinhan-runtime-watch-context", true, helperSource.includes("currentGeneralWatchChartTimeContext") && helperSource.includes("currentWatchBaziResult ?? currentCalendarResult"));
   check("jinhan-runtime-true-context", true, helperSource.includes("currentTrueSolarChartContext") && helperSource.includes("currentTrueSolarBaziResult"));
   const trueBranch = helperSource.slice(0, helperSource.indexOf("const baziResult"));
   check("jinhan-runtime-true-no-current-calendar-authority", false, trueBranch.includes("currentCalendarResult"));
@@ -2389,7 +2389,7 @@ function runJinhanChartTimeRuntimeTests(solarTerms) {
   check("jinhan-runtime-mode-no-auto-toggle", false, /startAutoNowMode|pauseAutoNowMode/.test(modeSource));
   check("jinhan-runtime-lightweight-refreshes-jinhan", true, prioritySource.includes("refreshJinhanForCurrentChartTime(requestId)"));
   check("jinhan-runtime-lightweight-no-await", false, /\bawait\b/.test(prioritySource));
-  check("jinhan-runtime-full-keeps-single-entry", true, fullSource.includes("await renderJinhanYujing(result, effectiveDateTimeValue, requestId)"));
+  check("jinhan-runtime-full-keeps-single-entry", true, fullSource.includes("await renderJinhanYujing(result, dateTimeValue, requestId)"));
   check("jinhan-runtime-no-new-timer", 2, (mainModuleRaw.match(/setInterval\(/g) ?? []).length);
   check("jinhan-runtime-stale-guard-before-calculation", true, helperSource.indexOf("!isLatestBaziRenderRequest(requestId)") >= 0);
   check("jinhan-runtime-stale-guard-after-guideng", true, guiDengRuntimeSource.lastIndexOf("!isLatestBaziRenderRequest(requestId)") > guiDengRuntimeSource.indexOf("await calculateGuiDengFromChartTimeContext("));
@@ -10041,7 +10041,7 @@ async function runTrueSolarPresentationLabelTests() {
     "true-solar-presentation-solar-term-day-panel-deferred-to-6c",
     true,
     mainModuleRaw.includes("formatSolarTermDayPanelLine(term, displayContext)")
-      && mainModuleRaw.includes("renderSolarTermDayPanel(getSelectedSolarTermDay(), context)")
+      && mainModuleRaw.includes("renderSolarTermDayPanel(getSelectedSolarTermDay(context?.civil?.timeZone ?? generalTimeZone), context)")
   );
   check(
     "true-solar-presentation-picker-click-unchanged",
@@ -10148,11 +10148,11 @@ async function runLunarCivilDateUxTests() {
   check("lunar-ux-selected-calendar-state-unchanged", true, mainModuleRaw.includes("selectedCalendarDate = calendarDate") && selectCalendarSource.includes("selectedCalendarDate = { year, month, day }"));
   check("lunar-ux-picker-semantics-unchanged", true, selectHourSource.includes("resolveTrueSolarChineseHourDateTime") && selectHourSource.includes("syncSelectedCalendarDate: false"));
   check("lunar-ux-picker-current-state-unchanged", true, pickerStateSource.includes("selectedIndex") && pickerStateSource.includes("currentIndex"));
-  check("lunar-ux-solar-term-display-unchanged", true, mainModuleRaw.includes("formatTermDateTime(currentTerm, displayContext)") && mainModuleRaw.includes("renderSolarTermDayPanel(getSelectedSolarTermDay(), context)"));
+  check("lunar-ux-solar-term-display-uses-active-context", true, mainModuleRaw.includes("formatTermDateTime(currentTerm, displayContext)") && mainModuleRaw.includes("renderSolarTermDayPanel(getSelectedSolarTermDay(context?.civil?.timeZone ?? generalTimeZone), context)"));
   check("lunar-ux-72hou-display-unchanged", true, mainModuleRaw.includes("formatHouRangeDateTime(currentHou.start, displayContext)") && mainModuleRaw.includes("currentHou.end"));
   check("lunar-ux-guideng-unchanged", true, mainModuleRaw.includes("createGuiDengDisplayModel") && mainModuleRaw.includes("refreshGuiDengForCurrentChartTime"));
   check("lunar-ux-jinhan-unchanged", true, mainModuleRaw.includes("refreshJinhanForCurrentChartTime") && mainModuleRaw.includes("calculateJinhanFromChartTimeContext"));
-  check("lunar-ux-bazi-unchanged", true, mainModuleRaw.includes("calculateBaziFromChartTimeContext") && mainModuleRaw.includes("calculateBaziFromSolarTerms"));
+  check("lunar-ux-bazi-uses-selected-timezone-context", true, mainModuleRaw.includes("calculateBaziFromChartTimeContext") && !mainModuleRaw.includes("calculateBaziFromSolarTerms"));
   check("lunar-ux-flying-unchanged", true, mainModuleRaw.includes("refreshFlyingStarsForCurrentChartTime") && mainModuleRaw.includes("calculateFlyingStarsFromBaziResult"));
   check("lunar-ux-qimen-unchanged", true, mainModuleRaw.includes("奇門仍維持手錶時間") && !extractNamedFunctionSource(mainModuleRaw, "renderQimenSection").includes("formatTrueSolarDateSemanticsLabel"));
   check("lunar-ux-timer-unchanged", 2, (mainModuleRaw.match(/setInterval\(/g) ?? []).length);
@@ -10301,8 +10301,8 @@ async function runAstronomicalDisplayTimeTests(solarTerms) {
   const panelRendererSource = extractNamedFunctionSource(mainModuleRaw, "renderSolarTermDayPanel");
   const panelAuthoritySource = extractNamedFunctionSource(mainModuleRaw, "isSolarTermDayPanelWriteCurrent");
   check("astronomical-display-no-next-hou-range", false, /nextHou\.(start|end)/.test(seasonRendererSource));
-  check("astronomical-display-true-clears-stale-panel", true, trueRendererSource.includes("renderSolarTermDayPanel(getSelectedSolarTermDay(), context)") && unavailableRendererSource.includes("clearSolarTermDayPanel()"));
-  check("astronomical-display-watch-restores-panel", true, watchRendererSource.includes("renderSolarTermDayPanel(getSelectedSolarTermDay(), displayContext)"));
+  check("astronomical-display-true-clears-stale-panel", true, trueRendererSource.includes("renderSolarTermDayPanel(getSelectedSolarTermDay(context?.civil?.timeZone ?? generalTimeZone), context)") && unavailableRendererSource.includes("clearSolarTermDayPanel()"));
+  check("astronomical-display-watch-restores-panel", true, watchRendererSource.includes("getSelectedSolarTermDay(displayContext?.civil?.timeZone ?? generalTimeZone)") && watchRendererSource.includes("renderSolarTermDayPanel("));
   check("astronomical-display-mode-switch-no-stale-term", true, watchRendererSource.includes("renderSeasonInfo(result, displayContext)") && trueRendererSource.includes("renderSeasonInfo(result, context)"));
   check("astronomical-display-panel-single-mode-authority", true, panelRendererSource.includes("isSolarTermDayPanelWriteCurrent(displayContext)") && panelAuthoritySource.includes("displayContext?.mode === activeMode"));
   check("astronomical-display-panel-no-contextless-runtime-call", false, /renderSolarTermDayPanel\(getSelectedSolarTermDay\(\)\s*\)/.test(mainModuleRaw));
@@ -10671,8 +10671,8 @@ async function runFinalManualR2Tests(solarTerms) {
   const locationGetterSource = extractNamedFunctionSource(mainModuleRaw, "getTrueSolarTimeLocationForSource");
   check("final-manual-r2-clock-renders-device-query", true, clockSource.includes("renderTrueSolarTimeForDeviceNow()"));
   check("final-manual-r2-clock-still-refreshes-formal-auto-now", true, clockSource.includes("refreshQueryTimeFromAutoNowClock()"));
-  check("final-manual-r2-auto-clock-rebuilds-through-formal-path", true, autoClockSource.includes("refreshBaziForCurrentChartTime(dateTimeValue, requestId)"));
-  check("final-manual-r2-main-refresh-uses-top-query", true, mainRefreshSource.includes("requestRenderDateTime(elements.datetime.value)"));
+  check("final-manual-r2-auto-clock-rebuilds-through-formal-path", true, autoClockSource.includes("refreshBaziForCurrentChartTime(") && autoClockSource.includes("chartTimeContext"));
+  check("final-manual-r2-main-refresh-uses-top-query", true, mainRefreshSource.includes("requestRenderDateTime(elements.datetime.value, chartTimeContext)"));
   check("final-manual-r2-formal-source-explicit", true, formalRenderSource.includes("getTrueSolarTimeLocationForSource(TRUE_SOLAR_TIME_SOURCE.QUERY)"));
   check("final-manual-r2-formal-context-location-explicit", true, formalRenderSource.includes("location: formalLocation"));
   check("final-manual-r2-active-render-no-formal-location-write", false, /trueSolarTimeLocation\s*=|currentTrueSolarChartContextInput\s*=|currentTrueSolarChartContext\s*=|currentTrueSolarBaziResult\s*=/.test(activeRenderSource));
@@ -11445,7 +11445,7 @@ function runTrueSolarBaziRuntimeTests() {
   check("true-solar-runtime-no-fallback", true, unavailableSource.includes("renderUnavailableTrueSolarBazi") && unavailableSource.includes("if (!currentTrueSolarChartContext)"));
   check("true-solar-runtime-orchestration-helper", true, mainModuleRaw.includes("function createCurrentTrueSolarChartContext()") && mainModuleRaw.includes("createTrueSolarChartTimeContext(currentTrueSolarChartContextInput)"));
   check("true-solar-runtime-separate-result-state", true, mainModuleRaw.includes("currentTrueSolarBaziResult") && mainModuleRaw.includes("currentCalendarResult = result"));
-  check("true-solar-runtime-watch-downstream", true, ["refreshFlyingStarsForCurrentChartTime(requestId)", "renderJinhanYujing(result, effectiveDateTimeValue", "renderQimenSection(effectiveDateTimeValue)"].every((call) => extractNamedFunctionSource(mainModuleRaw, "renderByDateTime").includes(call)));
+  check("true-solar-runtime-watch-downstream", true, ["refreshFlyingStarsForCurrentChartTime(requestId)", "renderJinhanYujing(result, dateTimeValue", "renderQimenSection(chartTimeContext)"].every((call) => extractNamedFunctionSource(mainModuleRaw, "renderByDateTime").includes(call)));
   check("true-solar-runtime-display-only-overlay", true, extractNamedFunctionSource(mainModuleRaw, "renderTrueSolarBaziResult").includes("renderSeasonInfo(result, context)") && !extractNamedFunctionSource(mainModuleRaw, "renderTrueSolarBaziResult").includes("renderFlyingStars"));
 
   const formatterSource = extractNamedFunctionSource(mainModuleRaw, "formatTermDateTime");
@@ -11591,7 +11591,7 @@ function runTrueSolarSharedQueryRuntimeTests() {
   check("true-solar-r2-source-note", true, indexHtmlRaw.includes("此區可獨立查詢真太陽時") && indexHtmlRaw.includes("正式排盤目前以頁面上方「排盤時間」為準") && indexHtmlRaw.includes("裝置／自訂時間不會改動正式四柱"));
   check("true-solar-r2-source-a-badge", true, indexHtmlRaw.includes("正式排盤來源") && indexHtmlRaw.includes('id="true-solar-time-source-device"') && indexHtmlRaw.includes('id="true-solar-time-source-custom"'));
   check("true-solar-r2-query-only-note", true, indexHtmlRaw.includes("正式四柱與九宮飛星目前使用頁面上方「排盤時間」") && indexHtmlRaw.includes("僅供獨立換算查詢"));
-  check("true-solar-r2-downstream-watch-input-unchanged", true, ["refreshFlyingStarsForCurrentChartTime(requestId)", "renderJinhanYujing(result, effectiveDateTimeValue", "renderQimenSection(effectiveDateTimeValue)"].every((call) => byDateTimeSource.includes(call)));
+  check("true-solar-r2-downstream-watch-input-selected-context", true, ["refreshFlyingStarsForCurrentChartTime(requestId)", "renderJinhanYujing(result, dateTimeValue", "renderQimenSection(chartTimeContext)"].every((call) => byDateTimeSource.includes(call)));
   check("true-solar-r2-no-forbidden-expansion", false, /localStorage|sessionStorage|fetch\(|NOAA|SunCalc|solar_terms\.json/.test(mainModuleRaw));
 
   const watchInput = "2026-08-07T17:00:05";
@@ -11651,15 +11651,15 @@ function runChartQueryTimeUxTests() {
   check("chart-query-time-ux-status-dom", true, indexHtmlRaw.includes('id="chart-query-time-mode-status"') && indexHtmlRaw.includes('class="query-time-mode-status"') && indexHtmlRaw.includes('role="status"'));
   check("chart-query-time-ux-value-dom", true, indexHtmlRaw.includes('id="chart-query-time-value"') && indexHtmlRaw.includes('class="query-time-summary"'));
   check("chart-query-time-ux-now-entry", true, /id="use-now"[^>]*title="恢復現在時間並持續更新"[^>]*aria-label="恢復現在時間並持續更新"/.test(indexHtmlRaw) && mainModuleRaw.includes('elements.useNow.addEventListener("click", () => {'));
-  check("chart-query-time-ux-initial-auto-copy", "● 跟隨現在時間", indexHtmlRaw.match(/id="chart-query-time-mode-status"[^>]*>\s*([^<]+)\s*<\/p>/)?.[1]?.trim());
+  check("chart-query-time-ux-initial-auto-copy", "● 跟隨現在時間", indexHtmlRaw.match(/id="chart-query-time-mode-status"[^>]*>\s*([^<]+)\s*<\/(?:p|span)>/)?.[1]?.trim());
   check("chart-query-time-ux-status-derived-from-state", true, queryStatusSource.includes("isAutoNowMode ? \"● 跟隨現在時間\" : \"○ 手動查詢時間\"") && queryStatusSource.includes("chartQueryTimeModeStatus.dataset.mode = isAutoNowMode ? \"auto-now\" : \"manual\""));
   check("chart-query-time-ux-status-has-no-second-state", true, (mainModuleRaw.match(/let isAutoNowMode\s*=/g) ?? []).length === 1 && !mainModuleRaw.includes("chartQueryTimeModeState"));
   check("chart-query-time-ux-status-formats-value", true, queryStatusSource.includes("elements.chartQueryTimeValue.textContent = formatChartTimeStatusDateTime(elements.datetime.value)"));
   check("chart-query-time-ux-auto-start-renders-status", true, startSource.includes("isAutoNowMode = true") && startSource.includes("renderChartQueryTimeModeStatus()") && startSource.includes("stopAutoNowRefresh()") && startSource.includes("setInterval(refreshFromCurrentTime, AUTO_NOW_REFRESH_MS)"));
   check("chart-query-time-ux-manual-pause-renders-status", true, pauseSource.includes("isAutoNowMode = false") && pauseSource.includes("renderChartQueryTimeModeStatus()") && pauseSource.includes("stopAutoNowRefresh()"));
   check("chart-query-time-ux-manual-input-pauses", true, manualInputSource.includes("pauseAutoNowMode()") && manualChangeSource.includes("pauseAutoNowMode()"));
-  check("chart-query-time-ux-valid-render-syncs-status", true, requestSource.includes("renderChartQueryTimeModeStatus()") && requestSource.indexOf("renderChartQueryTimeModeStatus()") < requestSource.indexOf("renderByDateTime(dateTimeValue)"));
-  check("chart-query-time-ux-auto-refresh-updates-summary", true, refreshSource.includes("elements.datetime.value = toLocalDatetimeValue(new Date())") && refreshSource.includes("renderChartQueryTimeModeStatus()"));
+  check("chart-query-time-ux-valid-render-syncs-status", true, requestSource.includes("renderChartQueryTimeModeStatus()") && requestSource.includes("renderByDateTime(dateTimeValue"));
+  check("chart-query-time-ux-auto-refresh-updates-summary", true, refreshSource.includes("getActiveWatchChartTimeContextFromInstant(instantMs)") && refreshSource.includes("renderChartQueryTimeModeStatus()"));
   check("chart-query-time-ux-manual-timer-guard", true, refreshSource.includes("if (!isAutoNowMode)") && refreshSource.includes("return"));
   check("chart-query-time-ux-mode-switch-keeps-state", false, switchSource.includes("startAutoNowMode()") || switchSource.includes("pauseAutoNowMode()"));
   check("chart-query-time-ux-tab-keeps-state", false, /(?:startAutoNowMode|pauseAutoNowMode)/.test(tabListenerSource));
@@ -11707,7 +11707,7 @@ function runCalendarBrowseAutoNowBugFixTests() {
   const switchSource = extractNamedFunctionSource(mainModuleRaw, "handleChartDisplayModeSwitchClick");
   const modeStatus = loadChartQueryTimeModeStatusForTest(mainModuleRaw);
 
-  check("calendar-browse-initial-year-from-clock", true, /let visibleCalendarYear = new Date\(\)\.getFullYear\(\)/.test(mainModuleRaw));
+  check("calendar-browse-initial-year-from-selected-timezone", true, mainModuleRaw.includes("getWatchLocalPartsForInstant(Date.now(), generalTimeZone)"));
   check("calendar-browse-year-pauses-before-write", true, yearSource.indexOf("pauseAutoNowMode()") >= 0 && yearSource.indexOf("pauseAutoNowMode()") < yearSource.indexOf("visibleCalendarYear ="));
   check("calendar-browse-year-renders-picker", true, yearSource.includes("renderQueryPicker()"));
   check("calendar-browse-year-does-not-write-datetime", false, /elements\.datetime\.value|requestRenderDateTime|syncQueryPickerFromDateTime/.test(yearSource));
@@ -11811,7 +11811,7 @@ function runPreciseChartTimeInputTests(solarTerms) {
   };
 
   const datetimeInput = indexHtmlRaw.match(/<input id="datetime"[^>]*>/)?.[0] ?? "";
-  const wrapperSource = indexHtmlRaw.match(/<div id="precise-chart-time-control"[\s\S]*?<\/div>\s*<div class="query-picker">/)?.[0] ?? "";
+  const wrapperSource = indexHtmlRaw.match(/<div id="precise-chart-time-control"[\s\S]*?<\/div>/)?.[0] ?? "";
   const picker = loadQueryPickerHelpersForTest(mainModuleRaw);
   const manualInputSource = extractNamedFunctionSource(mainModuleRaw, "handleManualDateTimeInput");
   const manualChangeSource = extractNamedFunctionSource(mainModuleRaw, "handleManualDateTimeChange");
@@ -11855,19 +11855,20 @@ function runPreciseChartTimeInputTests(solarTerms) {
   check("precise-time-manual-change-pauses", true, manualChangeSource.includes("pauseAutoNowMode()"));
   check("precise-time-manual-input-syncs-picker", true, manualInputSource.includes("syncQueryPickerFromDateTime(elements.datetime.value, { syncVisibleMonth: true })"));
   check("precise-time-manual-change-syncs-picker", true, manualChangeSource.includes("syncQueryPickerFromDateTime(elements.datetime.value, { syncVisibleMonth: true })"));
-  check("precise-time-request-keeps-full-value", true, requestSource.includes("refreshBaziForCurrentChartTime(dateTimeValue, requestId)") && requestSource.includes("renderByDateTime(dateTimeValue)"));
+  check("precise-time-request-keeps-full-value", true, requestSource.includes("refreshBaziForCurrentChartTime(dateTimeValue, requestId, resolvedChartTimeContext)") && requestSource.includes("renderByDateTime(dateTimeValue, requestId, resolvedChartTimeContext)"));
   check("precise-time-request-no-minute-truncation", false, /slice\(0,\s*16\)|setSeconds\(0\)|setMilliseconds\(0\)/.test(requestSource));
-  check("precise-time-lightweight-keeps-value", true, lightweightSource.includes("dateTimeValue = normalizeLocalDateTimeValueWithSeconds(dateTimeValue)") && lightweightSource.includes("refreshFlyingStarsForCurrentChartTime(requestId)"));
+  check("precise-time-lightweight-keeps-value", true, lightweightSource.includes("dateTimeValue = normalizeWatchDateTimeValue(dateTimeValue)") && lightweightSource.includes("refreshFlyingStarsForCurrentChartTime(requestId)"));
   check("precise-time-lightweight-no-await", false, lightweightSource.includes("await"));
   check("precise-time-flying-stars-same-snapshot", true, mainModuleRaw.includes("currentWatchBaziResult = result") && lightweightSource.includes("refreshFlyingStarsForCurrentChartTime(requestId)"));
 
   const runManualHandler = (functionName, functionSource) => {
-    const state = { pause: 0, invalidate: 0, sync: [], render: [], read: true };
+    const state = { pause: 0, invalidate: 0, resetDisambiguation: 0, sync: [], render: [], read: true };
     const elements = { datetime: { value: preciseValue } };
     const factory = Function(
       "elements",
       "pauseAutoNowMode",
       "invalidateCurrentTrueSolarChartContext",
+      "resetGeneralTimeZoneDisambiguation",
       "readDateTimeInput",
       "syncQueryPickerFromDateTime",
       "requestRenderDateTime",
@@ -11877,6 +11878,7 @@ function runPreciseChartTimeInputTests(solarTerms) {
       elements,
       () => { state.pause += 1; },
       () => { state.invalidate += 1; },
+      () => { state.resetDisambiguation += 1; },
       () => state.read,
       (...args) => { state.sync.push(args); },
       (value) => { state.render.push(value); }
@@ -11893,15 +11895,15 @@ function runPreciseChartTimeInputTests(solarTerms) {
   check("precise-time-manual-input-runtime-sync-value", preciseValue, manualInput.state.sync[0]?.[0]);
   check("precise-time-manual-change-runtime-sync-value", preciseValue, manualChange.state.sync[0]?.[0]);
 
-  check("precise-time-auto-clock-includes-seconds", true, autoClockSource.includes("toLocalDatetimeValue(new Date())") && autoClockSource.includes("elements.datetime.value = dateTimeValue"));
+  check("precise-time-auto-clock-includes-seconds", true, autoClockSource.includes("getActiveWatchChartTimeContextFromInstant(Date.now())") && autoClockSource.includes("elements.datetime.value = dateTimeValue"));
   check("precise-time-auto-clock-syncs-picker", true, autoClockSource.includes("syncQueryPickerFromDateTime(dateTimeValue, { syncVisibleMonth: true })"));
   check("precise-time-auto-clock-no-new-timer", false, autoClockSource.includes("setInterval") || autoClockSource.includes("setTimeout"));
-  check("precise-time-auto-full-refresh-keeps-seconds", true, refreshSource.includes("elements.datetime.value = toLocalDatetimeValue(new Date())") && refreshSource.includes("requestRenderDateTime(elements.datetime.value)"));
+  check("precise-time-auto-full-refresh-keeps-seconds", true, refreshSource.includes("getActiveWatchChartTimeContextFromInstant(instantMs)") && refreshSource.includes("requestRenderDateTime(elements.datetime.value, chartTimeContext)"));
   check("precise-time-now-restores-auto", true, mainModuleRaw.includes('elements.useNow.addEventListener("click", () => {') && mainModuleRaw.includes("startAutoNowMode();"));
   check("precise-time-status-derived-from-auto-state", true, extractNamedFunctionSource(mainModuleRaw, "renderChartQueryTimeModeStatus").includes("isAutoNowMode ? \"● 跟隨現在時間\" : \"○ 手動查詢時間\""));
 
   check("precise-time-tab-switch-does-not-write", false, /elements\.datetime\.value\s*=|requestRenderDateTime/.test(tabSource));
-  check("precise-time-mode-switch-does-not-write", false, /elements\.datetime\.value\s*=|requestRenderDateTime/.test(modeSource));
+  check("precise-time-mode-switch-refreshes-selected-zone", true, modeSource.includes("requestRenderDateTime(elements.datetime.value)") && modeSource.includes("currentGeneralWatchChartTimeContext = null"));
   check("precise-time-mode-switch-keeps-auto-state", false, modeSource.includes("startAutoNowMode()") || modeSource.includes("pauseAutoNowMode()"));
   check("precise-time-source-b-keeps-top-time", false, /elements\.datetime\.value\s*=|requestRenderDateTime/.test(deviceSource));
   check("precise-time-source-c-keeps-top-time", false, /elements\.datetime\.value\s*=|requestRenderDateTime/.test(customSource));
@@ -12048,8 +12050,8 @@ function runPreciseChartTimeZeroSecondBugFixTests(solarTerms) {
   check("zero-second-watch-helper-canonical-compatibility", "2024-02-04T16:27:00", rawWatchContext?.compatibility.taipeiLegacyDateTimeValue);
   check("zero-second-watch-helper-canonical-local", "2024-02-04T16:27:00", rawWatchContext?.compatibility.watchLocalDateTimeValue);
   check("zero-second-formal-source-canonicalizes", true, formalSource.includes("normalizeLocalDateTimeValueWithSeconds(elements.datetime.value)") && formalSource.includes("watchLocalDateTimeValue: canonicalDateTimeValue"));
-  check("zero-second-request-canonical-boundary", true, requestSource.includes("dateTimeValue = normalizeLocalDateTimeValueWithSeconds(dateTimeValue)"));
-  check("zero-second-auto-now-remains-second-based", true, autoClockSource.includes("toLocalDatetimeValue(new Date())") && !autoClockSource.includes("setSeconds(0)"));
+  check("zero-second-request-canonical-boundary", true, requestSource.includes("dateTimeValue = normalizeWatchDateTimeValue(dateTimeValue)"));
+  check("zero-second-auto-now-remains-second-based", true, autoClockSource.includes("getActiveWatchChartTimeContextFromInstant(Date.now())") && !autoClockSource.includes("setSeconds(0)"));
 
   const instantForTaipei = (localParts) => Date.UTC(
     localParts.year,
@@ -12207,12 +12209,12 @@ function runTrueSolarFormalTimeSyncBugFixTests() {
   check("true-solar-sync-manual-input-invalidates", true, manualInputSource.includes("invalidateCurrentTrueSolarChartContext()") && manualChangeSource.includes("invalidateCurrentTrueSolarChartContext()"));
   check("true-solar-sync-invalidation-clears-context-and-result", true, invalidateSource.includes("clearCurrentTrueSolarChartContext()") && clearSource.includes("currentTrueSolarChartContext = null") && clearSource.includes("currentTrueSolarBaziResult = null"));
   check("true-solar-sync-auto-clock-uses-existing-clock", true, clockSource.includes("refreshQueryTimeFromAutoNowClock()") && !clockSource.includes("setInterval"));
-  check("true-solar-sync-auto-clock-reads-new-now", true, autoClockSource.includes("toLocalDatetimeValue(new Date())") && autoClockSource.includes("elements.datetime.value = dateTimeValue"));
+  check("true-solar-sync-auto-clock-reads-new-now", true, autoClockSource.includes("getActiveWatchChartTimeContextFromInstant(Date.now())") && autoClockSource.includes("elements.datetime.value = dateTimeValue"));
   check("true-solar-sync-auto-clock-updates-summary", true, autoClockSource.includes("renderChartQueryTimeModeStatus()") && autoClockSource.includes("syncQueryPickerFromDateTime(dateTimeValue"));
   check("true-solar-sync-auto-clock-rebuilds-formal", true, autoClockSource.includes("renderFormalTrueSolarChartTime()") && autoClockSource.includes("isTrueSolarDisplayMode(chartDisplayMode)"));
   check("true-solar-sync-auto-clock-no-new-timer", false, autoClockSource.includes("setInterval") || autoClockSource.includes("setTimeout"));
   check("true-solar-sync-bc-auto-reuses-existing-clock", true, clockSyncSource.includes("trueSolarTimeSource === TRUE_SOLAR_TIME_SOURCE.DEVICE") && clockSyncSource.includes("|| isAutoNowMode") && autoClockSource.includes("isTrueSolarDisplayMode(chartDisplayMode)"));
-  check("true-solar-sync-main-auto-flow-kept", true, refreshSource.includes("toLocalDatetimeValue(new Date())") && refreshSource.includes("requestRenderDateTime(elements.datetime.value)"));
+  check("true-solar-sync-main-auto-flow-kept", true, refreshSource.includes("getActiveWatchChartTimeContextFromInstant(instantMs)") && refreshSource.includes("requestRenderDateTime(elements.datetime.value, chartTimeContext)"));
   check("true-solar-sync-status-uses-current-context", true, statusSource.includes("currentTrueSolarChartContext.civil.localParts") && statusSource.includes("currentTrueSolarChartContext.trueSolar.localParts"));
   check("true-solar-sync-one-auto-now-interval", 1, (mainModuleRaw.match(/setInterval\(refreshFromCurrentTime, AUTO_NOW_REFRESH_MS\)/g) ?? []).length);
   check("true-solar-sync-one-formal-clock-interval", 1, (mainModuleRaw.match(/setInterval\(\s*refreshTrueSolarTimeClock,\s*TRUE_SOLAR_TIME_CLOCK_REFRESH_MS/g) ?? []).length);
@@ -12494,7 +12496,7 @@ async function runTrueSolarLocationOwnershipFixTests(solarTerms) {
   check("location-owner-mode-switch-keeps-formal", false, /trueSolarTimeLocation\s*=|trueSolarTimeQueryLocations\s*=/.test(modeSource));
   check("location-owner-timezone-input-keeps-formal", false, /trueSolarTimeLocation|currentTrueSolarChartContext|renderFormalTrueSolarChartTime/.test(timezoneInputSource));
   check("location-owner-dst-choice-keeps-formal", false, /trueSolarTimeLocation|currentTrueSolarChartContext|renderFormalTrueSolarChartTime/.test(disambiguationSource));
-  check("location-owner-qimen-unchanged", true, qimenSource.includes("resolveQimenJuFromFullTermCycleDraft(dateTimeText)") && !/trueSolar|ChartTimeContext|location/.test(qimenSource));
+  check("location-owner-qimen-uses-general-context", true, qimenSource.includes("resolveQimenJuFromChartTimeContext") && qimenSource.includes("ChartTimeContext") && !/trueSolarTimeLocation/.test(qimenSource));
   check("location-owner-no-new-timer", 2, (mainModuleRaw.match(/setInterval\(/g) ?? []).length);
   check("location-owner-no-storage", false, /localStorage|sessionStorage/.test(mainModuleRaw));
   const packageJson = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
@@ -12585,16 +12587,16 @@ function runTrueSolarBaziPriorityBugFixTests(solarTerms) {
   const jinhanRuntimeSource = extractNamedFunctionSource(mainModuleRaw, "refreshJinhanForCurrentChartTime");
   const renderSource = extractNamedFunctionSource(mainModuleRaw, "renderTrueSolarBaziResult");
 
-  check("bazi-priority-diagnosis-full-awaits-jinhan", true, fullSource.includes("await renderJinhanYujing(") && fullSource.indexOf("renderResult(result, effectiveDateTimeValue)") < fullSource.indexOf("await renderJinhanYujing("));
+  check("bazi-priority-diagnosis-full-awaits-jinhan", true, fullSource.includes("await renderJinhanYujing(") && fullSource.indexOf("renderResult(result, dateTimeValue)") < fullSource.indexOf("await renderJinhanYujing("));
   const guiDengRuntimeSource = extractNamedFunctionSource(mainModuleRaw, "refreshGuiDengForCurrentChartTime");
   check("bazi-priority-diagnosis-jinhan-fire-and-guard", true, guiDengRuntimeSource.includes("await calculateGuiDengFromChartTimeContext(") && guiDengRuntimeSource.includes("isLatestBaziRenderRequest(requestId)"));
   check("bazi-priority-lightweight-no-await", false, /\bawait\b/.test(prioritySource));
   check("bazi-priority-lightweight-no-downstream", false, /renderFlyingStars|renderJinhanYujing|renderQimenSection/.test(prioritySource));
-  check("bazi-priority-lightweight-watch-renders-bazi", true, prioritySource.includes("renderResult(result, effectiveDateTimeValue)"));
+  check("bazi-priority-lightweight-watch-renders-bazi", true, prioritySource.includes("renderResult(result, dateTimeValue)"));
   check("bazi-priority-lightweight-true-solar-renders-formal", true, prioritySource.includes("renderFormalTrueSolarChartTime()"));
   check("bazi-priority-request-refreshes-before-queue", true, requestSource.indexOf("refreshBaziForCurrentChartTime(") < requestSource.indexOf("if (isCalculating)"));
-  check("bazi-priority-request-queues-full-render", true, requestSource.includes("pendingDateTimeValue = dateTimeValue") && requestSource.includes("renderByDateTime(dateTimeValue)"));
-  check("bazi-priority-auto-clock-refreshes-bazi", true, autoClockSource.includes("refreshBaziForCurrentChartTime(dateTimeValue, requestId)"));
+  check("bazi-priority-request-queues-full-render", true, requestSource.includes("pendingDateTimeValue = dateTimeValue") && requestSource.includes("renderByDateTime(dateTimeValue"));
+  check("bazi-priority-auto-clock-refreshes-bazi", true, autoClockSource.includes("refreshBaziForCurrentChartTime(") && autoClockSource.includes("chartTimeContext"));
   check("bazi-priority-manual-boundary-refreshes-bazi", true, manualChangeSource.includes("requestRenderDateTime(elements.datetime.value)"));
   check("bazi-priority-generation-state", true, mainModuleRaw.includes("let latestBaziRenderRequestId = 0") && mainModuleRaw.includes("function isLatestBaziRenderRequest(requestId)"));
   const firstAwaitGuard = fullSource.indexOf("if (!isLatestBaziRenderRequest(requestId))");
@@ -12602,11 +12604,11 @@ function runTrueSolarBaziPriorityBugFixTests(solarTerms) {
   check("bazi-priority-stale-guard-before-write", true, firstAwaitGuard >= 0 && fullSource.indexOf("currentCalendarResult = result") > firstAwaitGuard);
   check("bazi-priority-stale-guard-after-downstream-await", true, afterJinhanGuard > fullSource.indexOf("await renderJinhanYujing("));
   check("bazi-priority-jinhan-stale-guard", true, jinhanRuntimeSource.includes("!isLatestBaziRenderRequest(requestId)"));
-  check("bazi-priority-current-input-committed-before-dom", true, prioritySource.indexOf("chartTimeState.watchDateTimeValue = dateTimeValue") < prioritySource.indexOf("renderResult(result, effectiveDateTimeValue)"));
+  check("bazi-priority-current-input-committed-before-dom", true, prioritySource.indexOf("chartTimeState.watchDateTimeValue = dateTimeValue") < prioritySource.indexOf("renderResult(result, dateTimeValue)"));
   check("bazi-priority-true-solar-same-snapshot", true, renderSource.includes("context.trueSolar?.localParts") && prioritySource.includes("renderFormalTrueSolarChartTime()"));
   check("bazi-priority-daily-panel-not-cleared", false, prioritySource.includes("clearPillarExtraPanel()") || renderSource.includes("clearPillarExtraPanel()"));
   check("bazi-priority-no-new-timer", 2, (mainModuleRaw.match(/setInterval\(/g) ?? []).length);
-  check("bazi-priority-downstream-watch-inputs", true, ["refreshFlyingStarsForCurrentChartTime(requestId)", "renderJinhanYujing(result, effectiveDateTimeValue", "renderQimenSection(effectiveDateTimeValue)"].every((call) => fullSource.includes(call)));
+  check("bazi-priority-downstream-watch-inputs", true, ["refreshFlyingStarsForCurrentChartTime(requestId)", "renderJinhanYujing(result, dateTimeValue", "renderQimenSection(chartTimeContext)"].every((call) => fullSource.includes(call)));
   check("bazi-priority-no-true-solar-downstream", false, /renderFlyingStars\([^)]*currentTrueSolar|renderJinhanYujing\([^)]*currentTrueSolar|renderQimenSection\([^)]*currentTrueSolar/.test(fullSource));
 }
 
@@ -12756,7 +12758,7 @@ function runTrueSolarDailyInfoTests(solarTerms) {
   check("true-solar-hour-switch-does-not-clear-daily-panel", false, baziModeSource.includes("clearPillarExtraPanel()"));
   check("true-solar-render-uses-effective-day-helper", true, trueSolarRenderSource.includes("getEffectiveDateKeyFromLocalParts(context.trueSolar?.localParts)"));
   check("true-solar-overseas-seasonal-marker-safe-hidden", true, safeDailyInfoSource.includes("seasonalMarker: null") && safeDailyInfoSource.includes("Asia/Taipei"));
-  check("true-solar-render-keeps-downstream-watch-inputs", true, ["refreshFlyingStarsForCurrentChartTime(requestId)", "renderJinhanYujing(result, effectiveDateTimeValue", "renderQimenSection(effectiveDateTimeValue)"].every((call) => extractNamedFunctionSource(mainModuleRaw, "renderByDateTime").includes(call)));
+  check("true-solar-render-keeps-downstream-watch-inputs", true, ["refreshFlyingStarsForCurrentChartTime(requestId)", "renderJinhanYujing(result, dateTimeValue", "renderQimenSection(chartTimeContext)"].every((call) => extractNamedFunctionSource(mainModuleRaw, "renderByDateTime").includes(call)));
   check("true-solar-render-does-not-write-shared-result", false, trueSolarRenderSource.includes("currentCalendarResult ="));
 
   const helperSource = getEffectiveDateKeyFromLocalParts.toString();
@@ -12799,7 +12801,7 @@ function runChartDisplayModeTests() {
   check("chart-display-mode-url-history", true, mainModuleRaw.includes('window.addEventListener("popstate", syncChartDisplayModeFromLocation)') && extractNamedFunctionSource(mainModuleRaw, "handleChartDisplayModeSwitchClick").includes("window.history.pushState"));
   check("chart-display-mode-watch-reset", true, extractNamedFunctionSource(mainModuleRaw, "resetLegacyChartTimeState").includes("chartTimeState.mode = CHART_TIME_MODE.WATCH") && extractNamedFunctionSource(mainModuleRaw, "initializeChartDisplayMode").includes("resetLegacyChartTimeState"));
   check("chart-display-mode-detached-from-effective-input", true, !extractNamedFunctionSource(mainModuleRaw, "renderChartDisplayMode").includes("resolveEffectiveChartDateTimeValue") && !extractNamedFunctionSource(mainModuleRaw, "renderChartDisplayMode").includes("renderByDateTime"));
-  check("chart-display-mode-render-inputs-unchanged", true, ["renderResult(result, effectiveDateTimeValue)", "refreshFlyingStarsForCurrentChartTime(requestId)", "renderJinhanYujing(result, effectiveDateTimeValue", "renderQimenSection(effectiveDateTimeValue)"].every((call) => extractNamedFunctionSource(mainModuleRaw, "renderByDateTime").includes(call)));
+  check("chart-display-mode-render-inputs-selected-context", true, ["renderResult(result, dateTimeValue)", "refreshFlyingStarsForCurrentChartTime(requestId)", "renderJinhanYujing(result, dateTimeValue", "renderQimenSection(chartTimeContext)"].every((call) => extractNamedFunctionSource(mainModuleRaw, "renderByDateTime").includes(call)));
   check("chart-display-mode-no-storage-or-fetch", false, /localStorage|sessionStorage|fetch\(/.test(mainModuleRaw));
   check("chart-display-mode-no-duplicate-page-or-render", true, !indexHtmlRaw.includes("index-true-solar") && (mainModuleRaw.match(/function renderByDateTime\(/g) ?? []).length === 1);
   check("chart-display-mode-no-qimen-or-formula-edit", true, !mainModuleRaw.includes("createChartTimeContext") && mainModuleRaw.includes('from "./qimenResolver.js"'));
@@ -13706,7 +13708,7 @@ function runFlyingStarsChartTimeRuntimeTests(solarTerms) {
   check("flying-stars-runtime-no-second-view-model", 1, (mainModuleRaw.match(/createFlyingStarAfflictionViewModel\(charts\)/g) ?? []).length);
   check("flying-stars-runtime-full-uses-helper", true, fullSource.includes("refreshFlyingStarsForCurrentChartTime(requestId)"));
   check("flying-stars-runtime-lightweight-uses-helper", true, lightweightSource.includes("refreshFlyingStarsForCurrentChartTime(requestId)"));
-  check("flying-stars-runtime-auto-clock-reaches-bazi", true, autoClockSource.includes("refreshBaziForCurrentChartTime(dateTimeValue, requestId)"));
+  check("flying-stars-runtime-auto-clock-reaches-bazi", true, autoClockSource.includes("refreshBaziForCurrentChartTime(") && autoClockSource.includes("chartTimeContext"));
   check("flying-stars-runtime-lightweight-no-await", false, lightweightSource.includes("await"));
   check("flying-stars-runtime-full-fly-before-slow-jinhan", true, fullSource.indexOf("refreshFlyingStarsForCurrentChartTime(requestId)") < fullSource.indexOf("await renderJinhanYujing"));
   check("flying-stars-runtime-stale-guard-helper", true, helperSource.includes("if (!isLatestBaziRenderRequest(requestId))"));
@@ -13720,8 +13722,8 @@ function runFlyingStarsChartTimeRuntimeTests(solarTerms) {
   check("flying-stars-runtime-true-snapshot-matches-query", true, helperSource.includes("context.compatibility?.watchLocalDateTimeValue !== watchDateTimeValue"));
   check("flying-stars-runtime-true-render-no-shared-write", false, extractNamedFunctionSource(mainModuleRaw, "renderTrueSolarBaziResult").includes("currentCalendarResult ="));
   check("flying-stars-runtime-legacy-result-retained", true, baziModeSource.includes("renderResult(currentCalendarResult") && clearSource.includes("currentWatchBaziResult = null"));
-  check("flying-stars-runtime-jinhan-remains-watch", true, fullSource.includes("renderJinhanYujing(result, effectiveDateTimeValue"));
-  check("flying-stars-runtime-qimen-remains-watch", true, fullSource.includes("renderQimenSection(effectiveDateTimeValue)"));
+  check("flying-stars-runtime-jinhan-uses-watch-context", true, fullSource.includes("renderJinhanYujing(result, dateTimeValue"));
+  check("flying-stars-runtime-qimen-uses-watch-context", true, fullSource.includes("renderQimenSection(chartTimeContext)"));
   check("flying-stars-runtime-source-b-no-formal-writer", false, deviceSource.includes("renderByDateTime") || deviceSource.includes("refreshFlyingStarsForCurrentChartTime"));
   check("flying-stars-runtime-source-c-no-formal-writer", false, customSource.includes("renderByDateTime") || customSource.includes("refreshFlyingStarsForCurrentChartTime"));
   check("flying-stars-runtime-source-query-is-formal-only", true, querySource.includes("clearTrueSolarChartContext({ clearFormalChart: false })") || querySource.includes("clearTrueSolarTimePresentation({ clearFormalChart: false })"));
@@ -15515,7 +15517,7 @@ async function runGuiDengChartTimeRuntimeTests(solarTerms) {
   check("guideng-runtime-adapter-import", true, mainModuleRaw.includes('from "./guidengChartTimeAdapter.js"'));
   check("guideng-runtime-display-import", true, mainModuleRaw.includes('from "./chartClockDisplay.js"'));
   check("guideng-runtime-formal-helper", true, helperSource.includes("calculateGuiDengFromChartTimeContext({"));
-  check("guideng-runtime-watch-authority", true, helperSource.includes("createCurrentWatchChartTimeContext(") && helperSource.includes("currentWatchBaziResult ?? currentCalendarResult"));
+  check("guideng-runtime-watch-authority", true, helperSource.includes("currentGeneralWatchChartTimeContext") && helperSource.includes("currentWatchBaziResult ?? currentCalendarResult"));
   check("guideng-runtime-true-authority", true, helperSource.includes("currentTrueSolarChartContext") && helperSource.includes("currentTrueSolarBaziResult"));
   const trueBranch = helperSource.slice(helperSource.indexOf("const context"), helperSource.indexOf("const baziResult"));
   check("guideng-runtime-true-no-calendar-authority", false, trueBranch.includes("currentCalendarResult"));
@@ -15531,7 +15533,7 @@ async function runGuiDengChartTimeRuntimeTests(solarTerms) {
   check("guideng-runtime-no-second-gui-renderer", 1, (mainModuleRaw.match(/function refreshGuiDengForCurrentChartTime\(/g) ?? []).length);
   check("guideng-runtime-summary-reuses-jinhan", true, decorationsSource.includes("createJinhanSummaryItems") && decorationsSource.includes("createJinhanHourRow"));
   check("guideng-runtime-core-grid-reuses-jinhan", true, coreSource.includes("createJinhanGridCells") && coreSource.includes("createJinhanSummaryItems"));
-  check("guideng-runtime-full-same-entry", true, fullSource.includes("await renderJinhanYujing(result, effectiveDateTimeValue, requestId)"));
+  check("guideng-runtime-full-same-entry", true, fullSource.includes("await renderJinhanYujing(result, dateTimeValue, requestId)"));
   check("guideng-runtime-lightweight-no-await", false, /\bawait\b/.test(lightweightSource));
   check("guideng-runtime-lightweight-schedules", true, lightweightSource.includes("refreshJinhanForCurrentChartTime(requestId)"));
   check("guideng-runtime-mode-refreshes", true, modeSource.includes("refreshJinhanForCurrentChartTime(requestId)"));
@@ -15920,7 +15922,7 @@ async function runGuiDengChartTimeRuntimeRealAstronomyTests(solarTerms) {
     trueWithoutLocationThrows = true;
   }
   check("true-solar-without-location-unavailable", true, trueWithoutLocationThrows);
-  check("watch-context-location-is-explicit", true, mainModuleRaw.includes("{ location: getFormalChartLocationSnapshot() }"));
+  check("watch-context-does-not-inherit-true-solar-location", false, mainModuleRaw.includes("{ location: getFormalChartLocationSnapshot() }") && mainModuleRaw.includes("getGeneralWatchChartTimeContext"));
   check("formal-location-authority-is-source-a-state", true, mainModuleRaw.includes("const location = trueSolarTimeLocation"));
   check("watch-context-location-forwarded", true, mainModuleRaw.includes("location,\n    createdAtInstantMs"));
   check("guideng-consumes-context-location", true, adapterRaw.includes("const location = context.location"));
@@ -16978,9 +16980,10 @@ function loadChartQueryTimeModeStatusForTest(mainModuleRaw) {
     "formatDateTimeParts",
     "getLocalDateParts",
     "formatChartTimeStatusDateTime",
+    "getEffectiveQueryTimeSummaryValue",
     "renderChartQueryTimeModeStatus",
   ].map((name) => extractNamedFunctionSource(mainModuleRaw, name)).join("\n\n");
-  const factory = Function("elements", "isAutoNowMode", `${definitions}\nreturn renderChartQueryTimeModeStatus;`);
+  const factory = Function("elements", "isAutoNowMode", `${definitions}\nfunction renderGeneralTimeZoneSummary() {}\nreturn renderChartQueryTimeModeStatus;`);
   return (elements, isAutoNowMode) => factory(elements, isAutoNowMode)();
 }
 

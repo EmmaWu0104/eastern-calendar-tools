@@ -1,6 +1,6 @@
 import qimenYuanJuTable from "../data/qimen/qimen_yuan_ju_table.json" with { type: "json" };
 import rawSolarTerms from "../data/solar_terms_1899_2101.json" with { type: "json" };
-import { getDayPillar, getHourPillar } from "./ganzhi.js";
+import { getDayPillar, getHourPillar, getHourPillarFromLocalParts } from "./ganzhi.js";
 import { normalizeSolarTerms } from "./solarTerms.js";
 
 export const QIMEN_TERM_SEQUENCE = Object.freeze([
@@ -572,18 +572,53 @@ export function resolveQimenJuFromFullTermCycleDraft(dateTimeText, options = {})
     throw new RangeError("查詢時間不在奇門 full cycle draft timeline 覆蓋範圍內");
   }
 
-  return resolveQimenJuFromFullTermCycleDraftEntry(dateTimeText, draftEntry);
+  return resolveQimenJuFromFullTermCycleDraftEntry(dateTimeText, draftEntry, options);
+}
+
+/**
+ * Adapts the existing full-cycle/置閏 resolver to a previously resolved
+ * general watch ChartTimeContext.  The timeline algorithm continues to use
+ * its historical +08 civil carrier, while the query's local clock fields and
+ * astronomical comparison instant come from the selected IANA timezone.
+ */
+export function resolveQimenJuFromChartTimeContext(context, options = {}) {
+  const localParts = context?.civil?.localParts;
+  const instantMs = context?.civil?.instantMs;
+  const timeZone = context?.civil?.timeZone;
+  if (!localParts || !Number.isFinite(instantMs) || typeof timeZone !== "string" || !timeZone) {
+    throw new TypeError("奇門 ChartTimeContext 必須包含有效的 local parts、IANA 時區及 actual instant");
+  }
+
+  const localDateTimeText = formatLocalDateTimeAsTaipeiCarrier(localParts);
+  const qimen = resolveQimenJuFromFullTermCycleDraft(localDateTimeText, {
+    ...options,
+    comparisonInstantMs: instantMs,
+    localParts,
+  });
+
+  return {
+    ...qimen,
+    query: {
+      localDateTimeValue: formatLocalDateTimeWithoutOffset(localParts),
+      timeZone,
+      instantMs,
+      instantIso: new Date(instantMs).toISOString(),
+    },
+  };
 }
 
 export function resolveQimenJuFromFullTermCycleDraftCached(dateTimeText, options = {}) {
   return resolveQimenJuFromFullTermCycleDraft(dateTimeText, options);
 }
 
-function resolveQimenJuFromFullTermCycleDraftEntry(dateTimeText, draftEntry) {
-  const actualSolarTerm = findActualSolarTerm(dateTimeText);
+function resolveQimenJuFromFullTermCycleDraftEntry(dateTimeText, draftEntry, options = {}) {
+  const actualSolarTerm = Number.isFinite(options.comparisonInstantMs)
+    ? findActualSolarTermByTimeMs(options.comparisonInstantMs)
+    : findActualSolarTerm(dateTimeText);
   const yuanJu = getQimenYuanJu(draftEntry.qimenSolarTerm, draftEntry.yuan);
-  const localDateTimeText = toTaipeiLocalDateTimeText(dateTimeText);
-  const hourPillar = getHourPillar(localDateTimeText).pillar;
+  const hourPillar = options.localParts
+    ? getHourPillarFromLocalParts(options.localParts).pillar
+    : getHourPillar(toTaipeiLocalDateTimeText(dateTimeText)).pillar;
 
   return {
     actualSolarTerm,
@@ -1145,7 +1180,10 @@ function trimIncompleteFinalSeedTerm(fuTouDays) {
 }
 
 function findActualSolarTerm(dateTimeText) {
-  const targetMs = toTimeMs(dateTimeText);
+  return findActualSolarTermByTimeMs(toTimeMs(dateTimeText));
+}
+
+function findActualSolarTermByTimeMs(targetMs) {
   let currentTerm = null;
 
   for (const term of solarTerms) {
@@ -1161,6 +1199,14 @@ function findActualSolarTerm(dateTimeText) {
   }
 
   return currentTerm.name;
+}
+
+function formatLocalDateTimeAsTaipeiCarrier(localParts) {
+  return `${String(localParts.year).padStart(4, "0")}-${String(localParts.month).padStart(2, "0")}-${String(localParts.day).padStart(2, "0")}T${String(localParts.hour).padStart(2, "0")}:${String(localParts.minute).padStart(2, "0")}:${String(localParts.second ?? 0).padStart(2, "0")}+08:00`;
+}
+
+function formatLocalDateTimeWithoutOffset(localParts) {
+  return formatLocalDateTimeAsTaipeiCarrier(localParts).slice(0, -6);
 }
 
 function resolveQimenStatus(actualSolarTerm, timelineEntry) {
